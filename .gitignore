@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+
+# 보안상 Firebase 설정 파일을 Git에서 제외하고 싶다면 아래 주석을 해제하세요.
+# (공개 저장소에 올릴 경우 필수)
+# firebase-config.js

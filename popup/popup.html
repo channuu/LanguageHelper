@@ -11,11 +11,33 @@
       --gold: #ffd97a; --gold-dim: rgba(255,217,122,0.12);
       --text: #f0ede6; --muted: #7a7870; --danger: #e05a5a;
     }
-    body { width: 320px; min-height: 380px; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; }
-    .header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-    .logo { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--gold); }
+    body { width: 320px; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; }
+
+    /* ── 헤더 ── */
+    .header { padding: 16px 20px 0; border-bottom: 1px solid var(--border); }
+    .logo { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--gold); padding-bottom: 12px; }
     .logo-sub { color: var(--muted); font-size: 11px; font-family: 'DM Sans', sans-serif; margin-left: 6px; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+
+    /* ── 탭 ── */
+    .tabs { display: flex; gap: 0; }
+    .tab-btn {
+      flex: 1; padding: 8px 0; background: none; border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: 12px; cursor: pointer; letter-spacing: 0.04em;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* ── 탭 패널 ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── 토글 행 ── */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+    }
     .toggle-label { color: var(--muted); font-size: 13px; }
     .switch { position: relative; width: 40px; height: 22px; cursor: pointer; }
     .switch input { opacity: 0; width: 0; height: 0; }
@@ -23,8 +45,11 @@
     .slider:before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: var(--muted); border-radius: 50%; transition: transform .2s, background .2s; }
     .switch input:checked + .slider { background: rgba(255,217,122,.2); }
     .switch input:checked + .slider:before { transform: translateX(18px); background: var(--gold); }
-    .section-title { padding: 12px 20px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
-    #sentence-list { max-height: 240px; overflow-y: auto; padding: 0 12px 8px; }
+
+    /* ── 저장 문장 탭 ── */
+    .section-title { padding: 12px 20px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); display: flex; align-items: center; justify-content: space-between; }
+    .count-badge { font-size: 11px; color: var(--gold); background: var(--gold-dim); border-radius: 10px; padding: 1px 7px; }
+    #sentence-list { max-height: 220px; overflow-y: auto; padding: 0 12px 8px; }
     #sentence-list::-webkit-scrollbar { width: 3px; }
     #sentence-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .sentence-item { padding: 9px 12px; margin-bottom: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; position: relative; transition: border-color .15s; }
@@ -32,35 +57,151 @@
     .sentence-en { font-size: 13px; color: var(--text); line-height: 1.5; padding-right: 20px; }
     .sentence-meta { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
     .src-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; background: rgba(255,217,122,.1); color: var(--gold); border: 1px solid rgba(255,217,122,.2); }
-    .btn-del { position: absolute; top: 7px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; opacity: 0; transition: opacity .15s, color .15s; line-height: 1; }
+    .btn-del { position: absolute; top: 7px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; opacity: 0; transition: opacity .15s, color .15s; }
     .sentence-item:hover .btn-del { opacity: 1; }
     .btn-del:hover { color: var(--danger); }
     .empty { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; }
-    .count-badge { font-size: 11px; color: var(--gold); background: var(--gold-dim); border-radius: 10px; padding: 1px 7px; }
-    .firebase-notice { margin: 6px 12px 12px; padding: 10px 13px; background: var(--gold-dim); border: 1px solid rgba(255,217,122,.2); border-radius: 8px; font-size: 12px; color: rgba(255,217,122,.8); line-height: 1.6; }
-    .firebase-notice strong { display: block; margin-bottom: 2px; color: var(--gold); }
+
+    /* ── 설정 탭 ── */
+    .setting-group { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+    .setting-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; }
+
+    /* 표시 모드 선택 */
+    .mode-options { display: flex; gap: 8px; }
+    .mode-btn {
+      flex: 1; padding: 8px 6px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: 12px; cursor: pointer; text-align: center;
+      transition: all 0.15s; line-height: 1.5;
+    }
+    .mode-btn.active { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+    .mode-btn span { display: block; font-size: 16px; margin-bottom: 3px; }
+
+    /* 폰트 크기 슬라이더 */
+    .font-size-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+    .font-size-row label { font-size: 12px; color: var(--muted); min-width: 28px; }
+    .slider-input {
+      flex: 1; -webkit-appearance: none; height: 3px;
+      background: var(--border); border-radius: 2px; outline: none;
+    }
+    .slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      background: var(--gold); border-radius: 50%; cursor: pointer;
+    }
+    .font-preview {
+      margin-top: 12px; padding: 10px 12px;
+      background: #000; border-radius: 8px; text-align: center;
+      min-height: 56px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+    }
+    .preview-en {
+      font-family: 'Georgia', serif; font-weight: 600; color: #fff;
+      text-shadow: 0 0 8px rgba(0,0,0,0.9);
+      transition: font-size 0.1s;
+    }
+    .preview-ko {
+      font-family: 'Apple SD Gothic Neo', sans-serif; color: #ffd97a;
+      text-shadow: 0 0 8px rgba(0,0,0,0.9);
+      transition: font-size 0.1s;
+    }
+    .font-val { font-size: 11px; color: var(--muted); min-width: 32px; text-align: right; }
+
+    /* ── 배너 ── */
+    .app-banner { margin: 6px 12px 12px; padding: 10px 13px; background: var(--gold-dim); border: 1px solid rgba(255,217,122,.2); border-radius: 8px; font-size: 12px; color: rgba(255,217,122,.8); line-height: 1.6; }
+    .app-banner strong { display: block; margin-bottom: 2px; color: var(--gold); }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="logo">EnglishHelper<span class="logo-sub">Beta</span></div>
-    <span id="count-badge" class="count-badge" style="display:none"></span>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-sentences">저장 문장</button>
+      <button class="tab-btn" data-tab="tab-display">표시</button>
+      <button class="tab-btn" data-tab="tab-settings">설정</button>
+    </div>
   </div>
-  <div class="toggle-row">
-    <span class="toggle-label">자막 오버레이</span>
-    <label class="switch">
-      <input type="checkbox" id="toggle-overlay" checked>
-      <span class="slider"></span>
-    </label>
+
+  <!-- 저장 문장 탭 -->
+  <div class="tab-panel active" id="tab-sentences">
+    <div class="section-title">
+      저장한 문장
+      <span id="count-badge" class="count-badge" style="display:none"></span>
+    </div>
+    <div id="sentence-list"><div class="empty">불러오는 중...</div></div>
+    <div class="app-banner">
+      <strong>📱 모바일 앱 연동 예정</strong>
+      Firebase 연동 후 모바일 앱과 자동 동기화됩니다.
+    </div>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px;">
-    <div class="section-title">저장한 문장</div>
+
+  <!-- 표시 탭 -->
+  <div class="tab-panel" id="tab-display">
+    <div class="toggle-row">
+      <span class="toggle-label">자막 오버레이</span>
+      <label class="switch">
+        <input type="checkbox" id="toggle-overlay" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">타임라인 패널</span>
+      <label class="switch">
+        <input type="checkbox" id="toggle-timeline" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
   </div>
-  <div id="sentence-list"><div class="empty">불러오는 중...</div></div>
-  <div class="firebase-notice">
-    <strong>☁ 곧 클라우드 동기화 예정</strong>
-    Firebase 연동 후 모바일 앱과 자동으로 연동됩니다.
+
+  <!-- 설정 탭 -->
+  <div class="tab-panel" id="tab-settings">
+
+    <!-- 표시 모드 -->
+    <div class="setting-group">
+      <div class="setting-label">자막 표시 모드</div>
+      <div class="mode-options">
+        <button class="mode-btn" id="mode-en" data-mode="en">
+          <span>🇺🇸</span>영어만
+        </button>
+        <button class="mode-btn active" id="mode-both" data-mode="both">
+          <span>🌐</span>영어 + 한글
+        </button>
+      </div>
+    </div>
+
+    <!-- 영어 폰트 크기 -->
+    <div class="setting-group">
+      <div class="setting-label">영어 자막 크기</div>
+      <div class="font-size-row">
+        <label>A</label>
+        <input type="range" class="slider-input" id="en-size" min="12" max="52" value="22">
+        <label style="font-size:18px">A</label>
+        <span class="font-val" id="en-size-val">22px</span>
+      </div>
+    </div>
+
+    <!-- 한글 폰트 크기 -->
+    <div class="setting-group">
+      <div class="setting-label">한글 자막 크기</div>
+      <div class="font-size-row">
+        <label>가</label>
+        <input type="range" class="slider-input" id="ko-size" min="10" max="48" value="18">
+        <label style="font-size:18px">가</label>
+        <span class="font-val" id="ko-size-val">18px</span>
+      </div>
+    </div>
+
+    <!-- 미리보기 -->
+    <div class="setting-group" style="border-bottom:none">
+      <div class="setting-label">미리보기</div>
+      <div class="font-preview">
+        <div class="preview-en" id="preview-en">I don't even care anymore.</div>
+        <div class="preview-ko" id="preview-ko">나는 이제 신경도 안 써.</div>
+      </div>
+    </div>
+
   </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

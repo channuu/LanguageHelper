@@ -156,7 +156,7 @@
     if (enLine) enLine.style.fontSize = s.enSize + 'px';
     if (nativeLine) {
       nativeLine.style.fontSize = s.nativeSize + 'px';
-      nativeLine.classList.toggle('hidden', s.mode === 'en');
+      nativeLine.classList.toggle('hidden', s.mode === 'en' || !currentNativeText);
     }
     currentEnText = ''; // 다음 틱에서 강제 재렌더
   }

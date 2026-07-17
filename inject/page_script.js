@@ -34,6 +34,30 @@
     return origSend.call(this, ...args);
   };
 
+  // ── fetch 인터셉터 — /youtubei/v1/player 응답에서 트랙 목록 추출 ──
+  function extractTracks(playerResponse) {
+    try {
+      const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer;
+      if (!captions?.captionTracks) return;
+      const tracks = captions.captionTracks.map(t => ({
+        langCode: t.languageCode,
+        baseUrl: t.baseUrl
+      }));
+      window.postMessage({ type: 'EH_TRACKS_AVAILABLE', tracks }, '*');
+    } catch (e) {}
+  }
+
+  const _origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const res = await _origFetch.apply(this, args);
+    const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+    if (url.includes('/youtubei/v1/player')) {
+      const clone = res.clone();
+      clone.json().then(extractTracks).catch(() => {});
+    }
+    return res;
+  };
+
   // ── content script 메시지 수신 ───────────────────────────────────
   window.addEventListener("message", (e) => {
     if (e.source !== window) return;

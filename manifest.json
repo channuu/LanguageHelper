@@ -1,14 +1,17 @@
 {
   "manifest_version": 3,
   "name": "English Helper",
-  "version": "1.0.0",
-  "description": "YouTube/Netflix 자막을 오버레이로 표시하고 문장을 저장하세요.",
+  "version": "2.0.0",
+  "description": "YouTube/Netflix/Disney+/쿠팡플레이 이중 자막 학습 + 단어 저장",
 
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "tabs"],
 
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://www.netflix.com/*"
+    "https://www.netflix.com/*",
+    "https://www.disneyplus.com/*",
+    "https://play.coupang.com/*",
+    "https://api.dictionaryapi.dev/*"
   ],
 
   "background": {
@@ -23,14 +26,54 @@
     },
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["content/youtube.js"],
-      "css": ["content/overlay.css"],
+      "js": [
+        "core/adapter-interface.js",
+        "core/storage.js",
+        "core/subtitle-engine.js",
+        "core/script-panel.js",
+        "core/word-popup.js",
+        "adapters/youtube.js"
+      ],
+      "css": ["ui/overlay.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://www.netflix.com/*"],
-      "js": ["content/netflix.js"],
-      "css": ["content/overlay.css"],
+      "js": [
+        "core/adapter-interface.js",
+        "core/storage.js",
+        "core/subtitle-engine.js",
+        "core/script-panel.js",
+        "core/word-popup.js",
+        "adapters/netflix.js"
+      ],
+      "css": ["ui/overlay.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.disneyplus.com/*"],
+      "js": [
+        "core/adapter-interface.js",
+        "core/storage.js",
+        "core/subtitle-engine.js",
+        "core/script-panel.js",
+        "core/word-popup.js",
+        "adapters/disney.js"
+      ],
+      "css": ["ui/overlay.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://play.coupang.com/*"],
+      "js": [
+        "core/adapter-interface.js",
+        "core/storage.js",
+        "core/subtitle-engine.js",
+        "core/script-panel.js",
+        "core/word-popup.js",
+        "adapters/coupang.js"
+      ],
+      "css": ["ui/overlay.css"],
       "run_at": "document_idle"
     }
   ],
@@ -54,6 +97,10 @@
     {
       "resources": ["inject/page_script.js"],
       "matches": ["https://www.youtube.com/*"]
+    },
+    {
+      "resources": ["vendor/sql-wasm.wasm"],
+      "matches": ["<all_urls>"]
     }
   ]
 }

@@ -44,10 +44,12 @@ async function saveSettings(patch) {
 }
 
 async function sendSettingsToTab(settings) {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tabs[0]) {
-    chrome.tabs.sendMessage(tabs[0].id, { type: 'APPLY_SETTINGS', settings }).catch(() => {});
-  }
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0]) {
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'APPLY_SETTINGS', settings }).catch(() => {});
+    }
+  } catch (_) {}
 }
 
 function applySettingsUI(s) {
@@ -71,7 +73,9 @@ function debounce(fn, ms) {
   let timer = null;
   return function (...args) {
     clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), ms);
+    timer = setTimeout(() => {
+      Promise.resolve(fn.apply(this, args)).catch(() => {});
+    }, ms);
   };
 }
 
@@ -104,7 +108,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
 // ── 오버레이 / 패널 토글 ─────────────────────────────────────────
 function sendToTab(msg) {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, msg);
+    if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, msg).catch(() => {});
   });
 }
 
@@ -120,7 +124,8 @@ $('toggle-panel').addEventListener('change', (e) => {
 
 // ── 데이터 로드 & 렌더 ───────────────────────────────────────────
 async function loadData() {
-  const res = await chrome.runtime.sendMessage({ type: 'GET_ALL' });
+  let res;
+  try { res = await chrome.runtime.sendMessage({ type: 'GET_ALL' }); } catch (_) {}
   const words = (res && res.words) ? res.words : [];
   const sentences = (res && res.sentences) ? res.sentences : [];
 
@@ -174,10 +179,12 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   const card = btn.closest('.item-card');
   if (card) card.style.opacity = '0.3';
-  await chrome.runtime.sendMessage({
-    type: 'DELETE_ITEM',
-    payload: { type: btn.dataset.type, id: btn.dataset.id }
-  });
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'DELETE_ITEM',
+      payload: { type: btn.dataset.type, id: btn.dataset.id }
+    });
+  } catch (_) {}
   loadData();
 });
 
@@ -288,6 +295,6 @@ async function init() {
   loadData();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => { init().catch(() => {}); });
 
 })();

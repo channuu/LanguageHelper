@@ -35,34 +35,40 @@
     attachResize(overlay, enLine, nativeLine, handle);
   }
 
+  // 위치는 "중심 x(px) + 하단 거리(px)"로 저장한다.
+  // left = 중심 x, transform: translateX(-50%) 유지 → 글자수와 무관하게 중앙 고정.
   function restorePosition(overlay, enLine, nativeLine) {
     const saved = JSON.parse(localStorage.getItem('eh-overlay-pos') || 'null');
-    if (saved?.left && saved?.top) {
-      overlay.style.left = saved.left;
-      overlay.style.top = saved.top;
-      overlay.style.bottom = 'auto';
-      overlay.style.transform = 'none';
+    if (saved && typeof saved.cx === 'number' && typeof saved.bottom === 'number') {
+      overlay.style.left = saved.cx + 'px';
+      overlay.style.bottom = saved.bottom + 'px';
+      overlay.style.top = 'auto';
+      overlay.style.transform = 'translateX(-50%)';
     }
     if (saved?.enSize) enLine.style.fontSize = saved.enSize;
     if (saved?.nativeSize) nativeLine.style.fontSize = saved.nativeSize;
   }
 
   function attachDrag(overlay, enLine, nativeLine) {
-    let dragging = false, sx, sy, ox, oy;
+    let dragging = false, sx, sy, startCx, startBottom;
     overlay.addEventListener('mousedown', (e) => {
       if (e.target.id === 'eh-resize-handle' || e.target.classList.contains('eh-word')) return;
       dragging = true;
       overlay.classList.add('dragging');
       const r = overlay.getBoundingClientRect();
-      sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+      sx = e.clientX; sy = e.clientY;
+      startCx = r.left + r.width / 2;                 // 현재 중심 x
+      startBottom = window.innerHeight - r.bottom;    // 현재 하단 거리
       e.preventDefault();
     });
     document.addEventListener('mousemove', (e) => {
       if (!dragging) return;
-      overlay.style.left = (ox + e.clientX - sx) + 'px';
-      overlay.style.top  = (oy + e.clientY - sy) + 'px';
-      overlay.style.bottom = 'auto';
-      overlay.style.transform = 'none';
+      const cx = startCx + (e.clientX - sx);
+      const bottom = startBottom - (e.clientY - sy);  // 아래로 끌면 bottom 감소
+      overlay.style.left = cx + 'px';
+      overlay.style.bottom = bottom + 'px';
+      overlay.style.top = 'auto';
+      overlay.style.transform = 'translateX(-50%)';   // 항상 중앙 앵커 유지
     });
     document.addEventListener('mouseup', () => {
       if (!dragging) return;
@@ -95,8 +101,10 @@
   }
 
   function savePosition(overlay, enLine, nativeLine) {
+    const r = overlay.getBoundingClientRect();
     localStorage.setItem('eh-overlay-pos', JSON.stringify({
-      left: overlay.style.left, top: overlay.style.top,
+      cx: r.left + r.width / 2,
+      bottom: window.innerHeight - r.bottom,
       enSize: enLine.style.fontSize, nativeSize: nativeLine.style.fontSize
     }));
   }

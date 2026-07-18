@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  let enCues = [];    // [{ start, end, text }]
-  let nativeCues = []; // [{ start, end, text }]
+  let enCues = [];
+  let nativeCues = [];
   let lastActiveIdx = -1;
 
   function formatTime(sec) {
@@ -15,8 +15,41 @@
     return nativeCues.find(c => Math.abs(c.start - enCue.start) < 1.0)?.text || '';
   }
 
+  function _isYouTube() {
+    return location.hostname.includes('youtube.com');
+  }
+
+  // YouTube CSS 변수에서 패널 높이 읽기 (LR .lln-vertical-view height와 동일 기준)
+  function _getYouTubePanelHeight() {
+    const flexy = document.querySelector('ytd-watch-flexy');
+    if (!flexy) return 522;
+    const raw = getComputedStyle(flexy).getPropertyValue('--ytd-watch-flexy-panel-max-height').trim();
+    return parseFloat(raw) || 522;
+  }
+
+  function _setLayoutForPanel(visible) {
+    if (_isYouTube()) {
+      const wrapper = document.getElementById('eh-panel-wrapper');
+      if (wrapper) wrapper.classList.toggle('hidden', !visible);
+    } else {
+      let style = document.getElementById('eh-panel-push-style');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'eh-panel-push-style';
+        document.head.appendChild(style);
+      }
+      if (!visible) { style.textContent = ''; return; }
+      const panel = document.getElementById('eh-panel');
+      const w = panel ? (parseInt(panel.style.width) || 400) : 400;
+      style.textContent = `
+        html { overflow-x: hidden !important; }
+        body { padding-right: ${w}px !important; box-sizing: border-box !important; }
+      `;
+    }
+  }
+
   function createDOM() {
-    if (document.getElementById('eh-panel')) return;
+    if (document.getElementById('eh-panel-wrapper') || document.getElementById('eh-panel')) return;
 
     const panel = document.createElement('div');
     panel.id = 'eh-panel';
@@ -39,42 +72,76 @@
     list.innerHTML = '<div class="eh-panel-empty">자막 로딩 중...</div>';
     panel.appendChild(list);
 
-    document.body.appendChild(panel);
+    if (_isYouTube()) {
+      // ── LR과 동일한 구조: wrapper(relative block) + panel(absolute inset:0) ──
+      // #secondary 사용 가능(넓은 창) → 임베드 / 0폭(좁은 창·극장) → 우측 고정 폴백
+      const wrapper = document.createElement('div');
+      wrapper.id = 'eh-panel-wrapper';
+      wrapper.appendChild(panel);
 
-    // 너비 복원
-    const savedW = localStorage.getItem('eh-panel-width');
-    if (savedW) panel.style.width = savedW;
+      const applyMountStrategy = () => {
+        const secondary = document.querySelector('#secondary');
+        const secWidth = secondary ? secondary.offsetWidth : 0;
+        if (secondary && secWidth > 0) {
+          // 넓은 창: #secondary에 임베드 (LR 방식)
+          panel.classList.remove('fixed-mode');
+          if (panel.parentElement !== wrapper) wrapper.appendChild(panel);
+          wrapper.style.height = _getYouTubePanelHeight() + 'px';
+          if (wrapper.parentElement !== secondary) {
+            secondary.insertBefore(wrapper, secondary.firstChild);
+          }
+        } else {
+          // 좁은 창/사이드바 없음: 우측 고정 오버레이 폴백
+          if (!panel.classList.contains('fixed-mode') || panel.parentElement !== document.body) {
+            panel.classList.add('fixed-mode');
+            wrapper.style.height = '';
+            const savedW = localStorage.getItem('eh-panel-width');
+            if (savedW) panel.style.width = savedW;
+            document.body.appendChild(panel);
+          }
+        }
+      };
 
-    document.getElementById('eh-panel-collapse').addEventListener('click', () => {
+      // 레이아웃이 준비될 때까지 재시도 후 전략 적용
+      let tries = 0;
+      const tryMount = () => {
+        if (document.querySelector('#secondary') || tries++ > 20) {
+          applyMountStrategy();
+        } else {
+          setTimeout(tryMount, 300);
+        }
+      };
+      tryMount();
+
+      // 창 크기 변경 시 임베드↔고정 재평가
+      let resizeTimer = null;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(applyMountStrategy, 200);
+      });
+    } else {
+      // 기타 플랫폼: body에 fixed 모드
+      panel.classList.add('fixed-mode');
+      const savedW = localStorage.getItem('eh-panel-width');
+      if (savedW) panel.style.width = savedW;
+      document.body.appendChild(panel);
+      _setLayoutForPanel(true);
+    }
+
+    const collapseBtn = header.querySelector('#eh-panel-collapse');
+    const hideBtn     = header.querySelector('#eh-panel-hide');
+
+    collapseBtn.addEventListener('click', () => {
       const collapsed = panel.classList.toggle('collapsed');
-      document.getElementById('eh-panel-collapse').textContent = collapsed ? '▶' : '✕';
+      collapseBtn.textContent = collapsed ? '▶' : '✕';
     });
 
-    document.getElementById('eh-panel-hide').addEventListener('click', () => {
-      panel.classList.add('hidden');
-      _applyBodyPadding(0);
+    hideBtn.addEventListener('click', () => {
+      _setLayoutForPanel(false);
       window.EH.showToast?.('패널 숨김 — 팝업에서 다시 켤 수 있어요');
     });
 
     attachPanelResize(panel, resizeHandle);
-    // 초기 표시 시 패딩 적용
-    _applyBodyPadding(parseInt(panel.style.width) || 300);
-  }
-
-  function _applyBodyPadding(w) {
-    let style = document.getElementById('eh-panel-push-style');
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'eh-panel-push-style';
-      document.head.appendChild(style);
-    }
-    if (!w) { style.textContent = ''; return; }
-    // body에 padding-right + box-sizing:border-box 적용
-    // → 기존 레이아웃 유지하면서 패널 공간만큼 콘텐츠 영역을 좌측으로 압축
-    style.textContent = `
-      html { overflow-x: hidden !important; }
-      body { padding-right: ${w}px !important; box-sizing: border-box !important; }
-    `;
   }
 
   function attachPanelResize(panel, handle) {
@@ -87,15 +154,19 @@
     });
     document.addEventListener('mousemove', (e) => {
       if (!resizing) return;
-      const w = Math.min(520, Math.max(180, startW - (e.clientX - startX)));
+      // 임베드 모드(#secondary)에서는 리사이즈 불가, 고정 모드에서는 허용
+      const fixed = panel.classList.contains('fixed-mode');
+      if (_isYouTube() && !fixed) return;
+      const w = Math.min(560, Math.max(200, startW - (e.clientX - startX)));
       panel.style.width = w + 'px';
-      _applyBodyPadding(w);
+      if (!fixed) _setLayoutForPanel(true);
     });
     document.addEventListener('mouseup', () => {
       if (!resizing) return;
       resizing = false;
       document.body.style.cursor = '';
-      localStorage.setItem('eh-panel-width', panel.style.width);
+      const fixed = panel.classList.contains('fixed-mode');
+      if (!_isYouTube() || fixed) localStorage.setItem('eh-panel-width', panel.style.width);
     });
   }
 
@@ -175,17 +246,19 @@
   }
 
   function toggle(forceVisible) {
+    const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
-    if (!panel) return;
+    const target = wrapper || panel;
+    if (!target) return;
     let nowHidden;
     if (forceVisible !== undefined) {
-      panel.classList.toggle('hidden', !forceVisible);
+      target.classList.toggle('hidden', !forceVisible);
       nowHidden = !forceVisible;
     } else {
-      nowHidden = !panel.classList.contains('hidden');
-      panel.classList.toggle('hidden');
+      nowHidden = !target.classList.contains('hidden');
+      target.classList.toggle('hidden');
     }
-    _applyBodyPadding(nowHidden ? 0 : (parseInt(panel.style.width) || 300));
+    if (!_isYouTube()) _setLayoutForPanel(!nowHidden);
   }
 
   function setup(adapter) {
@@ -194,11 +267,11 @@
     enCues = tracks.find(t => t.lang === 'en')?.cues || [];
     nativeCues = tracks.find(t => t.lang !== 'en')?.cues || [];
 
-    // 어댑터가 비동기로 트랙을 로드하는 경우를 위한 이벤트 리스너
     if (typeof adapter.onTracksReady === 'function') {
       adapter.onTracksReady((tracks) => {
         enCues = tracks.find(t => t.lang === 'en')?.cues || [];
         nativeCues = tracks.find(t => t.lang !== 'en')?.cues || [];
+        console.log('[EH:panel] onTracksReady — enCues:', enCues.length, 'nativeCues:', nativeCues.length, 'listEl:', !!document.getElementById('eh-panel-list'));
         renderList();
       });
     }

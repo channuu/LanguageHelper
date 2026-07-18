@@ -16,7 +16,6 @@
 
       this._onMessage = this._handleMessage.bind(this);
       window.addEventListener('message', this._onMessage);
-      this._injectPageScript();
       this._initVideoTracking();
     }
 
@@ -64,23 +63,14 @@
 
     // ── YouTube 전용 ─────────────────────────────────────────────────
 
-    _injectPageScript() {
-      if (document.getElementById('eh-page-script')) return;
-      const s = document.createElement('script');
-      s.id = 'eh-page-script';
-      s.src = chrome.runtime.getURL('inject/page_script.js');
-      (document.head || document.documentElement).appendChild(s);
-      s.onload = () => s.remove();
-    }
-
     _handleMessage(e) {
       if (e.source !== window) return;
       const { type } = e.data || {};
 
-      // page_script.js가 page context에서 직접 fetch한 영어+모국어 XML
       if (type === 'EH_CAPTIONS_LOADED') {
-        if (e.data.enXml)     this._enCues     = this._parseXml(e.data.enXml);
-        if (e.data.nativeXml) this._nativeCues  = this._parseXml(e.data.nativeXml);
+        if (e.data.enXml)     this._enCues     = this._parseContent(e.data.enXml);
+        if (e.data.nativeXml) this._nativeCues  = this._parseContent(e.data.nativeXml);
+        console.log('[EH:adapter] CAPTIONS_LOADED parsed — enCues:', this._enCues.length, 'nativeCues:', this._nativeCues.length, 'cb:', !!this._tracksCb);
         this._triggerTracksReady();
       }
     }
@@ -89,6 +79,29 @@
       if (this._tracksCb) {
         this._tracksCb(this.getSubtitleTracks());
       }
+    }
+
+    // srv3/srv1 XML 또는 json3 포맷 자동 감지 후 파싱
+    _parseContent(content) {
+      if (!content) return [];
+      return content.trimStart().startsWith('{')
+        ? this._parseJson3(content)
+        : this._parseXml(content);
+    }
+
+    _parseJson3(jsonText) {
+      try {
+        const data = JSON.parse(jsonText);
+        const items = [];
+        for (const ev of (data.events || [])) {
+          if (!ev.segs) continue;
+          const start = (ev.tStartMs || 0) / 1000;
+          const dur   = (ev.dDurationMs || 3000) / 1000;
+          const text  = ev.segs.map(s => s.utf8 || '').join('').replace(/\n/g, ' ').trim();
+          if (text) items.push({ start, end: start + dur, text });
+        }
+        return this._mergeCues(items);
+      } catch (e) { return []; }
     }
 
     _parseXml(xmlText) {
@@ -119,20 +132,32 @@
       return el.value;
     }
 
+    // LR과 동일: json3 이벤트(=YouTube 네이티브 자막 세그먼트) 하나 = 큐 하나.
+    // 길이/문장 기준 병합은 하지 않는다. 간격이 사실상 0(≤10ms)인 인접
+    // 조각만 최대 한 쌍씩 이어붙인다(YouTube가 한 줄을 두 이벤트로 쪼갠 경우 복원).
     _mergeCues(items) {
       if (!items.length) return [];
-      const merged = [{ ...items[0] }];
-      for (let i = 1; i < items.length; i++) {
-        const prev = merged[merged.length - 1];
-        const cur = items[i];
-        if ((cur.start - prev.end) < 1.2 && (prev.text + cur.text).length < 130) {
-          prev.text += ' ' + cur.text;
-          prev.end = cur.end;
+
+      // 빈 항목 제거 + 시간순 정렬
+      const src = items
+        .filter(it => it.text && it.text.trim())
+        .map(it => ({ start: it.start, end: it.end, text: it.text.trim() }))
+        .sort((a, b) => a.start - b.start);
+
+      const out = [];
+      for (let i = 0; i < src.length; i++) {
+        const cur = src[i];
+        const next = src[i + 1];
+        const gap = next ? next.start - cur.end : Infinity; // 초 단위
+        // 다음 조각과 간격이 ≤10ms면 한 쌍으로 병합 (LR 방식)
+        if (next && gap <= 0.01) {
+          out.push({ start: cur.start, end: next.end, text: cur.text + ' ' + next.text });
+          i++; // 쌍으로 소비
         } else {
-          merged.push({ ...cur });
+          out.push(cur);
         }
       }
-      return merged;
+      return out;
     }
 
     _getCueAtTime(cues, t) {

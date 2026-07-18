@@ -65,11 +65,11 @@ function applySettingsUI(s) {
 }
 
 // 설정 이벤트 — debounce helper
-let _debTimer = null;
 function debounce(fn, ms) {
+  let timer = null;
   return function (...args) {
-    clearTimeout(_debTimer);
-    _debTimer = setTimeout(() => fn.apply(this, args), ms);
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), ms);
   };
 }
 
@@ -107,7 +107,7 @@ function sendToTab(msg) {
 }
 
 $('toggle-overlay').addEventListener('change', () => {
-  chrome.runtime.sendMessage({ type: 'TOGGLE_EXTENSION' });
+  sendToTab({ type: 'TOGGLE_OVERLAY' });
 });
 
 $('toggle-panel').addEventListener('change', (e) => {
@@ -284,6 +284,6 @@ async function init() {
   loadData();
 }
 
-init();
+document.addEventListener('DOMContentLoaded', init);
 
 })();

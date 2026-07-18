@@ -23,6 +23,9 @@
     /** @param {function(number): void} callback */
     onTimeUpdate(callback) { throw new Error('onTimeUpdate() not implemented'); }
 
+    /** @param {function(Array): void} callback — called once tracks are parsed and ready */
+    onTracksReady(callback) {}
+
     /** @returns {{ platform: string, title: string, contentId: string }} */
     getPlatformMeta() { throw new Error('getPlatformMeta() not implemented'); }
 

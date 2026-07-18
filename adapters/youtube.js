@@ -80,19 +80,23 @@
     }
 
     async _loadTracks() {
-      const nativeLang = window.EH.settings?.nativeLang || 'ko';
-      const enTrack = this._availableTracks.find(t => t.langCode === 'en' || t.langCode === 'en-US');
-      const nativeTrack = this._availableTracks.find(t => t.langCode === nativeLang);
+      try {
+        const nativeLang = window.EH.settings?.nativeLang || 'ko';
+        const enTrack = this._availableTracks.find(t => t.langCode === 'en' || t.langCode === 'en-US');
+        const nativeTrack = this._availableTracks.find(t => t.langCode === nativeLang);
 
-      if (enTrack) {
-        const res = await chrome.runtime.sendMessage({ type: 'FETCH_CAPTIONS', payload: { url: enTrack.baseUrl } });
-        if (res.success) this._enCues = this._parseXml(res.text);
+        if (enTrack) {
+          const res = await chrome.runtime.sendMessage({ type: 'FETCH_CAPTIONS', payload: { url: enTrack.baseUrl } });
+          if (res.success) this._enCues = this._parseXml(res.text);
+        }
+        if (nativeTrack) {
+          const res = await chrome.runtime.sendMessage({ type: 'FETCH_CAPTIONS', payload: { url: nativeTrack.baseUrl } });
+          if (res.success) this._nativeCues = this._parseXml(res.text);
+        }
+        this._triggerTracksReady();
+      } catch (e) {
+        // extension context invalidated or network error — silently abort
       }
-      if (nativeTrack) {
-        const res = await chrome.runtime.sendMessage({ type: 'FETCH_CAPTIONS', payload: { url: nativeTrack.baseUrl } });
-        if (res.success) this._nativeCues = this._parseXml(res.text);
-      }
-      this._triggerTracksReady();
     }
 
     _triggerTracksReady() {

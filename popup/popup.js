@@ -29,7 +29,7 @@ function formatTime(sec) {
 }
 
 // ── 설정 ─────────────────────────────────────────────────────────
-const DEFAULT = { enSize: 22, nativeSize: 18, mode: 'both', nativeLang: 'ko' };
+const DEFAULT = { enSize: 22, nativeSize: 18, mode: 'both', nativeLang: 'ko', overlayVisible: true, panelVisible: true };
 
 async function loadSettings() {
   const res = await chrome.storage.local.get('eh-settings');
@@ -59,6 +59,8 @@ function applySettingsUI(s) {
   $('preview-ko').style.fontSize = s.nativeSize + 'px';
   $('preview-ko').style.display = s.mode === 'en' ? 'none' : 'block';
   $('native-lang').value = s.nativeLang || 'ko';
+  $('toggle-overlay').checked = s.overlayVisible !== false;
+  $('toggle-panel').checked = s.panelVisible !== false;
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === s.mode);
   });
@@ -106,11 +108,13 @@ function sendToTab(msg) {
   });
 }
 
-$('toggle-overlay').addEventListener('change', () => {
+$('toggle-overlay').addEventListener('change', (e) => {
+  saveSettings({ overlayVisible: e.target.checked });
   sendToTab({ type: 'TOGGLE_OVERLAY' });
 });
 
 $('toggle-panel').addEventListener('change', (e) => {
+  saveSettings({ panelVisible: e.target.checked });
   sendToTab({ type: 'TOGGLE_PANEL', visible: e.target.checked });
 });
 

@@ -74,21 +74,15 @@
     if (e.data?.type === "EH_TRIGGER_CAPTION_LOAD") {
       try {
         const player = document.querySelector("#movie_player");
-        const tracks = player?.getPlayerResponse()
+        const captionTracks = player?.getPlayerResponse()
           ?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-        if (!tracks?.length) return;
+        if (!captionTracks?.length) return;
 
-        const track =
-          tracks.find(t => t.languageCode === "en" && t.kind !== "asr") ||
-          tracks.find(t => t.languageCode === "en") ||
-          tracks[0];
-
-        if (track?.baseUrl) {
-          // XHR 인터셉터가 자동으로 srv3으로 교체해서 캡처함
-          const xhr = new XMLHttpRequest();
-          xhr.open("GET", track.baseUrl);
-          xhr.send();
-        }
+        // 전체 트랙 목록을 content script에 전달 (이중 자막용)
+        window.postMessage({
+          type: 'EH_TRACKS_AVAILABLE',
+          tracks: captionTracks.map(t => ({ langCode: t.languageCode, baseUrl: t.baseUrl }))
+        }, '*');
       } catch(e) {}
     }
   });

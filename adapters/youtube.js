@@ -16,6 +16,7 @@
 
       this._onMessage = this._handleMessage.bind(this);
       window.addEventListener('message', this._onMessage);
+      this._injectPageScript();
       this._initVideoTracking();
     }
 
@@ -62,6 +63,15 @@
     }
 
     // ── YouTube 전용 ─────────────────────────────────────────────────
+
+    _injectPageScript() {
+      if (document.getElementById('eh-page-script')) return;
+      const s = document.createElement('script');
+      s.id = 'eh-page-script';
+      s.src = chrome.runtime.getURL('inject/page_script.js');
+      (document.head || document.documentElement).appendChild(s);
+      s.onload = () => s.remove();
+    }
 
     _handleMessage(e) {
       if (e.source !== window) return;
@@ -205,10 +215,10 @@
         }
       }).observe(document, { subtree: true, childList: true });
 
-      // 초기 자막 요청
+      // 초기 자막 요청 — page_script 주입 후 플레이어 API로 트랙 목록 가져오기
       setTimeout(() => {
-        window.postMessage({ type: 'EH_GET_CAPTURED_CAPTIONS' }, '*');
-      }, 1000);
+        window.postMessage({ type: 'EH_TRIGGER_CAPTION_LOAD' }, '*');
+      }, 1500);
     }
   }
 

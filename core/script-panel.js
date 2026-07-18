@@ -52,10 +52,17 @@
 
     document.getElementById('eh-panel-hide').addEventListener('click', () => {
       panel.classList.add('hidden');
+      _applyBodyPadding(0);
       window.EH.showToast?.('패널 숨김 — 팝업에서 다시 켤 수 있어요');
     });
 
     attachPanelResize(panel, resizeHandle);
+    // 초기 표시 시 패딩 적용
+    _applyBodyPadding(parseInt(panel.style.width) || 300);
+  }
+
+  function _applyBodyPadding(w) {
+    document.documentElement.style.setProperty('padding-right', w ? w + 'px' : '', 'important');
   }
 
   function attachPanelResize(panel, handle) {
@@ -70,6 +77,7 @@
       if (!resizing) return;
       const w = Math.min(520, Math.max(180, startW - (e.clientX - startX)));
       panel.style.width = w + 'px';
+      _applyBodyPadding(w);
     });
     document.addEventListener('mouseup', () => {
       if (!resizing) return;
@@ -157,11 +165,15 @@
   function toggle(forceVisible) {
     const panel = document.getElementById('eh-panel');
     if (!panel) return;
+    let nowHidden;
     if (forceVisible !== undefined) {
       panel.classList.toggle('hidden', !forceVisible);
+      nowHidden = !forceVisible;
     } else {
+      nowHidden = !panel.classList.contains('hidden');
       panel.classList.toggle('hidden');
     }
+    _applyBodyPadding(nowHidden ? 0 : (parseInt(panel.style.width) || 300));
   }
 
   function setup(adapter) {

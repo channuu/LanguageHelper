@@ -62,7 +62,17 @@
   }
 
   function _applyBodyPadding(w) {
-    document.documentElement.style.setProperty('padding-right', w ? w + 'px' : '', 'important');
+    let style = document.getElementById('eh-panel-push-style');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'eh-panel-push-style';
+      document.head.appendChild(style);
+    }
+    if (w) {
+      style.textContent = `body { margin-right: ${w}px !important; } #movie_player, ytd-app, #page-manager { margin-right: ${w}px !important; box-sizing: border-box !important; }`;
+    } else {
+      style.textContent = '';
+    }
   }
 
   function attachPanelResize(panel, handle) {

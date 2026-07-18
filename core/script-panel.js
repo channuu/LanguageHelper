@@ -69,20 +69,12 @@
       document.head.appendChild(style);
     }
     if (!w) { style.textContent = ''; return; }
-
-    const host = location.hostname;
-    if (host.includes('youtube.com')) {
-      // YouTube: 관련 영상 사이드바를 숨기고 패널이 그 자리를 차지
-      style.textContent = `
-        #secondary, ytd-watch-next-secondary-results-renderer { display: none !important; }
-        #primary { max-width: calc(100% - ${w}px) !important; }
-      `;
-    } else {
-      // Netflix/Disney/Coupang: 풀스크린 플레이어, 비디오 너비만 조정
-      style.textContent = `
-        video { max-width: calc(100vw - ${w}px) !important; margin-right: ${w}px !important; }
-      `;
-    }
+    // body에 padding-right + box-sizing:border-box 적용
+    // → 기존 레이아웃 유지하면서 패널 공간만큼 콘텐츠 영역을 좌측으로 압축
+    style.textContent = `
+      html { overflow-x: hidden !important; }
+      body { padding-right: ${w}px !important; box-sizing: border-box !important; }
+    `;
   }
 
   function attachPanelResize(panel, handle) {

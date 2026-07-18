@@ -75,37 +75,13 @@
 
     _handleMessage(e) {
       if (e.source !== window) return;
-      const { type, tracks } = e.data || {};
+      const { type } = e.data || {};
 
-      // page_script.js 가 보내는 트랙 목록 (langCode + baseUrl)
-      if (type === 'EH_TRACKS_AVAILABLE' && tracks?.length) {
-        this._availableTracks = tracks;
-        this._loadTracks();
-      }
-      // 기존 호환: 단일 자막 XML 직접 전달
-      if ((type === 'EH_CAPTIONS_CAPTURED' || type === 'EH_CAPTURED_CAPTIONS_RESULT') && e.data.text) {
-        this._enCues = this._parseXml(e.data.text);
+      // page_script.js가 page context에서 직접 fetch한 영어+모국어 XML
+      if (type === 'EH_CAPTIONS_LOADED') {
+        if (e.data.enXml)     this._enCues     = this._parseXml(e.data.enXml);
+        if (e.data.nativeXml) this._nativeCues  = this._parseXml(e.data.nativeXml);
         this._triggerTracksReady();
-      }
-    }
-
-    async _loadTracks() {
-      try {
-        const nativeLang = window.EH.settings?.nativeLang || 'ko';
-        const enTrack = this._availableTracks.find(t => t.langCode === 'en' || t.langCode === 'en-US');
-        const nativeTrack = this._availableTracks.find(t => t.langCode === nativeLang);
-
-        if (enTrack) {
-          const res = await chrome.runtime.sendMessage({ type: 'FETCH_CAPTIONS', payload: { url: enTrack.baseUrl } });
-          if (res.success) this._enCues = this._parseXml(res.text);
-        }
-        if (nativeTrack) {
-          const res = await chrome.runtime.sendMessage({ type: 'FETCH_CAPTIONS', payload: { url: nativeTrack.baseUrl } });
-          if (res.success) this._nativeCues = this._parseXml(res.text);
-        }
-        this._triggerTracksReady();
-      } catch (e) {
-        // extension context invalidated or network error — silently abort
       }
     }
 
@@ -208,16 +184,18 @@
           this._lastEnText = '';
           this._lastNativeText = '';
           this._currentVideoId = '';
-          // page_script.js 에 새 자막 로드 요청
+          // 영상 변경 시 새 자막 로드
           setTimeout(() => {
-            window.postMessage({ type: 'EH_GET_CAPTURED_CAPTIONS' }, '*');
-          }, 500);
+            const nativeLang = window.EH.settings?.nativeLang || 'ko';
+            window.postMessage({ type: 'EH_TRIGGER_CAPTION_LOAD', nativeLang }, '*');
+          }, 1500);
         }
       }).observe(document, { subtree: true, childList: true });
 
-      // 초기 자막 요청 — page_script 주입 후 플레이어 API로 트랙 목록 가져오기
+      // 초기 자막 요청 — page_script가 page context에서 직접 fetch
       setTimeout(() => {
-        window.postMessage({ type: 'EH_TRIGGER_CAPTION_LOAD' }, '*');
+        const nativeLang = window.EH.settings?.nativeLang || 'ko';
+        window.postMessage({ type: 'EH_TRIGGER_CAPTION_LOAD', nativeLang }, '*');
       }, 1500);
     }
   }

@@ -1,40 +1,21 @@
 // ================================================================
-// inject/page_script.js — 페이지 컨텍스트에서 실행 (document_start)
-// XHR을 가로채서 timedtext 요청을 srv3(XML)으로 교체 후 캡처
+// inject/page_script.js — 페이지 컨텍스트에서 실행
+// YouTube 플레이어 응답 인터셉트 + 자막 XML을 page context에서 직접 fetch
 // ================================================================
 (function() {
-  let capturedText = null;
-
-  // ── XHR 인터셉터 — 페이지 로드 전에 설치 ───────────────────────
-  const origOpen = XMLHttpRequest.prototype.open;
-  const origSend = XMLHttpRequest.prototype.send;
-
-  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-    this._ehUrl = url?.toString() || "";
-
-    // timedtext 요청을 srv3(XML) 포맷으로 교체
-    if (this._ehUrl.includes("timedtext")) {
-      const newUrl = this._ehUrl.replace(/&fmt=[^&]*/g, "") + "&fmt=srv3";
-      this._ehUrl = newUrl;
-      return origOpen.call(this, method, newUrl, ...rest);
-    }
-    return origOpen.call(this, method, url, ...rest);
-  };
-
-  XMLHttpRequest.prototype.send = function(...args) {
-    if (this._ehUrl.includes("timedtext")) {
-      this.addEventListener("load", function() {
-        const text = this.responseText;
-        if (text && text.length > 10) {
-          capturedText = text;
-          window.postMessage({ type: "EH_CAPTIONS_CAPTURED", text }, "*");
-        }
-      });
-    }
-    return origSend.call(this, ...args);
-  };
 
   // ── fetch 인터셉터 — /youtubei/v1/player 응답에서 트랙 목록 추출 ──
+  const _origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const res = await _origFetch.apply(this, args);
+    const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+    if (url.includes('/youtubei/v1/player')) {
+      const clone = res.clone();
+      clone.json().then(extractTracks).catch(() => {});
+    }
+    return res;
+  };
+
   function extractTracks(playerResponse) {
     try {
       const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer;
@@ -47,43 +28,48 @@
     } catch (e) {}
   }
 
-  const _origFetch = window.fetch;
-  window.fetch = async function(...args) {
-    const res = await _origFetch.apply(this, args);
-    const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
-    if (url.includes('/youtubei/v1/player')) {
-      const clone = res.clone();
-      clone.json().then(extractTracks).catch(() => {});
+  // ── 자막 XML을 page context에서 직접 fetch ───────────────────────
+  async function fetchCaptionXml(baseUrl) {
+    if (!baseUrl) return null;
+    try {
+      const url = baseUrl.replace(/&fmt=[^&]*/g, '') + '&fmt=srv3';
+      const res = await _origFetch(url);
+      const text = await res.text();
+      return text && text.length > 10 ? text : null;
+    } catch (e) {
+      return null;
     }
-    return res;
-  };
+  }
 
   // ── content script 메시지 수신 ───────────────────────────────────
-  window.addEventListener("message", (e) => {
+  window.addEventListener("message", async (e) => {
     if (e.source !== window) return;
 
-    // 이미 캡처된 자막 요청
-    if (e.data?.type === "EH_GET_CAPTURED_CAPTIONS") {
-      window.postMessage({
-        type: "EH_CAPTURED_CAPTIONS_RESULT",
-        text: capturedText
-      }, "*");
-    }
-
-    // 자막 강제 로드 트리거 (capturedText가 없을 때)
+    // EH_TRIGGER_CAPTION_LOAD: 영어+모국어 자막을 page context에서 fetch
     if (e.data?.type === "EH_TRIGGER_CAPTION_LOAD") {
       try {
+        const nativeLang = e.data.nativeLang || 'ko';
         const player = document.querySelector("#movie_player");
         const captionTracks = player?.getPlayerResponse()
           ?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
         if (!captionTracks?.length) return;
 
-        // 전체 트랙 목록을 content script에 전달 (이중 자막용)
+        const enTrack = captionTracks.find(t => t.languageCode === 'en' && t.kind !== 'asr')
+                     || captionTracks.find(t => t.languageCode === 'en');
+        const nativeTrack = captionTracks.find(t => t.languageCode === nativeLang);
+
+        const [enXml, nativeXml] = await Promise.all([
+          fetchCaptionXml(enTrack?.baseUrl),
+          fetchCaptionXml(nativeTrack?.baseUrl)
+        ]);
+
         window.postMessage({
-          type: 'EH_TRACKS_AVAILABLE',
-          tracks: captionTracks.map(t => ({ langCode: t.languageCode, baseUrl: t.baseUrl }))
+          type: 'EH_CAPTIONS_LOADED',
+          enXml,
+          nativeXml,
+          nativeLang
         }, '*');
-      } catch(e) {}
+      } catch (e) {}
     }
   });
 })();

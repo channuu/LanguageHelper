@@ -40,6 +40,12 @@
     },
     {
       "matches": ["https://www.netflix.com/*"],
+      "js": ["inject/netflix_inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.netflix.com/*"],
       "js": [
         "core/adapter-interface.js",
         "core/storage.js",
@@ -98,6 +104,10 @@
     {
       "resources": ["inject/page_script.js"],
       "matches": ["https://www.youtube.com/*"]
+    },
+    {
+      "resources": ["inject/netflix_inject.js"],
+      "matches": ["https://www.netflix.com/*"]
     },
     {
       "resources": ["vendor/sql-wasm.wasm"],

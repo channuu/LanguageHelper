@@ -1,31 +1,31 @@
 (function () {
   'use strict';
 
-  // Netflix 자막 선택자 (구조 변경에 대비해 복수 후보)
-  const EN_SELECTORS = [
-    '.player-timedtext-text-container span',
-    '[data-uia="player-timedtext"] span',
-    '.nf-subtitle-container span'
-  ];
-  // Netflix는 lang attribute 또는 aria-label로 트랙을 구분함
-  const NATIVE_SELECTORS = [
-    '.player-timedtext[lang]:not([lang="en"]) span',
-    '[data-uia="player-timedtext"][lang]:not([lang="en"]) span'
-  ];
-
   class NetflixAdapter extends window.EH.SubtitleAdapter {
     constructor() {
       super();
+      this._enCues = [];
+      this._nativeCues = [];
       this._subtitleCb = null;
-      this._observer = null;
-      this._hiddenStyle = null;
+      this._tracksCb = null;
+      this._rafId = null;
       this._lastEnText = '';
       this._lastNativeText = '';
+      this._hiddenStyle = null;
+
+      this._onMessage = this._handleMessage.bind(this);
+      window.addEventListener('message', this._onMessage);
+      this._hideNativeSubtitles();
+      this._initVideoTracking();
     }
 
+    // ── 인터페이스 구현 ──────────────────────────────────────────────
+
     getSubtitleTracks() {
-      // Netflix는 실시간 DOM에서만 현재 자막을 제공 — 전체 트랙 사전 로드 불가
-      return [{ lang: 'en', cues: [] }];
+      return [
+        { lang: 'en', cues: this._enCues },
+        { lang: window.EH.settings?.nativeLang || 'ko', cues: this._nativeCues }
+      ];
     }
 
     getCurrentTime() {
@@ -39,37 +39,33 @@
 
     onSubtitleChange(callback) {
       this._subtitleCb = callback;
-      this._startObserving();
     }
 
-    onTimeUpdate(callback) {}
+    onTimeUpdate(callback) {
+      // RAF 루프로 대체 — onSubtitleChange가 주 방식
+    }
 
     onTracksReady(callback) {
-      // Netflix는 전체 트랙을 제공하지 않으므로 즉시 빈 배열로 호출
-      callback([{ lang: 'en', cues: [] }]);
+      this._tracksCb = callback;
     }
 
     getPlatformMeta() {
-      const title = document.querySelector('.video-title')?.textContent?.trim()
-        || document.querySelector('[data-uia="video-title"]')?.textContent?.trim()
+      const title = document.querySelector('[data-uia="video-title"]')?.textContent?.trim()
+        || document.querySelector('.video-title')?.textContent?.trim()
         || document.title.replace(' | Netflix', '');
-      const contentId = location.pathname.split('/').pop() || '';
-      return { platform: 'netflix', title, contentId };
+      return { platform: 'netflix', title, contentId: this._getMovieId() };
     }
 
     destroy() {
-      this._observer?.disconnect();
+      window.removeEventListener('message', this._onMessage);
+      if (this._rafId) cancelAnimationFrame(this._rafId);
       this._hiddenStyle?.remove();
     }
 
     // ── Netflix 전용 ─────────────────────────────────────────────────
 
-    _getText(selectors) {
-      for (const sel of selectors) {
-        const els = document.querySelectorAll(sel);
-        if (els.length) return Array.from(els).map(e => e.textContent.trim()).filter(Boolean).join(' ');
-      }
-      return '';
+    _getMovieId() {
+      return location.pathname.split('/').pop() || '';
     }
 
     _hideNativeSubtitles() {
@@ -80,39 +76,130 @@
       document.head.appendChild(this._hiddenStyle);
     }
 
-    _startObserving() {
-      this._hideNativeSubtitles();
-      if (this._observer) this._observer.disconnect();
+    _handleMessage(e) {
+      if (e.source !== window) return;
+      if (e.data?.type !== 'EH_NF_CAPTIONS_LOADED') return;
 
-      this._observer = new MutationObserver(() => {
-        const enText = this._getText(EN_SELECTORS);
-        const nativeLang = window.EH.settings?.nativeLang || 'ko';
-        const nativeText = this._getText(NATIVE_SELECTORS);
+      // 영상이 바뀐 뒤 늦게 도착한 이전 영상용 응답은 무시
+      if (e.data.movieId && String(e.data.movieId) !== this._getMovieId()) return;
 
-        if (enText === this._lastEnText && nativeText === this._lastNativeText) return;
-        this._lastEnText = enText;
-        this._lastNativeText = nativeText;
+      if (e.data.enVtt)     this._enCues     = this._parseVtt(e.data.enVtt);
+      if (e.data.nativeVtt) this._nativeCues = this._parseVtt(e.data.nativeVtt);
+      this._triggerTracksReady();
+    }
 
-        if (this._subtitleCb) {
-          this._subtitleCb([
-            { lang: 'en', text: enText },
-            { lang: nativeLang, text: nativeText }
-          ]);
+    _triggerTracksReady() {
+      if (this._tracksCb) {
+        this._tracksCb(this.getSubtitleTracks());
+      }
+    }
+
+    // Netflix webvtt-lssdh-ios8 포맷(표준 WebVTT) 파서.
+    // 큐가 이미 온전한 자막 줄 단위로 나뉘어 오므로 YouTube 어댑터처럼
+    // 인접 조각을 병합할 필요는 없다.
+    _parseVtt(vttText) {
+      if (!vttText) return [];
+      const timeRe = /(?:\d{2}:)?\d{2}:\d{2}\.\d{3}\s*-->\s*(?:\d{2}:)?\d{2}:\d{2}\.\d{3}/;
+      const toSeconds = (ts) => {
+        const parts = ts.split(':').map(Number);
+        return parts.length === 3
+          ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+          : parts[0] * 60 + parts[1];
+      };
+
+      const lines = vttText.replace(/\r/g, '').split('\n');
+      const items = [];
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i].trim();
+        if (timeRe.test(line)) {
+          const [startStr, rest] = line.split('-->');
+          const endStr = rest.trim().split(/\s+/)[0]; // cue 세팅(align:.. position:..) 제거
+          const start = toSeconds(startStr.trim());
+          const end = toSeconds(endStr);
+          i++;
+          const textLines = [];
+          while (i < lines.length && lines[i].trim() !== '') {
+            textLines.push(lines[i]);
+            i++;
+          }
+          const text = textLines.join(' ')
+            .replace(/<[^>]+>/g, '')   // <c>, <v>, <00:00:01.000> 등 태그 제거
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (text) items.push({ start, end, text });
         }
-      });
+        i++;
+      }
+      return items;
+    }
 
-      const root = document.querySelector('.NFPlayer') || document.body;
-      this._observer.observe(root, { childList: true, subtree: true, characterData: true });
+    _getCueAtTime(cues, t) {
+      let lo = 0, hi = cues.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        const c = cues[mid];
+        if (t < c.start) hi = mid - 1;
+        else if (t > c.end) lo = mid + 1;
+        else return c;
+      }
+      return null;
+    }
+
+    _initVideoTracking() {
+      // RAF 루프로 현재 자막 감지
+      const tick = () => {
+        const video = document.querySelector('video');
+        if (video && !video.paused && this._enCues.length) {
+          const t = video.currentTime + 0.1;
+          const enCue = this._getCueAtTime(this._enCues, t);
+          const nativeCue = this._getCueAtTime(this._nativeCues, t);
+          const enText = enCue?.text || '';
+          const nativeText = nativeCue?.text || '';
+
+          if (enText !== this._lastEnText || nativeText !== this._lastNativeText) {
+            this._lastEnText = enText;
+            this._lastNativeText = nativeText;
+            const nativeLang = window.EH.settings?.nativeLang || 'ko';
+            if (this._subtitleCb) {
+              this._subtitleCb([
+                { lang: 'en', text: enText },
+                { lang: nativeLang, text: nativeText }
+              ]);
+            }
+          }
+        }
+        this._rafId = requestAnimationFrame(tick);
+      };
+      this._rafId = requestAnimationFrame(tick);
+
+      const triggerLoad = () => {
+        const movieId = this._getMovieId();
+        if (!movieId) return;
+        const nativeLang = window.EH.settings?.nativeLang || 'ko';
+        window.postMessage({ type: 'EH_NF_TRIGGER_LOAD', movieId, nativeLang }, '*');
+      };
+
+      // SPA 라우팅 — 영상 변경 감지
+      let lastMovieId = this._getMovieId();
+      new MutationObserver(() => {
+        const movieId = this._getMovieId();
+        if (movieId !== lastMovieId) {
+          lastMovieId = movieId;
+          this._enCues = [];
+          this._nativeCues = [];
+          this._lastEnText = '';
+          this._lastNativeText = '';
+          if (movieId) setTimeout(triggerLoad, 1500);
+        }
+      }).observe(document, { subtree: true, childList: true });
+
+      // 초기 자막 요청 — 매니페스트가 캡처될 시간을 준다
+      setTimeout(triggerLoad, 1500);
     }
   }
 
-  // Netflix SPA 라우팅 대응
-  let adapter = null;
-  let lastUrl = location.href;
-
-  function startAdapter() { adapter?.destroy(); adapter = new NetflixAdapter(); window.EH.init(adapter); }
-
-  new MutationObserver(() => { if (location.href !== lastUrl) { lastUrl = location.href; setTimeout(startAdapter, 2000); } }).observe(document, { subtree: true, childList: true });
-
-  startAdapter();
+  // 코어가 로드된 후 어댑터 등록
+  window.EH.init(new NetflixAdapter());
 })();

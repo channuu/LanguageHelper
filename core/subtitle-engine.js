@@ -44,6 +44,16 @@
       overlay.style.bottom = saved.bottom + 'px';
       overlay.style.top = 'auto';
       overlay.style.transform = 'translateX(-50%)';
+    } else if (saved && typeof saved.left === 'string' && typeof saved.top === 'string') {
+      // 구버전 포맷({left,top} 절대좌표) → 신버전(중심 x + 하단 거리)으로 1회 변환
+      const left = parseFloat(saved.left) || 0;
+      const top = parseFloat(saved.top) || 0;
+      const cx = left + overlay.offsetWidth / 2;
+      const bottom = window.innerHeight - top - overlay.offsetHeight;
+      overlay.style.left = cx + 'px';
+      overlay.style.bottom = bottom + 'px';
+      overlay.style.top = 'auto';
+      overlay.style.transform = 'translateX(-50%)';
     }
     if (saved?.enSize) enLine.style.fontSize = saved.enSize;
     if (saved?.nativeSize) nativeLine.style.fontSize = saved.nativeSize;

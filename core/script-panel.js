@@ -137,7 +137,7 @@
     });
 
     hideBtn.addEventListener('click', () => {
-      _setLayoutForPanel(false);
+      toggle(false);
       window.EH.showToast?.('패널 숨김 — 팝업에서 다시 켤 수 있어요');
     });
 

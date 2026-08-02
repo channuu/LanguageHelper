@@ -4,12 +4,13 @@
 // ================================================================
 (function() {
 
-  console.log('[EH] page_script.js loaded at', Date.now());
+  const DEBUG = false;
+  const dlog = DEBUG ? console.log.bind(console) : () => {};
 
   // 가장 최근 player 응답에서 추출한 트랙 캐시 + pot 캐시
   let _cachedTracks = null;
   let _potCache = {};         // {videoId: pot}
-  let _timedtextBase = {};    // {videoId: clean baseUrl (no pot/fmt/tlang)}
+  let _timedtextBase = {};    // {"videoId:langCode": clean baseUrl (no pot/fmt/tlang)}
 
   // ── XHR 인터셉터 — timedtext URL에서 pot 토큰 캡처 ──────────────
   const _origXHROpen = XMLHttpRequest.prototype.open;
@@ -27,18 +28,22 @@
       const params = new URLSearchParams(qs || '');
       const pot = params.get('pot');
       const videoId = params.get('v');
+      const lang = params.get('lang');
       if (!videoId) return;
       if (pot) {
         _potCache[videoId] = pot;
-        console.log('[EH] pot captured for', videoId, pot.slice(0, 20));
+        dlog('[EH] pot captured for', videoId, pot.slice(0, 20));
       }
-      // YouTube가 사용한 clean baseUrl 저장 (pot/fmt/tlang 제거)
-      if (!_timedtextBase[videoId]) {
+      // YouTube가 사용한 clean baseUrl 저장 (pot/fmt/tlang 제거), 트랙(lang)별로 캐싱
+      // — 트랙마다 다른 요청이 섞여 들어올 수 있으므로 videoId만으로 키를 잡으면
+      //   먼저 도착한 다른 언어 트랙의 baseUrl이 고정돼버린다.
+      const key = videoId + ':' + (lang || '');
+      if (!_timedtextBase[key]) {
         params.delete('pot');
         params.delete('fmt');
         params.delete('tlang');
-        _timedtextBase[videoId] = path + '?' + params.toString();
-        console.log('[EH] timedtext base saved for', videoId);
+        _timedtextBase[key] = path + '?' + params.toString();
+        dlog('[EH] timedtext base saved for', key);
       }
     } catch (e) {}
   }
@@ -55,8 +60,7 @@
         const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
         if (tracks?.length) {
           _cachedTracks = tracks;
-          console.log('[EH] player response intercepted, tracks:', tracks.length);
-          window.postMessage({ type: 'EH_TRACKS_AVAILABLE', tracks: tracks.map(t => ({ langCode: t.languageCode, baseUrl: t.baseUrl })) }, '*');
+          dlog('[EH] player response intercepted, tracks:', tracks.length);
         }
       }).catch(() => {});
     }
@@ -87,19 +91,20 @@
   // ── pot 포함하여 자막 fetch ───────────────────────────────────────
   async function fetchCaptionXml(baseUrl, pot, tlang) {
     if (!baseUrl) return null;
-    // 기존 fmt/tlang/pot 파라미터 제거 후 재조립
-    const base = baseUrl
-      .replace(/[&?]fmt=[^&]*/g, '')
-      .replace(/[&?]tlang=[^&]*/g, '')
-      .replace(/[&?]pot=[^&]*/g, '');
-    const sep = base.includes('?') ? '&' : '?';
-    let url = base + sep + 'fmt=json3';
-    if (tlang) url += '&tlang=' + tlang;
-    if (pot)   url += '&c=WEB&pot=' + encodeURIComponent(pot);
+    // 기존 fmt/tlang/pot 파라미터 제거 후 재조립 (파라미터 순서에 무관하게 안전)
+    const [path, qs] = baseUrl.split('?');
+    const params = new URLSearchParams(qs || '');
+    params.delete('fmt');
+    params.delete('tlang');
+    params.delete('pot');
+    params.set('fmt', 'json3');
+    if (tlang) params.set('tlang', tlang);
+    if (pot) { params.set('c', 'WEB'); params.set('pot', pot); }
+    const url = path + '?' + params.toString();
     try {
       const res = await _origFetch(url);
       const text = await res.text();
-      console.log('[EH] fetch', tlang || 'en', 'status=', res.status, 'len=', text?.length);
+      dlog('[EH] fetch', tlang || 'en', 'status=', res.status, 'len=', text?.length);
       if (text && text.length > 10) return text;
     } catch (e) { console.warn('[EH] fetchCaptionXml error', e); }
     return null;
@@ -124,35 +129,38 @@
           console.warn('[EH] no captionTracks available');
           return;
         }
-        console.log('[EH] tracks:', captionTracks.map(t => t.languageCode + (t.kind ? '(' + t.kind + ')' : '')));
+        dlog('[EH] tracks:', captionTracks.map(t => t.languageCode + (t.kind ? '(' + t.kind + ')' : '')));
 
         // 'en', 'en-US', 'en-GB' 등 모두 매칭 (asr 아닌 것 우선)
         const isEn = t => t.languageCode?.startsWith('en');
         const enTrack = captionTracks.find(t => isEn(t) && t.kind !== 'asr')
                      || captionTracks.find(t => isEn(t));
-        console.log('[EH] enTrack:', enTrack?.languageCode, enTrack?.baseUrl?.slice(0, 60) || 'NONE');
+        dlog('[EH] enTrack:', enTrack?.languageCode, enTrack?.baseUrl?.slice(0, 60) || 'NONE');
 
         // YouTube 내부 XHR 유발 → pot 수집 (LR 방식)
         if (enTrack) triggerYouTubeCaptionLoad(player, enTrack);
 
         // videoId 추출
         const videoId = new URLSearchParams(location.search).get('v') || '';
-        console.log('[EH] waiting for pot, videoId=', videoId);
+        dlog('[EH] waiting for pot, videoId=', videoId);
         const pot = videoId ? await waitForPot(videoId) : null;
-        console.log('[EH] pot=', pot ? pot.slice(0, 20) + '...' : null);
+        dlog('[EH] pot=', pot ? pot.slice(0, 20) + '...' : null);
 
-        // baseUrl 결정: YouTube가 캡처한 URL 우선, 없으면 track.baseUrl
-        const resolvedBase = _timedtextBase[videoId] || enTrack?.baseUrl || null;
-        console.log('[EH] resolvedBase:', resolvedBase?.slice(0, 80) || 'NULL');
+        // baseUrl 결정: enTrack과 같은 언어의 캡처된 URL 우선, 없으면 track.baseUrl
+        // (videoId만으로 캐시를 잡으면 다른 언어 트랙의 URL이 먼저 캐싱되어 고정될 수 있음)
+        const timedtextKey = videoId + ':' + (enTrack?.languageCode || '');
+        const resolvedBase = _timedtextBase[timedtextKey] || enTrack?.baseUrl || null;
+        dlog('[EH] resolvedBase:', resolvedBase?.slice(0, 80) || 'NULL');
 
         const [enXml, nativeXml] = await Promise.all([
           fetchCaptionXml(resolvedBase, pot, null),
           fetchCaptionXml(resolvedBase, pot, nativeLang)
         ]);
 
-        console.log('[EH] enXml len=', enXml?.length, 'nativeXml len=', nativeXml?.length);
+        dlog('[EH] enXml len=', enXml?.length, 'nativeXml len=', nativeXml?.length);
         window.postMessage({
           type: 'EH_CAPTIONS_LOADED',
+          videoId,
           enXml: enXml || '',
           nativeXml: nativeXml || '',
           nativeLang

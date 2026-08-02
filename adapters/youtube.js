@@ -68,9 +68,13 @@
       const { type } = e.data || {};
 
       if (type === 'EH_CAPTIONS_LOADED') {
+        // 영상이 바뀐 뒤 늦게 도착한 이전 영상용 응답은 무시 (안 그러면 새 영상 자막이
+        // 이전 영상 데이터로 덮어써질 수 있음)
+        const currentVideoId = new URLSearchParams(location.search).get('v') || '';
+        if (e.data.videoId && e.data.videoId !== currentVideoId) return;
+
         if (e.data.enXml)     this._enCues     = this._parseContent(e.data.enXml);
         if (e.data.nativeXml) this._nativeCues  = this._parseContent(e.data.nativeXml);
-        console.log('[EH:adapter] CAPTIONS_LOADED parsed — enCues:', this._enCues.length, 'nativeCues:', this._nativeCues.length, 'cb:', !!this._tracksCb);
         this._triggerTracksReady();
       }
     }

@@ -41,6 +41,10 @@ void main() {
     );
   });
 
+  tearDown(() async {
+    await repo.close();
+  });
+
   test('saveWord then getWords returns the saved word', () async {
     await repo.saveWord(_word('w1'));
     final words = await repo.getWords();

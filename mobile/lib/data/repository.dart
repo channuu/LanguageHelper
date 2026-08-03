@@ -31,6 +31,7 @@ abstract class LearningRepository extends ChangeNotifier {
   Future<void> markSentenceReviewed(String id);
   Future<MergeResult> mergeFromFile(String filePath);
   Future<String> getDatabasePath();
+  Future<void> close();
 }
 
 class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository {
@@ -162,5 +163,14 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
     await importDb.close();
     notifyListeners();
     return MergeResult(newWords: newWords, newSentences: newSentences);
+  }
+
+  @override
+  Future<void> close() async {
+    final db = _db;
+    if (db != null) {
+      _db = null;
+      await db.close();
+    }
   }
 }

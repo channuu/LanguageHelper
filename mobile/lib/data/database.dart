@@ -16,6 +16,11 @@ Future<Database> openAppDatabase(String path) {
     path,
     options: OpenDatabaseOptions(
       version: 1,
+      // singleInstance: false avoids sqflite's path-keyed connection cache,
+      // which otherwise causes distinct openAppDatabase(inMemoryDatabasePath)
+      // calls in different tests to silently share the same in-memory
+      // database and leak state between tests.
+      singleInstance: false,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS words (

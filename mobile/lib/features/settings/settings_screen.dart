@@ -31,8 +31,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
+    final repo = context.read<LearningRepository>();
     final prefs = await SharedPreferences.getInstance();
-    final dbPath = await context.read<LearningRepository>().getDatabasePath();
+    final dbPath = await repo.getDatabasePath();
     if (!mounted) return;
     setState(() {
       _nativeLang = prefs.getString('native_lang') ?? 'ko';

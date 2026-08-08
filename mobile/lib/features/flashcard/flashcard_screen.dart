@@ -22,10 +22,39 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   // Used to distinguish "nothing saved yet" from "reviewed everything today".
   bool _hadItemsInitially = false;
 
+  LearningRepository? _repo;
+
   @override
   void initState() {
     super.initState();
     _loadQueue();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final repo = context.read<LearningRepository>();
+    if (!identical(repo, _repo)) {
+      _repo?.removeListener(_onRepositoryChanged);
+      _repo = repo;
+      repo.addListener(_onRepositoryChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _repo?.removeListener(_onRepositoryChanged);
+    super.dispose();
+  }
+
+  // Reload automatically only when the user isn't mid-review (i.e. the
+  // queue is currently empty, showing one of the empty states). This picks
+  // up data that arrived via import (or was removed on the Home screen)
+  // without yanking cards out from under an in-progress review session.
+  void _onRepositoryChanged() {
+    if (_queue == null || _queue!.isEmpty) {
+      _loadQueue();
+    }
   }
 
   Future<void> _loadQueue() async {

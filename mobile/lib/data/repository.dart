@@ -146,21 +146,24 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
     var newWords = 0;
     var newSentences = 0;
 
-    final wordRows = await importDb.query('words');
-    for (final row in wordRows) {
-      final rowId = await db.insert('words', row,
-          conflictAlgorithm: ConflictAlgorithm.ignore);
-      if (rowId != 0) newWords++;
+    try {
+      final wordRows = await importDb.query('words');
+      for (final row in wordRows) {
+        final rowId = await db.insert('words', row,
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+        if (rowId != 0) newWords++;
+      }
+
+      final sentenceRows = await importDb.query('sentences');
+      for (final row in sentenceRows) {
+        final rowId = await db.insert('sentences', row,
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+        if (rowId != 0) newSentences++;
+      }
+    } finally {
+      await importDb.close();
     }
 
-    final sentenceRows = await importDb.query('sentences');
-    for (final row in sentenceRows) {
-      final rowId = await db.insert('sentences', row,
-          conflictAlgorithm: ConflictAlgorithm.ignore);
-      if (rowId != 0) newSentences++;
-    }
-
-    await importDb.close();
     notifyListeners();
     return MergeResult(newWords: newWords, newSentences: newSentences);
   }

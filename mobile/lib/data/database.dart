@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:sqflite/sqflite.dart';
 
 const List<String> kWordsColumns = [
@@ -64,12 +65,12 @@ Future<bool> hasValidSchema(Database db) async {
   final wordsCols = (await db.rawQuery('PRAGMA table_info(words)'))
       .map((r) => r['name'] as String)
       .toSet();
-  if (!wordsCols.containsAll(kWordsColumns)) return false;
+  if (!setEquals(wordsCols, kWordsColumns.toSet())) return false;
 
   final sentencesCols = (await db.rawQuery('PRAGMA table_info(sentences)'))
       .map((r) => r['name'] as String)
       .toSet();
-  if (!sentencesCols.containsAll(kSentencesColumns)) return false;
+  if (!setEquals(sentencesCols, kSentencesColumns.toSet())) return false;
 
   return true;
 }

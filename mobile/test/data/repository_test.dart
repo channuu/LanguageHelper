@@ -156,5 +156,17 @@ void main() {
         throwsA(isA<InvalidBackupFileException>()),
       );
     });
+
+    test('throws InvalidBackupFileException for a file whose words table has an extra column', () async {
+      final extraColsPath = '${tempDir.path}/extra_cols.sqlite';
+      final extraColsDb = await openAppDatabase(extraColsPath);
+      await extraColsDb.execute('ALTER TABLE words ADD COLUMN extra_column TEXT');
+      await extraColsDb.close();
+
+      expect(
+        () => repo.mergeFromFile(extraColsPath),
+        throwsA(isA<InvalidBackupFileException>()),
+      );
+    });
   });
 }

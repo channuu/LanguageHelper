@@ -69,5 +69,12 @@ void main() {
       expect(await hasValidSchema(db), isFalse);
       await db.close();
     });
+
+    test('returns false for a words table with an extra column', () async {
+      final db = await openAppDatabase(inMemoryDatabasePath);
+      await db.execute('ALTER TABLE words ADD COLUMN extra_column TEXT');
+      expect(await hasValidSchema(db), isFalse);
+      await db.close();
+    });
   });
 }

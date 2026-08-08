@@ -23,6 +23,7 @@ void main() {
     final repo = LocalSQLiteRepository(
       openDb: () => openAppDatabase(inMemoryDatabasePath),
     );
+    addTearDown(repo.close);
 
     await tester.pumpWidget(
       ChangeNotifierProvider<LearningRepository>.value(
@@ -39,6 +40,7 @@ void main() {
     final repo = LocalSQLiteRepository(
       openDb: () => openAppDatabase(inMemoryDatabasePath),
     );
+    addTearDown(repo.close);
     await repo.saveWord(Word(
       id: 'w1',
       word: 'ephemeral',
@@ -71,6 +73,7 @@ void main() {
     final repo = LocalSQLiteRepository(
       openDb: () => openAppDatabase(inMemoryDatabasePath),
     );
+    addTearDown(repo.close);
     await repo.saveWord(Word(
       id: 'w1',
       word: 'ephemeral',
@@ -98,5 +101,45 @@ void main() {
     expect(find.textContaining('오늘 복습 완료'), findsOneWidget);
     final words = await repo.getWords();
     expect(words.single.reviewCount, 1);
+  });
+
+  testWidgets('reloads the queue automatically after an import while empty', (tester) async {
+    final repo = LocalSQLiteRepository(
+      openDb: () => openAppDatabase(inMemoryDatabasePath),
+    );
+    // Every test in this file uses inMemoryDatabasePath, and the no-isolate
+    // FFI factory caches the underlying connection by path — so an unclosed
+    // repo from an earlier test would otherwise leak its data into this
+    // test's "fresh, empty DB" starting point. Closing here (and in the
+    // tests above) keeps each test's database isolated.
+    addTearDown(repo.close);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<LearningRepository>.value(
+        value: repo,
+        child: const MaterialApp(home: FlashcardScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Fresh launch, empty DB: "never had items" empty state.
+    expect(find.textContaining('아직 저장된 항목이 없어요'), findsOneWidget);
+
+    // Simulate an import happening on another tab.
+    await repo.saveWord(Word(
+      id: 'w1',
+      word: 'ephemeral',
+      definition: 'lasting for a very short time',
+      platform: 'netflix',
+      contentTitle: 'Title',
+      contentId: 'c1',
+      timestamp: 1,
+      savedAt: '2026-08-02T00:00:00.000Z',
+    ));
+    await tester.pumpAndSettle();
+
+    // The screen should pick up the new word without a manual restart.
+    expect(find.textContaining('아직 저장된 항목이 없어요'), findsNothing);
+    expect(find.text('ephemeral'), findsOneWidget);
   });
 }

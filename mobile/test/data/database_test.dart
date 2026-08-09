@@ -46,6 +46,22 @@ void main() {
       final db2 = await openAppDatabase(inMemoryDatabasePath);
       await db2.close();
     });
+
+    test('creates study_sessions and weekly_goals tables with expected columns', () async {
+      final db = await openAppDatabase(inMemoryDatabasePath);
+
+      final sessionsCols = (await db.rawQuery('PRAGMA table_info(study_sessions)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(sessionsCols, {'id', 'started_at', 'ended_at', 'duration_seconds', 'saved_at'});
+
+      final goalsCols = (await db.rawQuery('PRAGMA table_info(weekly_goals)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(goalsCols, {'id', 'target_minutes', 'effective_from', 'created_at'});
+
+      await db.close();
+    });
   });
 
   group('hasValidSchema', () {
@@ -74,6 +90,29 @@ void main() {
       final db = await openAppDatabase(inMemoryDatabasePath);
       await db.execute('ALTER TABLE words ADD COLUMN extra_column TEXT');
       expect(await hasValidSchema(db), isFalse);
+      await db.close();
+    });
+
+    test('ignores study_sessions/weekly_goals when validating an import file', () async {
+      // A file with only words/sentences (like a real Chrome-extension export)
+      // must still validate, even though the app's own DB also has the two
+      // timer tables — hasValidSchema must not require them.
+      final db = await databaseFactory.openDatabase(inMemoryDatabasePath);
+      await db.execute('''
+        CREATE TABLE words (
+          id TEXT PRIMARY KEY, word TEXT NOT NULL, definition TEXT, sentence TEXT,
+          translation TEXT, platform TEXT, content_title TEXT, content_id TEXT,
+          timestamp REAL, saved_at TEXT, review_count INTEGER DEFAULT 0, next_review_at TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE sentences (
+          id TEXT PRIMARY KEY, original TEXT NOT NULL, translation TEXT, platform TEXT,
+          content_title TEXT, content_id TEXT, timestamp REAL, saved_at TEXT,
+          review_count INTEGER DEFAULT 0, next_review_at TEXT
+        )
+      ''');
+      expect(await hasValidSchema(db), isTrue);
       await db.close();
     });
   });

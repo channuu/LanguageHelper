@@ -48,6 +48,23 @@ Future<Database> openAppDatabase(String path) {
             next_review_at TEXT
           )
         ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS study_sessions (
+            id TEXT PRIMARY KEY,
+            started_at TEXT NOT NULL,
+            ended_at TEXT NOT NULL,
+            duration_seconds INTEGER NOT NULL,
+            saved_at TEXT NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS weekly_goals (
+            id TEXT PRIMARY KEY,
+            target_minutes INTEGER NOT NULL,
+            effective_from TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        ''');
       },
     ),
   );

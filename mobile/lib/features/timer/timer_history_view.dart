@@ -47,6 +47,15 @@ class _TimerHistoryViewState extends State<TimerHistoryView> {
     return map;
   }
 
+  Map<DateTime, int> _groupByMonth(List<StudySession> sessions) {
+    final map = <DateTime, int>{};
+    for (final s in sessions) {
+      final month = DateTime(s.startedAt.year, s.startedAt.month, 1);
+      map[month] = (map[month] ?? 0) + s.durationSeconds;
+    }
+    return map;
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<StudyTimerRepository>();
@@ -87,8 +96,11 @@ class _TimerHistoryViewState extends State<TimerHistoryView> {
             if (sessions.isEmpty) {
               return const EmptyState(message: '이 기간에 기록된 공부 시간이 없어요');
             }
-            final byDay = _groupByDay(sessions);
-            return _viewMode == TimerViewMode.graph ? _buildGraph(byDay) : _buildList(byDay);
+            final isMonthGrouped = _period == TimerPeriod.year;
+            final grouped = isMonthGrouped ? _groupByMonth(sessions) : _groupByDay(sessions);
+            return _viewMode == TimerViewMode.graph
+                ? _buildGraph(grouped)
+                : _buildList(grouped, isMonthGrouped: isMonthGrouped);
           },
         ),
       ],
@@ -112,15 +124,15 @@ class _TimerHistoryViewState extends State<TimerHistoryView> {
     );
   }
 
-  Widget _buildList(Map<DateTime, int> byDay) {
+  Widget _buildList(Map<DateTime, int> byDay, {bool isMonthGrouped = false}) {
     final days = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
     return Column(
       children: [
         for (final day in days)
           ListTile(
-            title: Text(
-              '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
-            ),
+            title: Text(isMonthGrouped
+                ? '${day.year}-${day.month.toString().padLeft(2, '0')}'
+                : '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}'),
             trailing: Text('${byDay[day]! ~/ 60}분'),
           ),
       ],

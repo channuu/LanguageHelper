@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/study_timer_repository.dart';
@@ -10,6 +11,10 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfiNoIsolate;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
   });
 
   Widget buildCard(StudyTimerRepository repo) {

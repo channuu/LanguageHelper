@@ -4,6 +4,7 @@ import 'features/flashcard/flashcard_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/import/import_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/timer/timer_screen.dart';
 
 class EnglishHelperApp extends StatelessWidget {
   const EnglishHelperApp({super.key});
@@ -33,6 +34,7 @@ class _RootShellState extends State<_RootShell> {
     FlashcardScreen(),
     ImportScreen(),
     SettingsScreen(),
+    TimerScreen(),
   ];
 
   @override
@@ -47,6 +49,7 @@ class _RootShellState extends State<_RootShell> {
           NavigationDestination(icon: Icon(Icons.style), label: '플래시카드'),
           NavigationDestination(icon: Icon(Icons.file_download), label: '가져오기'),
           NavigationDestination(icon: Icon(Icons.settings), label: '설정'),
+          NavigationDestination(icon: Icon(Icons.timer), label: '타이머'),
         ],
       ),
     );

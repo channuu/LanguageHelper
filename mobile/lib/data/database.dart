@@ -12,11 +12,31 @@ const List<String> kSentencesColumns = [
   'content_id', 'timestamp', 'saved_at', 'review_count', 'next_review_at',
 ];
 
+Future<void> _createTimerTables(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS study_sessions (
+      id TEXT PRIMARY KEY,
+      started_at TEXT NOT NULL,
+      ended_at TEXT NOT NULL,
+      duration_seconds INTEGER NOT NULL,
+      saved_at TEXT NOT NULL
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS weekly_goals (
+      id TEXT PRIMARY KEY,
+      target_minutes INTEGER NOT NULL,
+      effective_from TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  ''');
+}
+
 Future<Database> openAppDatabase(String path) {
   return databaseFactory.openDatabase(
     path,
     options: OpenDatabaseOptions(
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS words (
@@ -48,23 +68,12 @@ Future<Database> openAppDatabase(String path) {
             next_review_at TEXT
           )
         ''');
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS study_sessions (
-            id TEXT PRIMARY KEY,
-            started_at TEXT NOT NULL,
-            ended_at TEXT NOT NULL,
-            duration_seconds INTEGER NOT NULL,
-            saved_at TEXT NOT NULL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS weekly_goals (
-            id TEXT PRIMARY KEY,
-            target_minutes INTEGER NOT NULL,
-            effective_from TEXT NOT NULL,
-            created_at TEXT NOT NULL
-          )
-        ''');
+        await _createTimerTables(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await _createTimerTables(db);
+        }
       },
     ),
   );

@@ -1,5 +1,8 @@
 // mobile/test/data/database_test.dart
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:english_helper_app/data/database.dart';
 
@@ -114,6 +117,89 @@ void main() {
       ''');
       expect(await hasValidSchema(db), isTrue);
       await db.close();
+    });
+  });
+
+  group('schema migration', () {
+    test('adds study_sessions/weekly_goals to a pre-existing v1 (Phase B) database', () async {
+      // Use a real file on disk (not the in-memory path) because an
+      // in-memory database does not persist data across close/reopen —
+      // we need the "upgrade" to see the tables created by the first open.
+      final tempDir = await Directory.systemTemp.createTemp('db_migration_test');
+      final dbPath = p.join(tempDir.path, 'phase_b.sqlite');
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      // Simulate a pre-existing Phase B install: a v1 database with only
+      // words/sentences, created the way the old openAppDatabase would have.
+      final v1Db = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS words (
+                id TEXT PRIMARY KEY,
+                word TEXT NOT NULL,
+                definition TEXT,
+                sentence TEXT,
+                translation TEXT,
+                platform TEXT,
+                content_title TEXT,
+                content_id TEXT,
+                timestamp REAL,
+                saved_at TEXT,
+                review_count INTEGER DEFAULT 0,
+                next_review_at TEXT
+              )
+            ''');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS sentences (
+                id TEXT PRIMARY KEY,
+                original TEXT NOT NULL,
+                translation TEXT,
+                platform TEXT,
+                content_title TEXT,
+                content_id TEXT,
+                timestamp REAL,
+                saved_at TEXT,
+                review_count INTEGER DEFAULT 0,
+                next_review_at TEXT
+              )
+            ''');
+          },
+        ),
+      );
+
+      final tablesBefore = (await v1Db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table'",
+      )).map((r) => r['name'] as String).toSet();
+      expect(tablesBefore.contains('study_sessions'), isFalse);
+      expect(tablesBefore.contains('weekly_goals'), isFalse);
+
+      await v1Db.close();
+
+      // Reopen the same database file with the current (v2) openAppDatabase,
+      // which should trigger onUpgrade and add the two missing tables.
+      final upgradedDb = await openAppDatabase(dbPath);
+
+      final sessionsCols = (await upgradedDb.rawQuery('PRAGMA table_info(study_sessions)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(sessionsCols, {'id', 'started_at', 'ended_at', 'duration_seconds', 'saved_at'});
+
+      final goalsCols = (await upgradedDb.rawQuery('PRAGMA table_info(weekly_goals)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(goalsCols, {'id', 'target_minutes', 'effective_from', 'created_at'});
+
+      // words/sentences must still be intact.
+      expect(await hasValidSchema(upgradedDb), isTrue);
+
+      await upgradedDb.close();
     });
   });
 }

@@ -282,6 +282,37 @@ class CloudRepository implements LearningRepository { ... }
 | 인앱결제 | AI 기능 구독형 (iOS: StoreKit2, Android: Play Billing) |
 | 전환 방법 | `StorageAdapter` / `LearningRepository` 구현체만 교체 |
 
+### 5.1 복습 알고리즘 리서치 노트 (2026-08-12)
+
+구현 시점에 참고할 두 가지 후보:
+
+**A. Anki FSRS (Free Spaced Repetition Scheduler)** — Anki 23.10부터 기본값, SM-2를 대체.
+- Difficulty(난이도) / Stability(안정성) / Retrievability(인출 확률) 3요소를 카드마다 추적하는
+  머신러닝 모델. "다시/어려움/보통/쉬움" 응답 기록을 학습해 사용자별 망각 패턴에 맞춰
+  가중치를 최적화함
+- 개발자 Jarrett Ye가 2만 사용자·7억 리뷰 데이터로 학습, 같은 기억 유지율 기준 SM-2 대비
+  복습 횟수 20~30% 절감
+- 참고: [The Algorithm (fsrs4anki wiki)](https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm), [Anki FAQ](https://faqs.ankiweb.net/what-spaced-repetition-algorithm)
+
+**B. 고정 확장형 스케줄 (더 단순한 대안)** — 에빙하우스 망각곡선 기반, Cepeda 외 2006년
+메타분석(254개 연구·14,000명 이상)에서 분산 학습이 몰아서 학습보다 장기 기억에 일관되게
+유리함을 확인:
+
+| 복습 회차 | 간격 | 누적 시점 |
+|---|---|---|
+| 1차 | 1일 후 | Day 1 |
+| 2차 | 2~3일 후 | Day 3~4 |
+| 3차 | 1주 후 | Day 7 |
+| 4차 | 2주 후 | Day 14~15 |
+| 5차 | 1개월 후 | Day 30 |
+| 6차 | 2개월 후 | Day 60 |
+
+SM-2 기본값(초기 1일→6일, 이후 ease factor 2.5배씩 확장)도 이 원리의 변형.
+
+**결정은 보류** — Phase C 착수 시 A(정교하지만 구현 복잡)와 B(단순하지만 개인화 없음) 중
+선택. `Word`/`Sentence`의 `reviewCount`/`nextReviewAt` 필드는 이미 양쪽 방식 모두와
+호환되도록 설계되어 있어 스키마 변경 없이 나중에 결정 가능.
+
 ---
 
 ## 6. 설계 결정 기록

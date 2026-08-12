@@ -10,7 +10,7 @@
     "https://www.youtube.com/*",
     "https://www.netflix.com/*",
     "https://www.disneyplus.com/*",
-    "https://play.coupang.com/*",
+    "https://*.coupangplay.com/*",
     "https://api.dictionaryapi.dev/*"
   ],
 
@@ -71,7 +71,13 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://play.coupang.com/*"],
+      "matches": ["https://*.coupangplay.com/*"],
+      "js": ["inject/coupang_inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://*.coupangplay.com/*"],
       "js": [
         "core/adapter-interface.js",
         "core/storage.js",
@@ -108,6 +114,10 @@
     {
       "resources": ["inject/netflix_inject.js"],
       "matches": ["https://www.netflix.com/*"]
+    },
+    {
+      "resources": ["inject/coupang_inject.js"],
+      "matches": ["https://*.coupangplay.com/*"]
     },
     {
       "resources": ["vendor/sql-wasm.wasm"],

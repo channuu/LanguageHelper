@@ -1,29 +1,33 @@
 (function () {
   'use strict';
 
-  // 쿠팡플레이 자막 선택자 (DOM 구조 확인 필요 — 아래는 일반적인 OTT 패턴)
-  const EN_SELECTORS = [
-    '.subtitle-text',
-    '[class*="subtitle"] span',
-    '.player-subtitle span'
-  ];
-  const NATIVE_SELECTORS = [
-    '.subtitle-text[lang]:not([lang="en"])',
-    '[class*="subtitle"][lang]:not([lang="en"]) span'
-  ];
+  const UUID_RE = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
 
   class CoupangAdapter extends window.EH.SubtitleAdapter {
     constructor() {
       super();
+      this._enCues = [];
+      this._nativeCues = [];
       this._subtitleCb = null;
-      this._observer = null;
-      this._hiddenStyle = null;
+      this._tracksCb = null;
+      this._rafId = null;
       this._lastEnText = '';
       this._lastNativeText = '';
+      this._hiddenStyle = null;
+
+      this._onMessage = this._handleMessage.bind(this);
+      window.addEventListener('message', this._onMessage);
+      this._hideNativeSubtitles();
+      this._initVideoTracking();
     }
 
+    // ── 인터페이스 구현 ──────────────────────────────────────────────
+
     getSubtitleTracks() {
-      return [{ lang: 'en', cues: [] }];
+      return [
+        { lang: 'en', cues: this._enCues },
+        { lang: window.EH.settings?.nativeLang || 'ko', cues: this._nativeCues }
+      ];
     }
 
     getCurrentTime() {
@@ -37,73 +41,168 @@
 
     onSubtitleChange(callback) {
       this._subtitleCb = callback;
-      this._startObserving();
     }
 
-    onTimeUpdate(callback) {}
+    onTimeUpdate(callback) {
+      // RAF 루프로 대체 — onSubtitleChange가 주 방식
+    }
 
     onTracksReady(callback) {
-      callback([{ lang: 'en', cues: [] }]);
+      this._tracksCb = callback;
     }
 
     getPlatformMeta() {
-      const title = document.querySelector('.title-text')?.textContent?.trim()
-        || document.title;
-      const contentId = location.pathname.split('/').filter(Boolean).pop() || '';
-      return { platform: 'coupang', title, contentId };
+      const title = document.querySelector('[data-testid="content-title"]')?.textContent?.trim()
+        || document.title.replace(' | 쿠팡플레이', '').replace(' - Coupang Play', '');
+      return { platform: 'coupang', title, contentId: this._getContentId() };
     }
 
     destroy() {
-      this._observer?.disconnect();
+      window.removeEventListener('message', this._onMessage);
+      if (this._rafId) cancelAnimationFrame(this._rafId);
       this._hiddenStyle?.remove();
     }
 
     // ── 쿠팡플레이 전용 ──────────────────────────────────────────────
 
-    _getText(selectors) {
-      for (const sel of selectors) {
-        const els = document.querySelectorAll(sel);
-        if (els.length) return Array.from(els).map(e => e.textContent.trim()).filter(Boolean).join(' ');
-      }
-      return '';
+    _getContentId() {
+      const m = location.href.match(UUID_RE);
+      return m ? m[0] : '';
     }
 
     _hideNativeSubtitles() {
       if (this._hiddenStyle) return;
       this._hiddenStyle = document.createElement('style');
+      // 쿠팡플레이 자막 DOM을 숨기고 EH 오버레이로 대체
+      // (실제 셀렉터 미검증 — 일반적인 OTT 패턴, 라이브 사이트에서 확인 필요)
       this._hiddenStyle.textContent = '.subtitle-text { visibility: hidden !important; } [class*="subtitle"] { visibility: hidden !important; }';
       document.head.appendChild(this._hiddenStyle);
     }
 
-    _startObserving() {
-      this._hideNativeSubtitles();
-      if (this._observer) this._observer.disconnect();
+    _handleMessage(e) {
+      if (e.source !== window) return;
+      if (e.data?.type !== 'EH_CP_CAPTIONS_LOADED') return;
 
-      this._observer = new MutationObserver(() => {
-        const enText = this._getText(EN_SELECTORS);
-        const nativeLang = window.EH.settings?.nativeLang || 'ko';
-        const nativeText = this._getText(NATIVE_SELECTORS);
+      // 영상이 바뀐 뒤 늦게 도착한 이전 영상용 응답은 무시
+      if (e.data.videoId && e.data.videoId !== this._getContentId()) return;
 
-        if (enText === this._lastEnText && nativeText === this._lastNativeText) return;
-        this._lastEnText = enText;
-        this._lastNativeText = nativeText;
+      if (e.data.enVtt)     this._enCues     = this._parseVtt(e.data.enVtt);
+      if (e.data.nativeVtt) this._nativeCues = this._parseVtt(e.data.nativeVtt);
+      this._triggerTracksReady();
+    }
 
-        if (this._subtitleCb) {
-          this._subtitleCb([
-            { lang: 'en', text: enText },
-            { lang: nativeLang, text: nativeText }
-          ]);
+    _triggerTracksReady() {
+      if (this._tracksCb) {
+        this._tracksCb(this.getSubtitleTracks());
+      }
+    }
+
+    // 쿠팡플레이는 표준 WebVTT를 제공 — Netflix 어댑터와 동일한 파서.
+    // 큐가 이미 온전한 자막 줄 단위로 나뉘어 오므로 YouTube 어댑터처럼
+    // 인접 조각을 병합할 필요는 없다.
+    _parseVtt(vttText) {
+      if (!vttText) return [];
+      const timeRe = /(?:\d{2}:)?\d{2}:\d{2}\.\d{3}\s*-->\s*(?:\d{2}:)?\d{2}:\d{2}\.\d{3}/;
+      const toSeconds = (ts) => {
+        const parts = ts.split(':').map(Number);
+        return parts.length === 3
+          ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+          : parts[0] * 60 + parts[1];
+      };
+
+      const lines = vttText.replace(/\r/g, '').split('\n');
+      const items = [];
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i].trim();
+        if (timeRe.test(line)) {
+          const [startStr, rest] = line.split('-->');
+          const endStr = rest.trim().split(/\s+/)[0]; // cue 세팅(align:.. position:..) 제거
+          const start = toSeconds(startStr.trim());
+          const end = toSeconds(endStr);
+          i++;
+          const textLines = [];
+          while (i < lines.length && lines[i].trim() !== '') {
+            textLines.push(lines[i]);
+            i++;
+          }
+          const text = textLines.join(' ')
+            .replace(/<[^>]+>/g, '')   // <c>, <v>, <00:00:01.000> 등 태그 제거
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (text) items.push({ start, end, text });
         }
-      });
+        i++;
+      }
+      return items;
+    }
 
-      const root = document.querySelector('.player-container') || document.body;
-      this._observer.observe(root, { childList: true, subtree: true, characterData: true });
+    _getCueAtTime(cues, t) {
+      let lo = 0, hi = cues.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        const c = cues[mid];
+        if (t < c.start) hi = mid - 1;
+        else if (t > c.end) lo = mid + 1;
+        else return c;
+      }
+      return null;
+    }
+
+    _initVideoTracking() {
+      // RAF 루프로 현재 자막 감지
+      const tick = () => {
+        const video = document.querySelector('video');
+        if (video && !video.paused && this._enCues.length) {
+          const t = video.currentTime + 0.1;
+          const enCue = this._getCueAtTime(this._enCues, t);
+          const nativeCue = this._getCueAtTime(this._nativeCues, t);
+          const enText = enCue?.text || '';
+          const nativeText = nativeCue?.text || '';
+
+          if (enText !== this._lastEnText || nativeText !== this._lastNativeText) {
+            this._lastEnText = enText;
+            this._lastNativeText = nativeText;
+            const nativeLang = window.EH.settings?.nativeLang || 'ko';
+            if (this._subtitleCb) {
+              this._subtitleCb([
+                { lang: 'en', text: enText },
+                { lang: nativeLang, text: nativeText }
+              ]);
+            }
+          }
+        }
+        this._rafId = requestAnimationFrame(tick);
+      };
+      this._rafId = requestAnimationFrame(tick);
+
+      const triggerLoad = () => {
+        const videoId = this._getContentId();
+        if (!videoId) return;
+        const nativeLang = window.EH.settings?.nativeLang || 'ko';
+        window.postMessage({ type: 'EH_CP_TRIGGER_LOAD', videoId, nativeLang }, '*');
+      };
+
+      // SPA 라우팅 — 영상 변경 감지
+      let lastVideoId = this._getContentId();
+      new MutationObserver(() => {
+        const videoId = this._getContentId();
+        if (videoId !== lastVideoId) {
+          lastVideoId = videoId;
+          this._enCues = [];
+          this._nativeCues = [];
+          this._lastEnText = '';
+          this._lastNativeText = '';
+          if (videoId) setTimeout(triggerLoad, 1500);
+        }
+      }).observe(document, { subtree: true, childList: true });
+
+      // 초기 자막 요청 — /playback/play 응답이 캡처될 시간을 준다
+      setTimeout(triggerLoad, 1500);
     }
   }
 
-  let adapter = null;
-  let lastUrl = location.href;
-  function startAdapter() { adapter?.destroy(); adapter = new CoupangAdapter(); window.EH.init(adapter); }
-  new MutationObserver(() => { if (location.href !== lastUrl) { lastUrl = location.href; setTimeout(startAdapter, 2000); } }).observe(document, { subtree: true, childList: true });
-  startAdapter();
+  // 코어가 로드된 후 어댑터 등록
+  window.EH.init(new CoupangAdapter());
 })();

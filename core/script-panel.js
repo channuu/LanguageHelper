@@ -15,6 +15,65 @@
     return nativeCues.find(c => Math.abs(c.start - enCue.start) < 1.0)?.text || '';
   }
 
+  function _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function _buildExportHtml(cues, nativeCuesArr, meta) {
+    const title = _escapeHtml(meta?.title || '제목 없음');
+    const platform = _escapeHtml(meta?.platform || '');
+    const exportedAt = new Date().toLocaleDateString();
+
+    const findNative = (enCue) =>
+      nativeCuesArr.find(c => Math.abs(c.start - enCue.start) < 1.0)?.text || '';
+
+    const rows = cues.map(cue => {
+      const time = _escapeHtml(formatTime(cue.start));
+      const en = _escapeHtml(cue.text);
+      const native = _escapeHtml(findNative(cue));
+      return `
+        <div class="row">
+          <span class="time">${time}</span>
+          <div class="text">
+            <div class="en">${en}</div>
+            ${native ? `<div class="native">${native}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('\n');
+
+    return `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+  body { font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+  header { border-bottom: 2px solid #ddd; padding-bottom: 16px; margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  .meta { color: #666; font-size: 13px; }
+  .row { display: flex; gap: 16px; padding: 10px 0; border-bottom: 1px solid #eee; }
+  .time { color: #999; font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; width: 48px; }
+  .text { flex: 1; }
+  .en { font-size: 15px; }
+  .native { font-size: 13px; color: #666; margin-top: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>${title}</h1>
+  <div class="meta">${platform} · ${exportedAt} 내보냄</div>
+</header>
+<main>
+${rows}
+</main>
+</body>
+</html>`;
+  }
+
   function _isYouTube() {
     return location.hostname.includes('youtube.com');
   }

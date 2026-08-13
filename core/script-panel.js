@@ -74,6 +74,22 @@ ${rows}
 </html>`;
   }
 
+  function exportScript() {
+    if (!enCues.length) {
+      window.EH.showToast?.('내보낼 자막이 없어요');
+      return;
+    }
+    const meta = window.EH.adapter?.getPlatformMeta?.() || { platform: '', title: '' };
+    const html = _buildExportHtml(enCues, nativeCues, meta);
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(meta.title || 'script').replace(/[\\/:*?"<>|]/g, '_')}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function _isYouTube() {
     return location.hostname.includes('youtube.com');
   }
@@ -121,6 +137,7 @@ ${rows}
     header.className = 'eh-panel-header';
     header.innerHTML =
       '<span class="eh-panel-title">Script</span>' +
+      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>' +
       '<button class="eh-panel-btn" id="eh-panel-hide">−</button>' +
       '<button class="eh-panel-btn" id="eh-panel-collapse">✕</button>';
     panel.appendChild(header);
@@ -189,6 +206,9 @@ ${rows}
 
     const collapseBtn = header.querySelector('#eh-panel-collapse');
     const hideBtn     = header.querySelector('#eh-panel-hide');
+    const exportBtn   = header.querySelector('#eh-panel-export');
+
+    exportBtn.addEventListener('click', exportScript);
 
     collapseBtn.addEventListener('click', () => {
       const collapsed = panel.classList.toggle('collapsed');

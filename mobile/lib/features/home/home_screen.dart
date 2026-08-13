@@ -5,6 +5,8 @@ import '../../data/models/sentence.dart';
 import '../../data/models/word.dart';
 import '../../data/repository.dart';
 import '../../shared/widgets/empty_state.dart';
+import 'detail_item.dart';
+import 'item_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -58,6 +60,11 @@ class _WordList extends StatelessWidget {
                   '${word.translation}\n${word.platform} · ${word.contentTitle}',
                 ),
                 isThreeLine: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ItemDetailScreen(item: DetailItem.fromWord(word)),
+                  ),
+                ),
               ),
             );
           },
@@ -97,6 +104,11 @@ class _SentenceList extends StatelessWidget {
                   '${sentence.translation}\n${sentence.platform} · ${sentence.contentTitle}',
                 ),
                 isThreeLine: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ItemDetailScreen(item: DetailItem.fromSentence(sentence)),
+                  ),
+                ),
               ),
             );
           },

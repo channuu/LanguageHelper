@@ -41,6 +41,7 @@ dependencies:
   shared_preferences: ^2.5.5
   path: ^1.9.1
   fl_chart: ^1.2.0
+  youtube_player_flutter: ^10.0.1
 
 dev_dependencies:
   flutter_test:
@@ -53,6 +54,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   sqflite_common_ffi: ^2.4.2
+  webview_flutter_platform_interface: ^2.15.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

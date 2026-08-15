@@ -5,6 +5,7 @@ import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/models/word.dart';
 import 'package:english_helper_app/data/models/sentence.dart';
 import 'package:english_helper_app/data/repository.dart';
+import 'package:english_helper_app/data/review_schedule.dart';
 
 Word _word(String id, {int reviewCount = 0}) => Word(
       id: id,
@@ -75,20 +76,48 @@ void main() {
     expect(sentences.map((s) => s.id), ['s2']);
   });
 
-  test('markWordReviewed increments reviewCount and sets nextReviewAt', () async {
+  test('markWordReviewed increments reviewCount, bumps reviewLevel, and schedules nextReviewAt', () async {
     await repo.saveWord(_word('w1', reviewCount: 2));
     await repo.markWordReviewed('w1');
     final word = (await repo.getWords()).single;
     expect(word.reviewCount, 3);
+    expect(word.reviewLevel, 1);
+    expect(word.lastReviewedAt, isNotNull);
     expect(word.nextReviewAt, isNotNull);
   });
 
-  test('markSentenceReviewed increments reviewCount and sets nextReviewAt', () async {
+  test('markWordReviewed caps reviewLevel at kMaxReviewLevel', () async {
+    await repo.saveWord(_word('w1').copyWith(reviewLevel: kMaxReviewLevel));
+    await repo.markWordReviewed('w1');
+    final word = (await repo.getWords()).single;
+    expect(word.reviewLevel, kMaxReviewLevel);
+  });
+
+  test('markSentenceReviewed increments reviewCount, bumps reviewLevel, and schedules nextReviewAt', () async {
     await repo.saveSentence(_sentence('s1'));
     await repo.markSentenceReviewed('s1');
     final sentence = (await repo.getSentences()).single;
     expect(sentence.reviewCount, 1);
+    expect(sentence.reviewLevel, 1);
+    expect(sentence.lastReviewedAt, isNotNull);
     expect(sentence.nextReviewAt, isNotNull);
+  });
+
+  test('setWordReviewLevel sets an arbitrary level directly', () async {
+    await repo.saveWord(_word('w1'));
+    await repo.setWordReviewLevel('w1', 3);
+    final word = (await repo.getWords()).single;
+    expect(word.reviewLevel, 3);
+    expect(word.lastReviewedAt, isNotNull);
+    expect(word.nextReviewAt, isNotNull);
+  });
+
+  test('setSentenceReviewLevel sets an arbitrary level directly', () async {
+    await repo.saveSentence(_sentence('s1'));
+    await repo.setSentenceReviewLevel('s1', 0);
+    final sentence = (await repo.getSentences()).single;
+    expect(sentence.reviewLevel, 0);
+    expect(sentence.nextReviewAt, isNull); // level 0 has no schedule
   });
 
   test('getDatabasePath returns the path of the open database', () async {

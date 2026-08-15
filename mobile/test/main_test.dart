@@ -51,7 +51,7 @@ void main() {
     );
     await settleOnce(tester);
 
-    expect(find.text('저장한 단어/문장'), findsOneWidget);
+    expect(find.text('저장한 표현'), findsOneWidget);
 
     await tester.tap(find.text('플래시카드'));
     await settleOnce(tester);

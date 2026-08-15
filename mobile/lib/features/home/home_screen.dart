@@ -29,9 +29,16 @@ class _HomeScreenState extends State<HomeScreen> {
   String _query = '';
   String? _platformFilter; // null = 전체
 
+  LearningRepository? _repo;
+
   @override
   void initState() {
     super.initState();
+    _load();
+    _repo = context.read<LearningRepository>()..addListener(_onRepoChanged);
+  }
+
+  void _onRepoChanged() {
     _load();
   }
 
@@ -49,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _repo?.removeListener(_onRepoChanged);
     _searchController.dispose();
     super.dispose();
   }

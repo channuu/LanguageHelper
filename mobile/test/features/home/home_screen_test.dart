@@ -219,4 +219,29 @@ void main() {
     expect(find.text('ephemeral'), findsNothing);
     expect(await repo.getWords(), isEmpty);
   });
+
+  testWidgets('reloads list when repository notifies after mount (e.g. import from another tab)', (tester) async {
+    final repo = await makeRepo();
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('아직 저장된 항목이 없어요'), findsOneWidget);
+
+    // Simulate a word being imported while HomeScreen is already mounted
+    // (e.g. the persistent IndexedStack keeps HomeScreen alive while the
+    // user is on the Import tab), rather than being recreated.
+    await repo.saveWord(Word(
+      id: 'w1',
+      word: 'newly-added-word',
+      platform: 'youtube',
+      contentTitle: 'V1',
+      contentId: 'dQw4w9WgXcQ',
+      timestamp: 0,
+      savedAt: '2026-08-14T00:00:00.000Z',
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('newly-added-word'), findsOneWidget);
+  });
 }

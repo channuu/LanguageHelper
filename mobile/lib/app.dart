@@ -5,6 +5,7 @@ import 'features/home/home_screen.dart';
 import 'features/import/import_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/timer/timer_screen.dart';
+import 'theme/app_theme.dart';
 
 class EnglishHelperApp extends StatelessWidget {
   const EnglishHelperApp({super.key});
@@ -13,7 +14,7 @@ class EnglishHelperApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'English Helper',
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
+      theme: AppTheme.light,
       home: const _RootShell(),
     );
   }

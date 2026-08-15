@@ -1,0 +1,68 @@
+/* ── English Helper 디자인 토큰 ──────────────────────────
+ * 영상 위 UI(오버레이/패널/팝업)에서 쓰는 "어둡게" 표면의 색상·폰트 값.
+ * 값의 출처: Claude Design 목업 `English Helper UI.dc.html` §1a/§1h.
+ * 오렌지/골드 계열은 oklch()에서 sRGB로 변환한 hex를 폴백으로 둔다
+ * (콘텐츠 스크립트는 호스트 페이지의 CSP 아래에서 실행되므로 oklch()
+ * 자체는 문제 없지만, 값 하나로 통일해 두 파일 간 색이 드리프트하지
+ * 않게 한다).
+ * 폰트는 호스트 페이지 CSP가 원격 폰트를 막을 수 있어 자체 호스팅한다
+ * (ui/fonts/*.woff2, web_accessible_resources에 등록).
+ */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/SchibstedGrotesk-Variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/IBMPlexMono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/IBMPlexMono-Medium.woff2') format('woff2');
+}
+
+:root {
+  /* 표면 */
+  --eh-bg: #0f1114;
+  --eh-bg-rgb: 15, 17, 20;
+  --eh-surface: #15181d;
+  --eh-surface-alt: #12151a;
+  --eh-panel-rgb: 10, 10, 14;
+
+  /* 텍스트 */
+  --eh-text: #ffffff;
+  --eh-text-rgb: 255, 255, 255;
+  --eh-text-dim: rgba(255, 255, 255, 0.75);
+  --eh-text-faint: rgba(255, 255, 255, 0.45);
+  --eh-text-fainter: rgba(255, 255, 255, 0.3);
+
+  /* 골드 액센트 (모국어 자막, 활성 상태, 보더) — rgba(var(--eh-gold-rgb), alpha)로 다양한 투명도 파생 */
+  --eh-gold: #ffd97a;
+  --eh-gold-rgb: 255, 217, 122;
+  --eh-gold-strong: #ffe6a8;
+  --eh-gold-dim: rgba(255, 217, 122, 0.65);
+
+  /* 오렌지 액센트 (저장/선택/재생 위치 표시) — oklch(0.68 0.2 42) */
+  --eh-accent: #f86111;
+  --eh-accent-tint: rgba(248, 97, 17, 0.15);
+
+  /* 위험(삭제 등) — oklch(0.5 0.17 20) */
+  --eh-danger: #af2938;
+
+  /* 그림자용 검정 */
+  --eh-black-rgb: 0, 0, 0;
+
+  /* 서체 */
+  --eh-font-display: 'Schibsted Grotesk', 'Noto Sans KR', system-ui, sans-serif;
+  --eh-font-body: 'Schibsted Grotesk', 'Noto Sans KR', system-ui, sans-serif;
+  --eh-font-mono: 'IBM Plex Mono', monospace;
+}

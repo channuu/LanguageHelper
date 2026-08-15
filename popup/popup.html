@@ -4,24 +4,27 @@
   <meta charset="UTF-8">
   <title>English Helper</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
       --bg: #0e0e10; --surface: #1a1a1e; --border: #2a2a30;
       --gold: #ffd97a; --gold-dim: rgba(255,217,122,0.12);
       --text: #f0ede6; --muted: #7a7870; --danger: #e05a5a;
+      --font-display: 'Schibsted Grotesk', 'Noto Sans KR', system-ui, sans-serif;
+      --font-body: 'Schibsted Grotesk', 'Noto Sans KR', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
     }
-    body { width: 340px; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; }
+    body { width: 340px; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; }
 
     /* 헤더 */
     .header { padding: 16px 20px 0; border-bottom: 1px solid var(--border); }
-    .logo { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--gold); padding-bottom: 12px; }
-    .logo-sub { color: var(--muted); font-size: 11px; font-family: 'DM Sans', sans-serif; margin-left: 6px; }
+    .logo { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--gold); padding-bottom: 12px; }
+    .logo-sub { color: var(--muted); font-size: 11px; font-family: var(--font-mono); margin-left: 6px; }
     .tabs { display: flex; }
     .tab-btn {
       flex: 1; padding: 8px 0; background: none; border: none;
       border-bottom: 2px solid transparent;
-      color: var(--muted); font-family: 'DM Sans', sans-serif;
+      color: var(--muted); font-family: var(--font-body); font-weight: 600;
       font-size: 12px; cursor: pointer; letter-spacing: 0.04em;
       transition: color 0.15s, border-color 0.15s;
     }
@@ -32,10 +35,11 @@
     /* 공통 섹션 */
     .section-title {
       padding: 12px 20px 6px; font-size: 11px;
+      font-family: var(--font-mono);
       text-transform: uppercase; letter-spacing: .1em;
       color: var(--muted); display: flex; align-items: center; justify-content: space-between;
     }
-    .count-badge { font-size: 11px; color: var(--gold); background: var(--gold-dim); border-radius: 10px; padding: 1px 7px; }
+    .count-badge { font-size: 11px; font-family: var(--font-mono); color: var(--gold); background: var(--gold-dim); border-radius: 10px; padding: 1px 7px; }
 
     /* 아이템 목록 */
     .item-list { max-height: 240px; overflow-y: auto; padding: 0 12px 8px; }
@@ -59,7 +63,7 @@
       width: 100%; padding: 9px 0;
       background: var(--gold-dim); border: 1px solid rgba(255,217,122,0.3);
       border-radius: 8px; color: var(--gold);
-      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      font-family: var(--font-body); font-weight: 600; font-size: 13px;
       cursor: pointer; transition: background 0.15s;
     }
     .btn-export:hover { background: rgba(255,217,122,0.2); }
@@ -77,21 +81,21 @@
 
     /* 설정 탭 */
     .setting-group { padding: 14px 20px; border-bottom: 1px solid var(--border); }
-    .setting-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; }
+    .setting-label { font-size: 11px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; }
 
     /* 모국어 선택 */
     .lang-select {
       width: 100%; padding: 8px 12px;
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 8px; color: var(--text);
-      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      font-family: var(--font-body); font-size: 13px;
       cursor: pointer; outline: none;
     }
     .lang-select:focus { border-color: rgba(255,217,122,0.4); }
 
     /* 표시 모드 */
     .mode-options { display: flex; gap: 8px; }
-    .mode-btn { flex: 1; padding: 8px 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s; line-height: 1.5; }
+    .mode-btn { flex: 1; padding: 8px 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: var(--font-body); font-weight: 600; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s; line-height: 1.5; }
     .mode-btn.active { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
     .mode-btn span { display: block; font-size: 16px; margin-bottom: 3px; }
 
@@ -100,12 +104,12 @@
     .font-size-row label { font-size: 12px; color: var(--muted); min-width: 28px; }
     .slider-input { flex: 1; -webkit-appearance: none; height: 3px; background: var(--border); border-radius: 2px; outline: none; }
     .slider-input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--gold); border-radius: 50%; cursor: pointer; }
-    .font-val { font-size: 11px; color: var(--muted); min-width: 32px; text-align: right; }
+    .font-val { font-size: 11px; font-family: var(--font-mono); color: var(--muted); min-width: 32px; text-align: right; }
 
     /* 미리보기 */
     .font-preview { margin-top: 12px; padding: 10px 12px; background: #000; border-radius: 8px; text-align: center; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
-    .preview-en { font-family: 'Georgia', serif; font-weight: 600; color: #fff; text-shadow: 0 0 8px rgba(0,0,0,0.9); }
-    .preview-ko { font-family: 'Apple SD Gothic Neo', sans-serif; color: #ffd97a; text-shadow: 0 0 8px rgba(0,0,0,0.9); }
+    .preview-en { font-family: var(--font-display); font-weight: 600; color: #fff; text-shadow: 0 0 8px rgba(0,0,0,0.9); }
+    .preview-ko { font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; color: #ffd97a; text-shadow: 0 0 8px rgba(0,0,0,0.9); }
   </style>
 </head>
 <body>

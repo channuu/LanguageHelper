@@ -35,7 +35,7 @@
         "core/word-popup.js",
         "adapters/youtube.js"
       ],
-      "css": ["ui/overlay.css"],
+      "css": ["ui/tokens.css", "ui/overlay.css"],
       "run_at": "document_idle"
     },
     {
@@ -54,7 +54,7 @@
         "core/word-popup.js",
         "adapters/netflix.js"
       ],
-      "css": ["ui/overlay.css"],
+      "css": ["ui/tokens.css", "ui/overlay.css"],
       "run_at": "document_idle"
     },
     {
@@ -67,7 +67,7 @@
         "core/word-popup.js",
         "adapters/disney.js"
       ],
-      "css": ["ui/overlay.css"],
+      "css": ["ui/tokens.css", "ui/overlay.css"],
       "run_at": "document_idle"
     },
     {
@@ -86,7 +86,7 @@
         "core/word-popup.js",
         "adapters/coupang.js"
       ],
-      "css": ["ui/overlay.css"],
+      "css": ["ui/tokens.css", "ui/overlay.css"],
       "run_at": "document_idle"
     }
   ],
@@ -122,6 +122,15 @@
     {
       "resources": ["vendor/sql-wasm.wasm"],
       "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["ui/fonts/*.woff2"],
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.netflix.com/*",
+        "https://www.disneyplus.com/*",
+        "https://*.coupangplay.com/*"
+      ]
     }
   ]
 }

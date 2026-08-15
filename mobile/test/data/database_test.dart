@@ -24,7 +24,7 @@ void main() {
         {
           'id', 'word', 'definition', 'sentence', 'translation', 'platform',
           'content_title', 'content_id', 'timestamp', 'saved_at',
-          'review_count', 'next_review_at',
+          'review_count', 'next_review_at', 'review_level', 'last_reviewed_at',
         },
       );
 
@@ -36,7 +36,7 @@ void main() {
         {
           'id', 'original', 'translation', 'platform', 'content_title',
           'content_id', 'timestamp', 'saved_at', 'review_count',
-          'next_review_at',
+          'next_review_at', 'review_level', 'last_reviewed_at',
         },
       );
 
@@ -68,9 +68,14 @@ void main() {
   });
 
   group('hasValidSchema', () {
-    test('returns true for a database created by openAppDatabase', () async {
+    test('a fresh v3 app database has extra columns beyond a valid backup schema', () async {
+      // hasValidSchema pins the backup-file contract to kWordsColumns/
+      // kSentencesColumns (the Chrome extension's export shape), which is
+      // intentionally narrower than the app's own live schema now that the
+      // app has review_level/last_reviewed_at that the extension never
+      // produces. This is the correct, expected mismatch — not a bug.
       final db = await openAppDatabase(inMemoryDatabasePath);
-      expect(await hasValidSchema(db), isTrue);
+      expect(await hasValidSchema(db), isFalse);
       await db.close();
     });
 
@@ -182,8 +187,9 @@ void main() {
 
       await v1Db.close();
 
-      // Reopen the same database file with the current (v2) openAppDatabase,
-      // which should trigger onUpgrade and add the two missing tables.
+      // Reopen the same database file with the current (v3) openAppDatabase,
+      // which should trigger onUpgrade and add the two missing tables, plus
+      // review_level/last_reviewed_at columns for v3.
       final upgradedDb = await openAppDatabase(dbPath);
 
       final sessionsCols = (await upgradedDb.rawQuery('PRAGMA table_info(study_sessions)'))
@@ -196,8 +202,94 @@ void main() {
           .toSet();
       expect(goalsCols, {'id', 'target_minutes', 'effective_from', 'created_at'});
 
-      // words/sentences must still be intact.
-      expect(await hasValidSchema(upgradedDb), isTrue);
+      // words/sentences must have the v3 review columns now.
+      final wordsCols = (await upgradedDb.rawQuery('PRAGMA table_info(words)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(wordsCols, contains('review_level'));
+      expect(wordsCols, contains('last_reviewed_at'));
+
+      final sentencesCols = (await upgradedDb.rawQuery('PRAGMA table_info(sentences)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(sentencesCols, contains('review_level'));
+      expect(sentencesCols, contains('last_reviewed_at'));
+
+      await upgradedDb.close();
+    });
+
+    test('adds review_level/last_reviewed_at to a pre-existing v2 database', () async {
+      final tempDir = await Directory.systemTemp.createTemp('db_migration_v3_test');
+      final dbPath = p.join(tempDir.path, 'v2.sqlite');
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      // Simulate a pre-existing v2 install (Home-screen-redesign era):
+      // words/sentences + study_sessions/weekly_goals, no review_level yet.
+      final v2Db = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 2,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS words (
+                id TEXT PRIMARY KEY, word TEXT NOT NULL, definition TEXT, sentence TEXT,
+                translation TEXT, platform TEXT, content_title TEXT, content_id TEXT,
+                timestamp REAL, saved_at TEXT, review_count INTEGER DEFAULT 0, next_review_at TEXT
+              )
+            ''');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS sentences (
+                id TEXT PRIMARY KEY, original TEXT NOT NULL, translation TEXT, platform TEXT,
+                content_title TEXT, content_id TEXT, timestamp REAL, saved_at TEXT,
+                review_count INTEGER DEFAULT 0, next_review_at TEXT
+              )
+            ''');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS study_sessions (
+                id TEXT PRIMARY KEY, started_at TEXT NOT NULL, ended_at TEXT NOT NULL,
+                duration_seconds INTEGER NOT NULL, saved_at TEXT NOT NULL
+              )
+            ''');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS weekly_goals (
+                id TEXT PRIMARY KEY, target_minutes INTEGER NOT NULL,
+                effective_from TEXT NOT NULL, created_at TEXT NOT NULL
+              )
+            ''');
+          },
+        ),
+      );
+      await v2Db.insert('words', {
+        'id': 'w1', 'word': 'ephemeral', 'platform': 'netflix',
+        'content_title': 'x', 'content_id': 'y', 'timestamp': 1,
+        'saved_at': '2026-08-02T00:00:00.000Z', 'review_count': 2,
+      });
+      await v2Db.close();
+
+      final upgradedDb = await openAppDatabase(dbPath);
+
+      final wordsCols = (await upgradedDb.rawQuery('PRAGMA table_info(words)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(wordsCols, contains('review_level'));
+      expect(wordsCols, contains('last_reviewed_at'));
+
+      final sentencesCols = (await upgradedDb.rawQuery('PRAGMA table_info(sentences)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(sentencesCols, contains('review_level'));
+      expect(sentencesCols, contains('last_reviewed_at'));
+
+      // Pre-existing row must survive the migration with the new columns
+      // defaulted correctly.
+      final rows = await upgradedDb.query('words', where: 'id = ?', whereArgs: ['w1']);
+      expect(rows.single['review_level'], 0);
+      expect(rows.single['last_reviewed_at'], isNull);
+      expect(rows.single['review_count'], 2); // untouched
 
       await upgradedDb.close();
     });

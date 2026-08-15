@@ -11,6 +11,8 @@ class Word {
   final String savedAt;
   final int reviewCount;
   final String? nextReviewAt;
+  final int reviewLevel;
+  final String? lastReviewedAt;
 
   const Word({
     required this.id,
@@ -25,6 +27,8 @@ class Word {
     required this.savedAt,
     this.reviewCount = 0,
     this.nextReviewAt,
+    this.reviewLevel = 0,
+    this.lastReviewedAt,
   });
 
   Map<String, Object?> toMap() => {
@@ -40,6 +44,8 @@ class Word {
         'saved_at': savedAt,
         'review_count': reviewCount,
         'next_review_at': nextReviewAt,
+        'review_level': reviewLevel,
+        'last_reviewed_at': lastReviewedAt,
       };
 
   factory Word.fromMap(Map<String, Object?> map) => Word(
@@ -55,9 +61,17 @@ class Word {
         savedAt: (map['saved_at'] as String?) ?? '',
         reviewCount: (map['review_count'] as int?) ?? 0,
         nextReviewAt: map['next_review_at'] as String?,
+        reviewLevel: (map['review_level'] as int?) ?? 0,
+        lastReviewedAt: map['last_reviewed_at'] as String?,
       );
 
-  Word copyWith({int? reviewCount, String? nextReviewAt}) => Word(
+  Word copyWith({
+    int? reviewCount,
+    String? nextReviewAt,
+    int? reviewLevel,
+    String? lastReviewedAt,
+  }) =>
+      Word(
         id: id,
         word: word,
         definition: definition,
@@ -70,5 +84,7 @@ class Word {
         savedAt: savedAt,
         reviewCount: reviewCount ?? this.reviewCount,
         nextReviewAt: nextReviewAt ?? this.nextReviewAt,
+        reviewLevel: reviewLevel ?? this.reviewLevel,
+        lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
       );
 }

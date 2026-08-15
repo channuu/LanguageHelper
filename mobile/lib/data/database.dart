@@ -32,11 +32,18 @@ Future<void> _createTimerTables(Database db) async {
   ''');
 }
 
+Future<void> _addReviewLevelColumns(Database db) async {
+  await db.execute('ALTER TABLE words ADD COLUMN review_level INTEGER NOT NULL DEFAULT 0');
+  await db.execute('ALTER TABLE words ADD COLUMN last_reviewed_at TEXT');
+  await db.execute('ALTER TABLE sentences ADD COLUMN review_level INTEGER NOT NULL DEFAULT 0');
+  await db.execute('ALTER TABLE sentences ADD COLUMN last_reviewed_at TEXT');
+}
+
 Future<Database> openAppDatabase(String path) {
   return databaseFactory.openDatabase(
     path,
     options: OpenDatabaseOptions(
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS words (
@@ -51,7 +58,9 @@ Future<Database> openAppDatabase(String path) {
             timestamp REAL,
             saved_at TEXT,
             review_count INTEGER DEFAULT 0,
-            next_review_at TEXT
+            next_review_at TEXT,
+            review_level INTEGER NOT NULL DEFAULT 0,
+            last_reviewed_at TEXT
           )
         ''');
         await db.execute('''
@@ -65,7 +74,9 @@ Future<Database> openAppDatabase(String path) {
             timestamp REAL,
             saved_at TEXT,
             review_count INTEGER DEFAULT 0,
-            next_review_at TEXT
+            next_review_at TEXT,
+            review_level INTEGER NOT NULL DEFAULT 0,
+            last_reviewed_at TEXT
           )
         ''');
         await _createTimerTables(db);
@@ -73,6 +84,9 @@ Future<Database> openAppDatabase(String path) {
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await _createTimerTables(db);
+        }
+        if (oldVersion < 3) {
+          await _addReviewLevelColumns(db);
         }
       },
     ),

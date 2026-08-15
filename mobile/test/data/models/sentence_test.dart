@@ -59,5 +59,39 @@ void main() {
       expect(updated.nextReviewAt, '2026-08-03T00:00:00.000Z');
       expect(updated.original, 'x');
     });
+
+    test('toMap/fromMap round-trips reviewLevel and lastReviewedAt', () {
+      final sentence = Sentence(
+        id: 's1', original: 's-w1', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        reviewLevel: 3,
+        lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      );
+      final restored = Sentence.fromMap(sentence.toMap());
+      expect(restored.reviewLevel, 3);
+      expect(restored.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+    });
+
+    test('fromMap defaults reviewLevel to 0 and lastReviewedAt to null when missing', () {
+      final restored = Sentence.fromMap({
+        'id': 's2', 'original': 'brief', 'platform': 'youtube',
+        'timestamp': 5, 'saved_at': '2026-08-02T00:00:00.000Z',
+      });
+      expect(restored.reviewLevel, 0);
+      expect(restored.lastReviewedAt, isNull);
+    });
+
+    test('copyWith updates reviewLevel and lastReviewedAt', () {
+      final sentence = Sentence(
+        id: 's1', original: 's-w1', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+      );
+      final updated = sentence.copyWith(reviewLevel: 2, lastReviewedAt: '2026-08-10T00:00:00.000Z');
+      expect(updated.reviewLevel, 2);
+      expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+      expect(updated.original, 's-w1');
+    });
   });
 }

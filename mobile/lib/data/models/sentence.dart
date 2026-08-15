@@ -1,3 +1,5 @@
+const _unset = Object();
+
 class Sentence {
   final String id;
   final String original;
@@ -59,9 +61,9 @@ class Sentence {
 
   Sentence copyWith({
     int? reviewCount,
-    String? nextReviewAt,
+    Object? nextReviewAt = _unset,
     int? reviewLevel,
-    String? lastReviewedAt,
+    Object? lastReviewedAt = _unset,
   }) =>
       Sentence(
         id: id,
@@ -73,8 +75,12 @@ class Sentence {
         timestamp: timestamp,
         savedAt: savedAt,
         reviewCount: reviewCount ?? this.reviewCount,
-        nextReviewAt: nextReviewAt ?? this.nextReviewAt,
+        nextReviewAt: identical(nextReviewAt, _unset)
+            ? this.nextReviewAt
+            : nextReviewAt as String?,
         reviewLevel: reviewLevel ?? this.reviewLevel,
-        lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
+        lastReviewedAt: identical(lastReviewedAt, _unset)
+            ? this.lastReviewedAt
+            : lastReviewedAt as String?,
       );
 }

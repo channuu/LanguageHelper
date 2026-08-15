@@ -100,5 +100,18 @@ void main() {
       expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
       expect(updated.word, 'ephemeral');
     });
+
+    test('copyWith can explicitly clear nextReviewAt and lastReviewedAt to null', () {
+      final word = Word(
+        id: 'w1', word: 'ephemeral', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        nextReviewAt: '2026-08-08T00:00:00.000Z',
+        lastReviewedAt: '2026-08-01T00:00:00.000Z',
+      );
+      final cleared = word.copyWith(nextReviewAt: null, lastReviewedAt: null);
+      expect(cleared.nextReviewAt, isNull);
+      expect(cleared.lastReviewedAt, isNull);
+    });
   });
 }

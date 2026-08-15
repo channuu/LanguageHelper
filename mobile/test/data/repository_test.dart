@@ -112,6 +112,17 @@ void main() {
     expect(word.nextReviewAt, isNotNull);
   });
 
+  test('setWordReviewLevel(id, 0) clears a pre-existing nextReviewAt', () async {
+    await repo.saveWord(_word('w1').copyWith(
+      reviewLevel: 2,
+      nextReviewAt: '2026-08-08T00:00:00.000Z',
+    ));
+    await repo.setWordReviewLevel('w1', 0);
+    final word = (await repo.getWords()).single;
+    expect(word.reviewLevel, 0);
+    expect(word.nextReviewAt, isNull);
+  });
+
   test('setSentenceReviewLevel sets an arbitrary level directly', () async {
     await repo.saveSentence(_sentence('s1'));
     await repo.setSentenceReviewLevel('s1', 0);

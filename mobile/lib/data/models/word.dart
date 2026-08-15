@@ -1,3 +1,5 @@
+const _unset = Object();
+
 class Word {
   final String id;
   final String word;
@@ -67,9 +69,9 @@ class Word {
 
   Word copyWith({
     int? reviewCount,
-    String? nextReviewAt,
+    Object? nextReviewAt = _unset,
     int? reviewLevel,
-    String? lastReviewedAt,
+    Object? lastReviewedAt = _unset,
   }) =>
       Word(
         id: id,
@@ -83,8 +85,12 @@ class Word {
         timestamp: timestamp,
         savedAt: savedAt,
         reviewCount: reviewCount ?? this.reviewCount,
-        nextReviewAt: nextReviewAt ?? this.nextReviewAt,
+        nextReviewAt: identical(nextReviewAt, _unset)
+            ? this.nextReviewAt
+            : nextReviewAt as String?,
         reviewLevel: reviewLevel ?? this.reviewLevel,
-        lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
+        lastReviewedAt: identical(lastReviewedAt, _unset)
+            ? this.lastReviewedAt
+            : lastReviewedAt as String?,
       );
 }

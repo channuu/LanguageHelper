@@ -251,4 +251,4 @@
   cursor: pointer; transition: background 0.15s;
 }
 .eh-popup-btn:hover { background: rgba(var(--eh-gold-rgb), 0.18); }
-.eh-popup-loading { color: var(--eh-text-faint); font-size: 13px; text-align: center; padding: 12px 0; }
+.eh-popup-loading { color: rgba(var(--eh-text-rgb), 0.4); font-size: 13px; text-align: center; padding: 12px 0; }

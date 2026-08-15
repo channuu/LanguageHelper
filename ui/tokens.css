@@ -51,9 +51,9 @@
   --eh-gold-strong: #ffe6a8;
   --eh-gold-dim: rgba(255, 217, 122, 0.65);
 
-  /* 오렌지 액센트 (저장/선택/재생 위치 표시) — oklch(0.68 0.2 42) */
-  --eh-accent: #f86111;
-  --eh-accent-tint: rgba(248, 97, 17, 0.15);
+  /* 오렌지 액센트 (저장/선택/재생 위치 표시) — oklch(0.74 0.16 45) */
+  --eh-accent: #fb864d;
+  --eh-accent-tint: rgba(251, 134, 77, 0.15);
 
   /* 위험(삭제 등) — oklch(0.5 0.17 20) */
   --eh-danger: #af2938;

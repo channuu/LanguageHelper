@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 /// 표면을, Chrome 확장의 영상 위 UI는 어두운 표면을 쓴다 — 이 파일은
 /// 앱(밝은 표면) 쪽 토큰만 다룬다.
 ///
-/// oklch(0.68 0.2 42)/oklch(0.5 0.17 20)는 Dart `Color`가 지원하지 않아
+/// oklch(0.74 0.16 45)/oklch(0.5 0.17 20)는 Dart `Color`가 지원하지 않아
 /// sRGB hex로 변환한 값을 사용한다.
 class AppColors {
   AppColors._();
@@ -22,13 +22,13 @@ class AppColors {
   static const border = Color(0xFFE7EAF1);
   static const borderStrong = Color(0xFFE1E5EE);
 
-  /// oklch(0.68 0.2 42)
-  static const accent = Color(0xFFF86111);
+  /// oklch(0.74 0.16 45)
+  static const accent = Color(0xFFFB864D);
 
-  /// oklch(0.5 0.2 40) — 흰 배경 위 텍스트/링크용 진한 오렌지
-  static const accentInk = Color(0xFFB91B00);
+  /// oklch(0.56 0.17 42) — 흰 배경 위 텍스트/링크용 진한 오렌지
+  static const accentInk = Color(0xFFC24700);
 
-  static const accentTint = Color(0x1AF86111);
+  static const accentTint = Color(0x1AFB864D);
 
   /// oklch(0.5 0.17 20)
   static const danger = Color(0xFFAF2938);

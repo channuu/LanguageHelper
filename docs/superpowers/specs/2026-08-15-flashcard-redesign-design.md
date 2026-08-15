@@ -30,7 +30,9 @@ ALTER TABLE sentences ADD COLUMN last_reviewed_at TEXT;
 
 기존 `next_review_at` 컬럼은 그대로 두되 의미를 재정의한다: 더 이상 "+1일 고정"이 아니라 `last_reviewed_at + 레벨별 간격`으로 계산되어 저장되는 파생값이다(레벨/최종복습일이 바뀔 때마다 재계산). `review_count`는 그대로 두고 "총 복습 시도 횟수" 카운터로만 계속 쓴다(레벨과 별개, 하위 호환).
 
-`onCreate`의 CREATE TABLE 문에도 두 컬럼을 추가하고, `kWordsColumns`/`kSentencesColumns`(백업파일 import 스키마 검증에 쓰임)에도 반영한다.
+`onCreate`의 CREATE TABLE 문에도 두 컬럼을 추가한다.
+
+**`kWordsColumns`/`kSentencesColumns`는 건드리지 않는다.** 이 두 상수는 앱 자체 스키마가 아니라 Chrome 확장이 내보낸 백업 `.sqlite` 파일의 컬럼을 정확히 일치 검증(`hasValidSchema`, `mergeFromFile`에서 호출)하는 데 쓰인다 — 확장은 `review_level`/`last_reviewed_at`을 절대 내보내지 않으므로, 여기에 새 컬럼을 추가하면 실제 백업 파일이 전부 "올바른 백업 파일이 아닙니다"로 거부되는 회귀가 생긴다. `mergeFromFile`이 가져온 행을 `words`/`sentences`에 삽입할 때 `review_level`/`last_reviewed_at` 키가 없는 채로 삽입되며, 컬럼의 `DEFAULT 0`/`NULL`이 자동으로 채워지므로 동작에는 문제가 없다.
 
 ### 3.2 레벨 스케줄
 
@@ -106,7 +108,8 @@ bool _isDue(int reviewLevel, String? nextReviewAt) {
 ## 7. 테스트
 
 - DB 마이그레이션: v2 스키마에서 v3로 열었을 때 `review_level`/`last_reviewed_at` 컬럼이 생기는지, 정확한 기본값(0/NULL)인지 (`database_test.dart` 기존 마이그레이션 테스트와 동일한 방식).
-- `hasValidSchema`가 새 컬럼 포함 스키마를 유효하다고 인정하는지, 컬럼 누락/추가 케이스 여전히 거부하는지.
+- `hasValidSchema`/`kWordsColumns`/`kSentencesColumns`가 이번 변경으로 전혀 달라지지 않았는지(회귀 방지) — 기존 백업파일 검증 테스트가 그대로 통과하는지 확인.
+- `mergeFromFile`로 (review_level/last_reviewed_at이 없는) 구버전 백업 파일을 가져왔을 때 정상적으로 병합되고, 가져온 행의 `review_level`이 기본값 0으로 채워지는지.
 - `markWordReviewed`/`markSentenceReviewed`: 레벨이 1씩 오르는지(최대 4에서 멈추는지), `lastReviewedAt`/`nextReviewAt`이 레벨별 간격대로 계산되는지.
 - `setWordReviewLevel`/`setSentenceReviewLevel`: 임의 레벨로 직접 지정 가능한지.
 - 큐 필터링(`_isDue`): 레벨 0은 항상 포함, 레벨 1~4는 `nextReviewAt` 이전이면 제외·이후면 포함되는 경계값 테스트.

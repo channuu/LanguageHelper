@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/repository.dart';
+import '../../data/review_schedule.dart';
 import '../../shared/widgets/empty_state.dart';
+import '../../theme/app_theme.dart';
 import 'flashcard_item.dart';
 
 class FlashcardScreen extends StatefulWidget {
@@ -16,10 +18,12 @@ class FlashcardScreen extends StatefulWidget {
 
 class _FlashcardScreenState extends State<FlashcardScreen> {
   List<FlashcardItem>? _queue;
+  int _initialQueueLength = 0;
   bool _flipped = false;
+  bool _graded = false;
+  bool _wasCorrect = false;
+  final _answerController = TextEditingController();
 
-  // Whether the review queue had any items at all when it was first loaded.
-  // Used to distinguish "nothing saved yet" from "reviewed everything today".
   bool _hadItemsInitially = false;
 
   LearningRepository? _repo;
@@ -44,13 +48,10 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   @override
   void dispose() {
     _repo?.removeListener(_onRepositoryChanged);
+    _answerController.dispose();
     super.dispose();
   }
 
-  // Reload automatically only when the user isn't mid-review (i.e. the
-  // queue is currently empty, showing one of the empty states). This picks
-  // up data that arrived via import (or was removed on the Home screen)
-  // without yanking cards out from under an in-progress review session.
   void _onRepositoryChanged() {
     if (_queue == null || _queue!.isEmpty) {
       _loadQueue();
@@ -62,21 +63,33 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     final words = await repo.getWords();
     final sentences = await repo.getSentences();
     final items = [
-      ...words.map(FlashcardItem.fromWord),
-      ...sentences.map(FlashcardItem.fromSentence),
+      ...words
+          .where((w) => isDueForReview(w.reviewLevel, w.nextReviewAt))
+          .map(FlashcardItem.fromWord),
+      ...sentences
+          .where((s) => isDueForReview(s.reviewLevel, s.nextReviewAt))
+          .map(FlashcardItem.fromSentence),
     ]..shuffle(Random());
     if (!mounted) return;
     setState(() {
       _queue = items;
-      _hadItemsInitially = items.isNotEmpty;
+      _initialQueueLength = items.length;
+      _hadItemsInitially = words.isNotEmpty || sentences.isNotEmpty;
+      _flipped = false;
+      _graded = false;
+      _wasCorrect = false;
+      _answerController.clear();
     });
   }
 
-  void _dontKnow() {
+  void _again() {
     setState(() {
       final current = _queue!.removeAt(0);
       _queue!.add(current);
       _flipped = false;
+      _graded = false;
+      _wasCorrect = false;
+      _answerController.clear();
     });
   }
 
@@ -91,7 +104,24 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     setState(() {
       _queue!.removeAt(0);
       _flipped = false;
+      _graded = false;
+      _wasCorrect = false;
+      _answerController.clear();
     });
+  }
+
+  void _submitAnswer() {
+    final input = _answerController.text.trim();
+    if (input.isEmpty) return;
+    final current = _queue!.first;
+    setState(() {
+      _graded = true;
+      _wasCorrect = input.toLowerCase() == current.correctAnswer.trim().toLowerCase();
+    });
+  }
+
+  void _toggleFlip() {
+    setState(() => _flipped = !_flipped);
   }
 
   @override
@@ -111,45 +141,277 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
           );
         }
         final current = queue.first;
-        return Column(
-          children: [
-            Expanded(
-              child: Center(
+        final progress = _initialQueueLength == 0
+            ? 0.0
+            : 1 - (queue.length / _initialQueueLength);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            children: [
+              _CardHeader(item: current),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  backgroundColor: const Color(0xFFE5E8F0),
+                  valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _flipped = !_flipped),
+                  key: const ValueKey('flashcard-body'),
+                  onTap: _toggleFlip,
                   child: Card(
-                    margin: const EdgeInsets.all(24),
+                    margin: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      side: const BorderSide(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Text(
-                        _flipped ? current.back : current.front,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                        textAlign: TextAlign.center,
-                      ),
+                      padding: const EdgeInsets.all(24),
+                      child: _flipped
+                          ? _CardBack(item: current)
+                          : _CardFront(item: current, promptSize: 24),
                     ),
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              if (!_flipped) ...[
+                const SizedBox(height: 14),
+                _AnswerInput(
+                  controller: _answerController,
+                  onSubmit: _submitAnswer,
+                  graded: _graded,
+                  wasCorrect: _wasCorrect,
+                  correctAnswer: current.correctAnswer,
+                ),
+              ],
+              const SizedBox(height: 14),
+              Row(
                 children: [
-                  ElevatedButton(
-                    onPressed: _dontKnow,
-                    child: const Text('몰라요'),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _again,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        side: const BorderSide(color: AppColors.borderStrong),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('다시'),
+                    ),
                   ),
-                  ElevatedButton(
-                    onPressed: _know,
-                    child: const Text('알아요'),
-                  ),
+                  if (_flipped) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _know,
+                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                        child: const Text('알아요'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         );
       }),
+    );
+  }
+}
+
+class _CardHeader extends StatelessWidget {
+  final FlashcardItem item;
+  const _CardHeader({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = kReviewLevelNames[item.reviewLevel];
+    final days = kReviewIntervalDays[item.reviewLevel];
+    final gap = days == null ? '' : '$days일';
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: AppColors.accentTint,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            name,
+            style: const TextStyle(
+              fontFamily: AppFonts.mono,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.accentInk,
+            ),
+          ),
+        ),
+        if (gap.isNotEmpty) ...[
+          const SizedBox(width: 7),
+          Text(gap, style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 11, color: AppColors.inkQuaternary)),
+        ],
+        const Spacer(),
+        Text(
+          '마지막 복습 ${item.lastReviewedAt == null ? '없음' : _shortDate(item.lastReviewedAt!)}',
+          style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 11, color: AppColors.inkQuaternary),
+        ),
+      ],
+    );
+  }
+
+  static String _shortDate(String iso) {
+    final d = DateTime.parse(iso);
+    return '${d.month}/${d.day}';
+  }
+}
+
+class _CardFront extends StatelessWidget {
+  final FlashcardItem item;
+  final double promptSize;
+  const _CardFront({required this.item, required this.promptSize});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            item.promptLabel,
+            style: const TextStyle(
+              fontFamily: AppFonts.mono,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.12,
+              color: AppColors.inkTertiary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            item.prompt,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppFonts.display,
+              fontWeight: FontWeight.w600,
+              fontSize: promptSize,
+              color: AppColors.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardBack extends StatelessWidget {
+  final FlashcardItem item;
+  const _CardBack({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(item.backHeadline, style: const TextStyle(
+          fontFamily: AppFonts.display, fontWeight: FontWeight.w600, fontSize: 26, color: AppColors.ink)),
+        if (item.backSubtext.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text(item.backSubtext, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.ink)),
+        ],
+        if (item.backDetail.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(item.backDetail, style: const TextStyle(fontSize: 13.5, color: AppColors.inkTertiary, height: 1.6)),
+        ],
+        if (item.backExample.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: 18),
+          Text(item.backExample, style: const TextStyle(fontFamily: AppFonts.display, fontSize: 15, color: AppColors.inkSecondary, height: 1.55)),
+        ],
+      ],
+    );
+  }
+}
+
+class _AnswerInput extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onSubmit;
+  final bool graded;
+  final bool wasCorrect;
+  final String correctAnswer;
+
+  const _AnswerInput({
+    required this.controller,
+    required this.onSubmit,
+    required this.graded,
+    required this.wasCorrect,
+    required this.correctAnswer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 58,
+          padding: const EdgeInsets.only(left: 16, right: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.borderStrong, width: 1.5),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  onSubmitted: (_) => onSubmit(),
+                  decoration: const InputDecoration(border: InputBorder.none, hintText: '답을 입력하세요'),
+                  style: const TextStyle(fontFamily: AppFonts.display, fontSize: 16),
+                ),
+              ),
+              IconButton(
+                onPressed: onSubmit,
+                icon: const Icon(Icons.arrow_forward),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: AppColors.ink,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (graded) ...[
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Row(
+              children: [
+                Text(
+                  wasCorrect ? '정답!' : '오답',
+                  style: TextStyle(
+                    fontFamily: AppFonts.display,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    color: wasCorrect ? AppColors.accentInk : AppColors.danger,
+                  ),
+                ),
+                if (!wasCorrect) ...[
+                  const SizedBox(width: 8),
+                  Text('정답: $correctAnswer', style: const TextStyle(fontSize: 12.5, color: AppColors.inkTertiary)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

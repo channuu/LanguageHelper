@@ -1,34 +1,68 @@
 import '../../data/models/sentence.dart';
 import '../../data/models/word.dart';
 
+/// One flashcard's testable content. Word items test 뜻→단어 (see the
+/// translation, type the English word); sentence items test 번역→원문.
 class FlashcardItem {
   final String id;
-  final String front;
-  final String back;
-  final String contentTitle;
   final bool isWord;
+  final String promptLabel;
+  final String prompt;
+  final String correctAnswer;
+  final String backHeadline;
+  final String backSubtext;
+  final String backDetail;
+  final String backExample;
+  final String contentTitle;
+  final String platform;
+  final int reviewLevel;
+  final String? lastReviewedAt;
 
   const FlashcardItem({
     required this.id,
-    required this.front,
-    required this.back,
-    required this.contentTitle,
     required this.isWord,
+    required this.promptLabel,
+    required this.prompt,
+    required this.correctAnswer,
+    required this.backHeadline,
+    required this.backSubtext,
+    required this.backDetail,
+    required this.backExample,
+    required this.contentTitle,
+    required this.platform,
+    required this.reviewLevel,
+    required this.lastReviewedAt,
   });
 
   factory FlashcardItem.fromWord(Word w) => FlashcardItem(
         id: w.id,
-        front: w.word,
-        back: [w.definition, w.sentence].where((s) => s.isNotEmpty).join('\n\n'),
-        contentTitle: w.contentTitle,
         isWord: true,
+        promptLabel: '영어로 어떻게 말할까요?',
+        prompt: w.translation.isNotEmpty ? w.translation : w.definition,
+        correctAnswer: w.word,
+        backHeadline: w.word,
+        backSubtext: w.translation,
+        backDetail: w.definition,
+        backExample: w.sentence,
+        contentTitle: w.contentTitle,
+        platform: w.platform,
+        reviewLevel: w.reviewLevel,
+        lastReviewedAt: w.lastReviewedAt,
       );
 
   factory FlashcardItem.fromSentence(Sentence s) => FlashcardItem(
         id: s.id,
-        front: s.original,
-        back: s.translation,
-        contentTitle: s.contentTitle,
         isWord: false,
+        promptLabel: '원문을 입력해보세요',
+        prompt: s.translation,
+        correctAnswer: s.original,
+        backHeadline: s.original,
+        backSubtext: s.translation,
+        backDetail: '',
+        backExample: '',
+        contentTitle: s.contentTitle,
+        platform: s.platform,
+        reviewLevel: s.reviewLevel,
+        lastReviewedAt: s.lastReviewedAt,
       );
 }

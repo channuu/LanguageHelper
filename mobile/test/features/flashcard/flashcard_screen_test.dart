@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/models/word.dart';
 import 'package:english_helper_app/data/repository.dart';
+import 'package:english_helper_app/data/review_schedule.dart';
 import 'package:english_helper_app/features/flashcard/flashcard_screen.dart';
 import 'package:english_helper_app/data/models/sentence.dart';
 
@@ -262,5 +263,116 @@ void main() {
 
     expect(find.text('ephemeral'), findsOneWidget);
     expect(find.text('Nothing in life is ephemeral.'), findsNothing);
+  });
+
+  testWidgets('tapping + opens the add sheet, saving creates a new word', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('추가'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('새 항목'), findsWidgets); // sheet title or level-0 row
+
+    await tester.enterText(find.byKey(const ValueKey('edit-en-field')), 'ephemeral');
+    await tester.enterText(find.byKey(const ValueKey('edit-ko-field')), '덧없는');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    final words = await repo.getWords();
+    expect(words, hasLength(1));
+    expect(words.single.word, 'ephemeral');
+    expect(words.single.translation, '덧없는');
+  });
+
+  testWidgets('tapping a list item opens the edit sheet pre-filled, saving updates it', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await repo.saveWord(_dueWord());
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ephemeral'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('항목 수정'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'ephemeral'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('edit-ko-field')), '수정된 뜻');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    final words = await repo.getWords();
+    expect(words.single.translation, '수정된 뜻');
+    expect(words.single.id, 'w1'); // same id, upserted not duplicated
+  });
+
+  testWidgets('delete button only shows when editing, and deletes the item', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await repo.saveWord(_dueWord());
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('추가'));
+    await tester.pumpAndSettle();
+    expect(find.text('삭제'), findsNothing);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ephemeral'));
+    await tester.pumpAndSettle();
+    expect(find.text('삭제'), findsOneWidget);
+
+    // The sheet's content overflows the visible viewport, so the delete
+    // button sits below the fold inside the SingleChildScrollView.
+    await tester.ensureVisible(find.text('삭제'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+
+    final words = await repo.getWords();
+    expect(words, isEmpty);
+  });
+
+  testWidgets('tapping a review level in the sheet applies it immediately', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await repo.saveWord(_dueWord(reviewLevel: 0));
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ephemeral'));
+    await tester.pumpAndSettle();
+
+    // find.text(kReviewLevelNames[3]) alone would be ambiguous: the
+    // level-filter chip row in the (still-mounted) list behind the sheet
+    // uses the same label. Scope the tap to inside the modal bottom sheet.
+    final levelRowInSheet = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.text(kReviewLevelNames[3]),
+    );
+    await tester.ensureVisible(levelRowInSheet);
+    await tester.pumpAndSettle();
+    await tester.tap(levelRowInSheet);
+    await tester.pumpAndSettle();
+
+    // Applied immediately, independent of 저장/취소.
+    final words = await repo.getWords();
+    expect(words.single.reviewLevel, 3);
   });
 }

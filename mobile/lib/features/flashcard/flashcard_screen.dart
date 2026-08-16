@@ -14,6 +14,14 @@ import 'flashcard_item.dart';
 enum _FlashcardMode { card, list }
 enum _TypeFilter { all, wordOnly, sentenceOnly }
 
+// Dart's `_`-prefixed privacy is per-file, so this can't import
+// study_timer_repository.dart's identical private _generateId() — a small
+// duplicate is simpler than exporting a cross-feature utility for 3 lines.
+String _generateId() {
+  final rand = Random();
+  return List.generate(16, (_) => rand.nextInt(16).toRadixString(16)).join();
+}
+
 class FlashcardScreen extends StatefulWidget {
   const FlashcardScreen({super.key});
 
@@ -353,7 +361,15 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   }
 
   void _openEditSheet(FlashcardItem? item) {
-    // Wired up in Task 5.
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditItemSheet(
+        item: item,
+        onSaved: _loadQueue,
+      ),
+    );
   }
 }
 
@@ -704,6 +720,241 @@ class _ListItemCard extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditItemSheet extends StatefulWidget {
+  final FlashcardItem? item; // null = creating a new item
+  final VoidCallback onSaved;
+
+  const _EditItemSheet({required this.item, required this.onSaved});
+
+  @override
+  State<_EditItemSheet> createState() => _EditItemSheetState();
+}
+
+class _EditItemSheetState extends State<_EditItemSheet> {
+  late bool _isWord;
+  late final TextEditingController _enController;
+  late final TextEditingController _koController;
+  late final TextEditingController _exController;
+  late int _level;
+
+  bool get _isNew => widget.item == null;
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    _isWord = item?.isWord ?? true;
+    _enController = TextEditingController(text: item?.backHeadline ?? '');
+    _koController = TextEditingController(text: item?.backSubtext ?? '');
+    _exController = TextEditingController(text: item?.backExample ?? '');
+    _level = item?.reviewLevel ?? 0;
+  }
+
+  @override
+  void dispose() {
+    _enController.dispose();
+    _koController.dispose();
+    _exController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickLevel(int level) async {
+    setState(() => _level = level);
+    final item = widget.item;
+    if (item == null) return; // new item: level is only saved when 저장 is tapped
+    final repo = context.read<LearningRepository>();
+    if (item.isWord) {
+      await repo.setWordReviewLevel(item.id, level);
+    } else {
+      await repo.setSentenceReviewLevel(item.id, level);
+    }
+  }
+
+  Future<void> _save() async {
+    final repo = context.read<LearningRepository>();
+    final en = _enController.text.trim();
+    final ko = _koController.text.trim();
+    if (en.isEmpty) return;
+
+    if (_isWord) {
+      final existing = widget.item;
+      await repo.saveWord(Word(
+        id: existing?.id ?? _generateId(),
+        word: en,
+        translation: ko,
+        sentence: _exController.text.trim(),
+        definition: '', // the edit sheet has no definition field (spec §5.4)
+        platform: existing == null ? '' : existing.platform,
+        contentTitle: existing?.contentTitle ?? '',
+        contentId: '',
+        timestamp: 0,
+        savedAt: DateTime.now().toIso8601String(),
+        reviewLevel: _level,
+      ));
+    } else {
+      final existing = widget.item;
+      await repo.saveSentence(Sentence(
+        id: existing?.id ?? _generateId(),
+        original: en,
+        translation: ko,
+        platform: existing?.platform ?? '',
+        contentTitle: existing?.contentTitle ?? '',
+        contentId: '',
+        timestamp: 0,
+        savedAt: DateTime.now().toIso8601String(),
+        reviewLevel: _level,
+      ));
+    }
+    widget.onSaved();
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _delete() async {
+    final item = widget.item;
+    if (item == null) return;
+    final repo = context.read<LearningRepository>();
+    if (item.isWord) {
+      await repo.deleteWord(item.id);
+    } else {
+      await repo.deleteSentence(item.id);
+    }
+    widget.onSaved();
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+      padding: EdgeInsets.only(
+        left: 20, right: 20, top: 18,
+        bottom: 26 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFBFD),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
+                Expanded(
+                  child: Text(
+                    _isNew ? '항목 추가' : '항목 수정',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                ),
+                TextButton(onPressed: _save, child: const Text('저장')),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(color: const Color(0xFFE9ECF3), borderRadius: BorderRadius.circular(10)),
+              child: Row(
+                children: [
+                  Expanded(child: _typeSegment('단어', _isWord, () => setState(() => _isWord = true))),
+                  Expanded(child: _typeSegment('문장', !_isWord, () => setState(() => _isWord = false))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(_isWord ? '영어 단어' : '영어 원문', style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.inkQuaternary)),
+            const SizedBox(height: 7),
+            TextField(
+              key: const ValueKey('edit-en-field'),
+              controller: _enController,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+            const Text('한글 뜻', style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.inkQuaternary)),
+            const SizedBox(height: 7),
+            TextField(
+              key: const ValueKey('edit-ko-field'),
+              controller: _koController,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            if (_isWord) ...[
+              const SizedBox(height: 16),
+              const Text('응용 예문', style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.inkQuaternary)),
+              const SizedBox(height: 7),
+              TextField(
+                key: const ValueKey('edit-ex-field'),
+                controller: _exController,
+                maxLines: 3,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+              ),
+            ],
+            const SizedBox(height: 18),
+            const Text('복습 상태', style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.inkQuaternary)),
+            const SizedBox(height: 8),
+            for (var lvl = 0; lvl <= kMaxReviewLevel; lvl++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: _levelRow(lvl),
+              ),
+            if (!_isNew) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _delete,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(46),
+                    side: const BorderSide(color: AppColors.borderStrong),
+                    foregroundColor: AppColors.danger,
+                  ),
+                  child: const Text('삭제'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _typeSegment(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 32,
+        decoration: BoxDecoration(color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(8)),
+        alignment: Alignment.center,
+        child: Text(label, style: TextStyle(fontFamily: AppFonts.display, fontWeight: FontWeight.w600, fontSize: 12.5, color: selected ? AppColors.ink : AppColors.inkTertiary)),
+      ),
+    );
+  }
+
+  Widget _levelRow(int level) {
+    final selected = _level == level;
+    final days = kReviewIntervalDays[level];
+    return GestureDetector(
+      onTap: () => _pickLevel(level),
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 13),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentTint : Colors.white,
+          border: Border.all(color: selected ? AppColors.accent : AppColors.borderStrong),
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          children: [
+            Text(kReviewLevelNames[level], style: TextStyle(fontFamily: AppFonts.display, fontWeight: FontWeight.w600, fontSize: 14, color: selected ? AppColors.accentInk : AppColors.ink)),
+            const Spacer(),
+            Text(days == null ? '-' : '$days일', style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 11.5, color: AppColors.inkQuaternary)),
           ],
         ),
       ),

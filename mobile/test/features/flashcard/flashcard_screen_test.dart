@@ -6,6 +6,7 @@ import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/models/word.dart';
 import 'package:english_helper_app/data/repository.dart';
 import 'package:english_helper_app/features/flashcard/flashcard_screen.dart';
+import 'package:english_helper_app/data/models/sentence.dart';
 
 Word _dueWord({String id = 'w1', int reviewLevel = 0, String? lastReviewedAt}) => Word(
       id: id, word: 'ephemeral', definition: 'lasting for a very short time',
@@ -187,5 +188,79 @@ void main() {
 
     expect(find.textContaining('아직 저장된 항목이 없어요'), findsNothing);
     expect(find.text('덧없는'), findsOneWidget);
+  });
+
+  testWidgets('list mode shows all saved items regardless of due date', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    final future = DateTime.now().add(const Duration(days: 10)).toIso8601String();
+    await repo.saveWord(_dueWord(id: 'w1'));
+    await repo.saveWord(Word(
+      id: 'w2', word: 'brief', translation: '짧은', platform: 'netflix',
+      contentTitle: 'Title', contentId: 'c1', timestamp: 1,
+      savedAt: '2026-08-02T00:00:00.000Z', reviewLevel: 2, nextReviewAt: future,
+    ));
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ephemeral'), findsOneWidget);
+    expect(find.text('brief'), findsOneWidget); // not-yet-due item still shows in list mode
+  });
+
+  testWidgets('level filter chip narrows the list', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await repo.saveWord(_dueWord(id: 'w1', reviewLevel: 0));
+    await repo.saveWord(Word(
+      id: 'w2', word: 'brief', translation: '짧은', platform: 'netflix',
+      contentTitle: 'Title', contentId: 'c1', timestamp: 1,
+      savedAt: '2026-08-02T00:00:00.000Z', reviewLevel: 2,
+    ));
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ephemeral'), findsOneWidget);
+    expect(find.text('brief'), findsOneWidget);
+
+    // find.text(kReviewLevelNames[2]) would be ambiguous here: the level-2
+    // filter chip AND the "brief" list item's own level badge both render
+    // '복습 필요' simultaneously. Target the chip by its key instead.
+    await tester.tap(find.byKey(const ValueKey('level-chip-2')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ephemeral'), findsNothing);
+    expect(find.text('brief'), findsOneWidget);
+  });
+
+  testWidgets('type filter narrows both card and list mode', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await repo.saveWord(_dueWord(id: 'w1'));
+    await repo.saveSentence(Sentence(
+      id: 's1', original: 'Nothing in life is ephemeral.', translation: '인생에서 덧없지 않은 것은 없다.',
+      platform: 'youtube', contentTitle: 'Video', contentId: 'c2',
+      timestamp: 1, savedAt: '2026-08-02T00:00:00.000Z',
+    ));
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ephemeral'), findsOneWidget);
+    expect(find.text('Nothing in life is ephemeral.'), findsOneWidget);
+
+    await tester.tap(find.text('단어'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ephemeral'), findsOneWidget);
+    expect(find.text('Nothing in life is ephemeral.'), findsNothing);
   });
 }

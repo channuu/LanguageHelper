@@ -1709,7 +1709,10 @@ Append to `mobile/test/features/flashcard/flashcard_screen_test.dart` (before th
     expect(find.text('ephemeral'), findsOneWidget);
     expect(find.text('brief'), findsOneWidget);
 
-    await tester.tap(find.text(kReviewLevelNames[2]));
+    // find.text(kReviewLevelNames[2]) would be ambiguous here: the level-2
+    // filter chip AND the "brief" list item's own level badge both render
+    // '복습 필요' simultaneously. Target the chip by its key instead.
+    await tester.tap(find.byKey(const ValueKey('level-chip-2')));
     await tester.pumpAndSettle();
 
     expect(find.text('ephemeral'), findsNothing);
@@ -1746,8 +1749,9 @@ Add the import at the top of the test file:
 
 ```dart
 import 'package:english_helper_app/data/models/sentence.dart';
-import 'package:english_helper_app/data/review_schedule.dart';
 ```
+
+(Not `review_schedule.dart` — the level filter chip is targeted by `Key`, not by `kReviewLevelNames` text, per the fix below, so the test file has no direct reference to that module.)
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -2012,6 +2016,7 @@ Change `build()` to add the mode/type toggle above the existing card-mode `Build
   Widget _levelChip({required String label, required int? level}) {
     final selected = _listLevelFilter == level;
     return ChoiceChip(
+      key: ValueKey('level-chip-${level ?? 'all'}'),
       label: Text(label),
       selected: selected,
       showCheckmark: false,

@@ -60,6 +60,8 @@ class Sentence {
       );
 
   Sentence copyWith({
+    String? original,
+    String? translation,
     int? reviewCount,
     Object? nextReviewAt = _unset,
     int? reviewLevel,
@@ -67,8 +69,8 @@ class Sentence {
   }) =>
       Sentence(
         id: id,
-        original: original,
-        translation: translation,
+        original: original ?? this.original,
+        translation: translation ?? this.translation,
         platform: platform,
         contentTitle: contentTitle,
         contentId: contentId,

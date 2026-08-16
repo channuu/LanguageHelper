@@ -785,32 +785,53 @@ class _EditItemSheetState extends State<_EditItemSheet> {
 
     if (_isWord) {
       final existing = widget.item;
-      await repo.saveWord(Word(
-        id: existing?.id ?? _generateId(),
-        word: en,
-        translation: ko,
-        sentence: _exController.text.trim(),
-        definition: '', // the edit sheet has no definition field (spec §5.4)
-        platform: existing == null ? '' : existing.platform,
-        contentTitle: existing?.contentTitle ?? '',
-        contentId: '',
-        timestamp: 0,
-        savedAt: DateTime.now().toIso8601String(),
-        reviewLevel: _level,
-      ));
+      if (existing != null) {
+        final currentWords = await repo.getWords();
+        final currentWord = currentWords.firstWhere((w) => w.id == existing.id);
+        await repo.saveWord(currentWord.copyWith(
+          word: en,
+          translation: ko,
+          sentence: _exController.text.trim(),
+          reviewLevel: _level,
+        ));
+      } else {
+        await repo.saveWord(Word(
+          id: _generateId(),
+          word: en,
+          translation: ko,
+          sentence: _exController.text.trim(),
+          definition: '', // the edit sheet has no definition field (spec §5.4)
+          platform: '',
+          contentTitle: '',
+          contentId: '',
+          timestamp: 0,
+          savedAt: DateTime.now().toIso8601String(),
+          reviewLevel: _level,
+        ));
+      }
     } else {
       final existing = widget.item;
-      await repo.saveSentence(Sentence(
-        id: existing?.id ?? _generateId(),
-        original: en,
-        translation: ko,
-        platform: existing?.platform ?? '',
-        contentTitle: existing?.contentTitle ?? '',
-        contentId: '',
-        timestamp: 0,
-        savedAt: DateTime.now().toIso8601String(),
-        reviewLevel: _level,
-      ));
+      if (existing != null) {
+        final currentSentences = await repo.getSentences();
+        final currentSentence = currentSentences.firstWhere((s) => s.id == existing.id);
+        await repo.saveSentence(currentSentence.copyWith(
+          original: en,
+          translation: ko,
+          reviewLevel: _level,
+        ));
+      } else {
+        await repo.saveSentence(Sentence(
+          id: _generateId(),
+          original: en,
+          translation: ko,
+          platform: '',
+          contentTitle: '',
+          contentId: '',
+          timestamp: 0,
+          savedAt: DateTime.now().toIso8601String(),
+          reviewLevel: _level,
+        ));
+      }
     }
     widget.onSaved();
     if (mounted) Navigator.of(context).pop();

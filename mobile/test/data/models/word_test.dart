@@ -113,5 +113,27 @@ void main() {
       expect(cleared.nextReviewAt, isNull);
       expect(cleared.lastReviewedAt, isNull);
     });
+
+    test('copyWith updates word/translation/sentence but leaves other fields (including definition and nextReviewAt) untouched', () {
+      final word = Word(
+        id: 'w1', word: 'ephemeral', definition: 'lasting for a very short time',
+        sentence: 'Nothing in life is ephemeral.', translation: '덧없는',
+        platform: 'netflix', contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        reviewCount: 5, reviewLevel: 3,
+        nextReviewAt: '2099-01-01T00:00:00.000Z',
+        lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      );
+      final updated = word.copyWith(word: 'new-word');
+
+      expect(updated.word, 'new-word');
+      expect(updated.translation, '덧없는');
+      expect(updated.sentence, 'Nothing in life is ephemeral.');
+      expect(updated.definition, 'lasting for a very short time');
+      expect(updated.reviewCount, 5);
+      expect(updated.reviewLevel, 3);
+      expect(updated.nextReviewAt, '2099-01-01T00:00:00.000Z');
+      expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+    });
   });
 }

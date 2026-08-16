@@ -315,6 +315,38 @@ void main() {
     expect(words.single.id, 'w1'); // same id, upserted not duplicated
   });
 
+  testWidgets('editing an existing word preserves nextReviewAt, reviewCount, and definition', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await repo.saveWord(Word(
+      id: 'w1', word: 'ephemeral', definition: 'lasting for a very short time',
+      translation: '덧없는', platform: 'netflix', contentTitle: 'Title',
+      contentId: 'c1', timestamp: 1, savedAt: '2026-08-02T00:00:00.000Z',
+      reviewLevel: 3, reviewCount: 5,
+      nextReviewAt: '2099-01-01T00:00:00.000Z',
+      lastReviewedAt: '2026-08-10T00:00:00.000Z',
+    ));
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ephemeral'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const ValueKey('edit-ko-field')), '수정된 뜻');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    final word = (await repo.getWords()).single;
+    expect(word.translation, '수정된 뜻'); // the edited field
+    expect(word.definition, 'lasting for a very short time'); // preserved
+    expect(word.reviewCount, 5); // preserved
+    expect(word.nextReviewAt, '2099-01-01T00:00:00.000Z'); // preserved
+    expect(word.lastReviewedAt, '2026-08-10T00:00:00.000Z'); // preserved
+  });
+
   testWidgets('delete button only shows when editing, and deletes the item', (tester) async {
     final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
     addTearDown(repo.close);

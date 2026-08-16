@@ -106,5 +106,24 @@ void main() {
       expect(cleared.nextReviewAt, isNull);
       expect(cleared.lastReviewedAt, isNull);
     });
+
+    test('copyWith updates original/translation but leaves other fields (including nextReviewAt) untouched', () {
+      final sentence = Sentence(
+        id: 's1', original: 'Nothing in life is ephemeral.', translation: '덧없는',
+        platform: 'netflix', contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        reviewCount: 5, reviewLevel: 3,
+        nextReviewAt: '2099-01-01T00:00:00.000Z',
+        lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      );
+      final updated = sentence.copyWith(original: 'New original.');
+
+      expect(updated.original, 'New original.');
+      expect(updated.translation, '덧없는');
+      expect(updated.reviewCount, 5);
+      expect(updated.reviewLevel, 3);
+      expect(updated.nextReviewAt, '2099-01-01T00:00:00.000Z');
+      expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+    });
   });
 }

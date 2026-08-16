@@ -68,6 +68,9 @@ class Word {
       );
 
   Word copyWith({
+    String? word,
+    String? translation,
+    String? sentence,
     int? reviewCount,
     Object? nextReviewAt = _unset,
     int? reviewLevel,
@@ -75,10 +78,10 @@ class Word {
   }) =>
       Word(
         id: id,
-        word: word,
+        word: word ?? this.word,
         definition: definition,
-        sentence: sentence,
-        translation: translation,
+        sentence: sentence ?? this.sentence,
+        translation: translation ?? this.translation,
         platform: platform,
         contentTitle: contentTitle,
         contentId: contentId,

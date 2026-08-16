@@ -378,6 +378,39 @@ void main() {
     expect(words, isEmpty);
   });
 
+  testWidgets('the type toggle is not shown when editing an existing item', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await repo.saveWord(_dueWord());
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ephemeral'));
+    await tester.pumpAndSettle();
+
+    // The 단어/문장 toggle only makes sense for new items (word<->sentence
+    // conversion isn't a supported operation - different tables/id spaces).
+    expect(find.byKey(const ValueKey('edit-type-toggle')), findsNothing);
+  });
+
+  testWidgets('the type toggle is shown when creating a new item', (tester) async {
+    final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+
+    await tester.pumpWidget(buildApp(repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('목록'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('추가'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('edit-type-toggle')), findsOneWidget);
+  });
+
   testWidgets('tapping a review level in the sheet applies it immediately', (tester) async {
     final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
     addTearDown(repo.close);

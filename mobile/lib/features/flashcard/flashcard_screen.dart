@@ -787,7 +787,18 @@ class _EditItemSheetState extends State<_EditItemSheet> {
       final existing = widget.item;
       if (existing != null) {
         final currentWords = await repo.getWords();
-        final currentWord = currentWords.firstWhere((w) => w.id == existing.id);
+        Word? currentWord;
+        for (final w in currentWords) {
+          if (w.id == existing.id) {
+            currentWord = w;
+            break;
+          }
+        }
+        if (currentWord == null) {
+          widget.onSaved();
+          if (mounted) Navigator.of(context).pop();
+          return;
+        }
         await repo.saveWord(currentWord.copyWith(
           word: en,
           translation: ko,
@@ -813,7 +824,18 @@ class _EditItemSheetState extends State<_EditItemSheet> {
       final existing = widget.item;
       if (existing != null) {
         final currentSentences = await repo.getSentences();
-        final currentSentence = currentSentences.firstWhere((s) => s.id == existing.id);
+        Sentence? currentSentence;
+        for (final s in currentSentences) {
+          if (s.id == existing.id) {
+            currentSentence = s;
+            break;
+          }
+        }
+        if (currentSentence == null) {
+          widget.onSaved();
+          if (mounted) Navigator.of(context).pop();
+          return;
+        }
         await repo.saveSentence(currentSentence.copyWith(
           original: en,
           translation: ko,
@@ -879,17 +901,20 @@ class _EditItemSheetState extends State<_EditItemSheet> {
                 TextButton(onPressed: _save, child: const Text('저장')),
               ],
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(color: const Color(0xFFE9ECF3), borderRadius: BorderRadius.circular(10)),
-              child: Row(
-                children: [
-                  Expanded(child: _typeSegment('단어', _isWord, () => setState(() => _isWord = true))),
-                  Expanded(child: _typeSegment('문장', !_isWord, () => setState(() => _isWord = false))),
-                ],
+            if (_isNew) ...[
+              const SizedBox(height: 16),
+              Container(
+                key: const ValueKey('edit-type-toggle'),
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(color: const Color(0xFFE9ECF3), borderRadius: BorderRadius.circular(10)),
+                child: Row(
+                  children: [
+                    Expanded(child: _typeSegment('단어', _isWord, () => setState(() => _isWord = true))),
+                    Expanded(child: _typeSegment('문장', !_isWord, () => setState(() => _isWord = false))),
+                  ],
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 16),
             Text(_isWord ? '영어 단어' : '영어 원문', style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.inkQuaternary)),
             const SizedBox(height: 7),

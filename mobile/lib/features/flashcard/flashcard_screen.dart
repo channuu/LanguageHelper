@@ -234,7 +234,13 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: _flipped ? _CardBack(item: current) : _CardFront(item: current, promptSize: 24),
+                  // The keyboard shrinks this Card's Expanded height; when
+                  // that shrunk space is smaller than the front/back
+                  // content's natural size (e.g. a long prompt), scroll
+                  // instead of overflowing.
+                  child: SingleChildScrollView(
+                    child: _flipped ? _CardBack(item: current) : _CardFront(item: current, promptSize: 24),
+                  ),
                 ),
               ),
             ),

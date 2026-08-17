@@ -234,13 +234,13 @@ class _HomeScreenState extends State<HomeScreen> {
       showCheckmark: false,
       shape: const StadiumBorder(),
       backgroundColor: AppColors.surface,
-      selectedColor: AppColors.ink,
-      side: BorderSide(color: selected ? AppColors.ink : AppColors.border),
+      selectedColor: AppColors.accent,
+      side: BorderSide(color: selected ? Colors.transparent : AppColors.border),
       labelStyle: TextStyle(
         fontFamily: AppFonts.display,
         fontWeight: FontWeight.w600,
         fontSize: 12,
-        color: selected ? Colors.white : AppColors.inkSecondary,
+        color: selected ? AppColors.ink : AppColors.inkSecondary,
       ),
       onSelected: (_) => setState(() => _platformFilter = value),
     );
@@ -332,7 +332,7 @@ class _SegmentButton extends StatelessWidget {
       child: Container(
         height: 36,
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
+          color: selected ? AppColors.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
         ),
         alignment: Alignment.center,

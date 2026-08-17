@@ -348,13 +348,13 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
       showCheckmark: false,
       shape: const StadiumBorder(),
       backgroundColor: AppColors.surface,
-      selectedColor: AppColors.ink,
-      side: BorderSide(color: selected ? AppColors.ink : AppColors.border),
+      selectedColor: AppColors.accent,
+      side: BorderSide(color: selected ? Colors.transparent : AppColors.border),
       labelStyle: TextStyle(
         fontFamily: AppFonts.display,
         fontWeight: FontWeight.w600,
         fontSize: 12,
-        color: selected ? Colors.white : AppColors.inkSecondary,
+        color: selected ? AppColors.ink : AppColors.inkSecondary,
       ),
       onSelected: (_) => setState(() => _listLevelFilter = level),
     );
@@ -594,7 +594,7 @@ class _ModeToggle extends StatelessWidget {
       child: Container(
         height: 34,
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
+          color: selected ? AppColors.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
         ),
         alignment: Alignment.center,
@@ -629,13 +629,13 @@ class _TypeFilterRow extends StatelessWidget {
           showCheckmark: false,
           shape: const StadiumBorder(),
           backgroundColor: AppColors.surface,
-          selectedColor: AppColors.ink,
-          side: BorderSide(color: selected ? AppColors.ink : AppColors.border),
+          selectedColor: AppColors.accent,
+          side: BorderSide(color: selected ? Colors.transparent : AppColors.border),
           labelStyle: TextStyle(
             fontFamily: AppFonts.display,
             fontWeight: FontWeight.w600,
             fontSize: 12,
-            color: selected ? Colors.white : AppColors.inkSecondary,
+            color: selected ? AppColors.ink : AppColors.inkSecondary,
           ),
           onSelected: (_) => onPick(value),
         ),
@@ -992,15 +992,15 @@ class _EditItemSheetState extends State<_EditItemSheet> {
         height: 46,
         padding: const EdgeInsets.symmetric(horizontal: 13),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accentTint : Colors.white,
-          border: Border.all(color: selected ? AppColors.accent : AppColors.borderStrong),
+          color: selected ? AppColors.accent : Colors.white,
+          border: Border.all(color: selected ? Colors.transparent : AppColors.borderStrong),
           borderRadius: BorderRadius.circular(11),
         ),
         child: Row(
           children: [
-            Text(kReviewLevelNames[level], style: TextStyle(fontFamily: AppFonts.display, fontWeight: FontWeight.w600, fontSize: 14, color: selected ? AppColors.accentInk : AppColors.ink)),
+            Text(kReviewLevelNames[level], style: const TextStyle(fontFamily: AppFonts.display, fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.ink)),
             const Spacer(),
-            Text(days == null ? '-' : '$days일', style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 11.5, color: AppColors.inkQuaternary)),
+            Text(days == null ? '-' : '$days일', style: TextStyle(fontFamily: AppFonts.mono, fontSize: 11.5, color: selected ? AppColors.ink : AppColors.inkQuaternary)),
           ],
         ),
       ),

@@ -237,9 +237,22 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                   // The keyboard shrinks this Card's Expanded height; when
                   // that shrunk space is smaller than the front/back
                   // content's natural size (e.g. a long prompt), scroll
-                  // instead of overflowing.
-                  child: SingleChildScrollView(
-                    child: _flipped ? _CardBack(item: current) : _CardFront(item: current, promptSize: 24),
+                  // instead of overflowing. LayoutBuilder + a forced
+                  // minHeight keeps the content vertically centered in the
+                  // normal case (SingleChildScrollView alone would pin
+                  // content to the top since its child is laid out with
+                  // unbounded height).
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Center(
+                            child: _flipped ? _CardBack(item: current) : _CardFront(item: current, promptSize: 24),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

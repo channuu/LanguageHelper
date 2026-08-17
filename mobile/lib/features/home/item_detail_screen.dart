@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../../shared/format/timestamp_format.dart';
 import 'detail_item.dart';
 
 class ItemDetailScreen extends StatefulWidget {
@@ -38,13 +39,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     super.dispose();
   }
 
-  String _formatTimestamp(double seconds) {
-    final total = seconds.toInt();
-    final m = total ~/ 60;
-    final s = total % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -58,7 +52,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           if (item.detail.isNotEmpty) Text(item.detail),
           const SizedBox(height: 16),
           Text(
-            '${item.platform} · ${item.contentTitle} · ${_formatTimestamp(item.timestamp)}',
+            '${item.platform} · ${item.contentTitle} · ${formatTimestamp(item.timestamp)}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 24),

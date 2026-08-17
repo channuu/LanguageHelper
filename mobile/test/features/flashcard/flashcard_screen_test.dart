@@ -60,6 +60,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'Ephemeral'); // case-insensitive match
+    await tester.ensureVisible(find.byIcon(Icons.arrow_forward));
     await tester.tap(find.byIcon(Icons.arrow_forward));
     await tester.pumpAndSettle();
 
@@ -75,6 +76,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'wrongword');
+    await tester.ensureVisible(find.byIcon(Icons.arrow_forward));
     await tester.tap(find.byIcon(Icons.arrow_forward));
     await tester.pumpAndSettle();
 
@@ -90,6 +92,7 @@ void main() {
     await tester.pumpWidget(buildApp(repo));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byIcon(Icons.arrow_forward));
     await tester.tap(find.byIcon(Icons.arrow_forward));
     await tester.pumpAndSettle();
 
@@ -122,6 +125,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'my typed guess');
+    await tester.ensureVisible(find.byIcon(Icons.arrow_forward));
     await tester.tap(find.byIcon(Icons.arrow_forward));
     await tester.pumpAndSettle();
 
@@ -148,6 +152,7 @@ void main() {
     await tester.pumpWidget(buildApp(repo));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('다시'));
     await tester.tap(find.text('다시'));
     await tester.pumpAndSettle();
 

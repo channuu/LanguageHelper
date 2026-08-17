@@ -206,96 +206,100 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     }
     final current = queue.first;
     final progress = _initialQueueLength == 0 ? 0.0 : 1 - (queue.length / _initialQueueLength);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      child: Column(
-        children: [
-          _CardHeader(item: current),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 4,
-              backgroundColor: const Color(0xFFE5E8F0),
-              valueColor: const AlwaysStoppedAnimation(AppColors.accent),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: GestureDetector(
-              key: const ValueKey('flashcard-body'),
-              onTap: _toggleFlip,
-              child: Card(
-                margin: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  // The keyboard shrinks this Card's Expanded height; when
-                  // that shrunk space is smaller than the front/back
-                  // content's natural size (e.g. a long prompt), scroll
-                  // instead of overflowing. LayoutBuilder + a forced
-                  // minHeight keeps the content vertically centered in the
-                  // normal case (SingleChildScrollView alone would pin
-                  // content to the top since its child is laid out with
-                  // unbounded height).
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+    // The whole screen scrolls (rather than the card stretching via
+    // Expanded to fill all available height) so that when the keyboard
+    // opens and shrinks the available height, content below the fold
+    // (the answer input, 다시/알아요) scrolls into view instead of being
+    // clipped or forcing an overflow. minHeight keeps everything filling
+    // the screen nicely when the keyboard is closed.
+    return LayoutBuilder(
+      builder: (context, outerConstraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: outerConstraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    children: [
+                      _CardHeader(item: current),
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 4,
+                          backgroundColor: const Color(0xFFE5E8F0),
+                          valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        key: const ValueKey('flashcard-body'),
+                        onTap: _toggleFlip,
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 340),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            border: Border.all(color: AppColors.border),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.all(24),
                           child: Center(
                             child: _flipped ? _CardBack(item: current) : _CardFront(item: current, promptSize: 24),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                ),
+                  Column(
+                    children: [
+                      if (!_flipped) ...[
+                        const SizedBox(height: 14),
+                        _AnswerInput(
+                          controller: _answerController,
+                          onSubmit: _submitAnswer,
+                          graded: _graded,
+                          wasCorrect: _wasCorrect,
+                          correctAnswer: current.correctAnswer,
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _again,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(52),
+                                side: const BorderSide(color: AppColors.borderStrong),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('다시'),
+                            ),
+                          ),
+                          if (_flipped) ...[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _know,
+                                style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                                child: const Text('알아요'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-          if (!_flipped) ...[
-            const SizedBox(height: 14),
-            _AnswerInput(
-              controller: _answerController,
-              onSubmit: _submitAnswer,
-              graded: _graded,
-              wasCorrect: _wasCorrect,
-              correctAnswer: current.correctAnswer,
-            ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _again,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    side: const BorderSide(color: AppColors.borderStrong),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('다시'),
-                ),
-              ),
-              if (_flipped) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _know,
-                    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                    child: const Text('알아요'),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

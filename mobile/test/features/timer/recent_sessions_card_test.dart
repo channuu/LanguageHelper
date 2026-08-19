@@ -37,12 +37,13 @@ void main() {
     final now = DateTime.now();
     for (var i = 0; i < 7; i++) {
       final started = now.subtract(Duration(days: i, hours: 1));
-      final ended = started.add(const Duration(minutes: 30));
+      final durationMinutes = 10 + i * 10; // i=0 (most recent) -> 10, i=6 (oldest) -> 70
+      final ended = started.add(Duration(minutes: durationMinutes));
       await db.insert('study_sessions', {
         'id': 'session-$i',
         'started_at': started.toIso8601String(),
         'ended_at': ended.toIso8601String(),
-        'duration_seconds': 1800,
+        'duration_seconds': durationMinutes * 60,
         'saved_at': ended.toIso8601String(),
       });
     }
@@ -51,7 +52,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('RECENT SESSIONS'), findsOneWidget);
-    // Capped at 5, and every seeded session is 30 minutes.
-    expect(find.text('30분'), findsNWidgets(5));
+    // The 5 most recent sessions (i=0..4) must be shown.
+    for (final minutes in [10, 20, 30, 40, 50]) {
+      expect(find.text('$minutes분'), findsOneWidget);
+    }
+    // The 2 oldest sessions (i=5,6) must NOT be shown. This is the assertion
+    // that actually catches a reversed-order regression (a bug that shows
+    // the oldest 5 instead of the newest 5 would make these appear instead
+    // of two of the durations above).
+    for (final minutes in [60, 70]) {
+      expect(find.text('$minutes분'), findsNothing);
+    }
   });
 }

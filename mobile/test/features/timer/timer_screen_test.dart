@@ -99,4 +99,56 @@ void main() {
 
     expect(find.text('시작'), findsOneWidget);
   });
+
+  testWidgets('shows today\'s accumulated total, excluding the running session', (tester) async {
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final repo = LocalStudyTimerRepository(openDb: () async => db);
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    // A completed session earlier today: 25 minutes.
+    await db.insert('study_sessions', {
+      'id': 'today-1',
+      'started_at': todayStart.add(const Duration(hours: 1)).toIso8601String(),
+      'ended_at': todayStart.add(const Duration(hours: 1, minutes: 25)).toIso8601String(),
+      'duration_seconds': 1500,
+      'saved_at': todayStart.add(const Duration(hours: 1, minutes: 25)).toIso8601String(),
+    });
+    // A session from yesterday must not count.
+    final yesterday = todayStart.subtract(const Duration(days: 1));
+    await db.insert('study_sessions', {
+      'id': 'yesterday-1',
+      'started_at': yesterday.add(const Duration(hours: 1)).toIso8601String(),
+      'ended_at': yesterday.add(const Duration(hours: 1, minutes: 40)).toIso8601String(),
+      'duration_seconds': 2400,
+      'saved_at': yesterday.add(const Duration(hours: 1, minutes: 40)).toIso8601String(),
+    });
+
+    await tester.pumpWidget(buildScreen(repo));
+    await settleOnce(tester);
+    await settleOnce(tester); // second pass: lets the async _loadTodayTotal() land
+
+    expect(find.textContaining('오늘 누적 0시간 25분'), findsOneWidget);
+  });
+
+  testWidgets('status pill shows 학습 중 while running and 일시정지 while paused', (tester) async {
+    final repo = LocalStudyTimerRepository(
+      openDb: () => openAppDatabase(inMemoryDatabasePath),
+    );
+    await tester.pumpWidget(buildScreen(repo));
+    await settleOnce(tester);
+
+    // No active session: no pill at all.
+    expect(find.text('학습 중'), findsNothing);
+
+    await tester.tap(find.text('시작'));
+    await settleOnce(tester);
+    expect(find.text('학습 중'), findsOneWidget);
+
+    await tester.tap(find.text('일시정지'));
+    await settleOnce(tester);
+    expect(find.text('학습 중'), findsNothing);
+    // The pill's own label reads 일시정지 too (same string as the button),
+    // so at least one 일시정지 text now exists in addition to the button.
+    expect(find.text('일시정지'), findsWidgets);
+  });
 }

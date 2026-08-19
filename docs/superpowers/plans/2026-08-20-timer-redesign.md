@@ -36,6 +36,7 @@ Append to `mobile/test/features/timer/timer_screen_test.dart` (before the file's
   testWidgets('shows today\'s accumulated total, excluding the running session', (tester) async {
     final db = await openAppDatabase(inMemoryDatabasePath);
     final repo = LocalStudyTimerRepository(openDb: () async => db);
+    addTearDown(repo.close);
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     // A completed session earlier today: 25 minutes.
@@ -67,6 +68,7 @@ Append to `mobile/test/features/timer/timer_screen_test.dart` (before the file's
     final repo = LocalStudyTimerRepository(
       openDb: () => openAppDatabase(inMemoryDatabasePath),
     );
+    addTearDown(repo.close);
     await tester.pumpWidget(buildScreen(repo));
     await settleOnce(tester);
 

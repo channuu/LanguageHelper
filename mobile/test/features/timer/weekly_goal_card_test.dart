@@ -32,18 +32,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('목표'), findsWidgets);
-    expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
-  testWidgets('shows progress against the goal once one is set', (tester) async {
-    final repo = LocalStudyTimerRepository(
-      openDb: () => openAppDatabase(inMemoryDatabasePath),
-    );
-    await repo.setWeeklyGoal(300);
+  testWidgets('shows a 7-day bar chart with H:MM totals once a goal is set', (tester) async {
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final repo = LocalStudyTimerRepository(openDb: () async => db);
+    await repo.setWeeklyGoal(300); // 5 hours
+
+    final monday = mondayOf(DateTime.now());
+    // 1h12m on Monday.
+    await db.insert('study_sessions', {
+      'id': 's1',
+      'started_at': monday.add(const Duration(hours: 9)).toIso8601String(),
+      'ended_at': monday.add(const Duration(hours: 10, minutes: 12)).toIso8601String(),
+      'duration_seconds': 4320,
+      'saved_at': monday.add(const Duration(hours: 10, minutes: 12)).toIso8601String(),
+    });
+
     await tester.pumpWidget(buildCard(repo));
     await tester.pumpAndSettle();
 
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(find.textContaining('300'), findsOneWidget);
+    // Header shows H:MM total / H:MM goal.
+    expect(find.textContaining('1:12'), findsOneWidget);
+    expect(find.textContaining('5:00'), findsOneWidget);
+    // 7 day-of-week labels.
+    for (final label in ['월', '화', '수', '목', '금', '토', '일']) {
+      expect(find.text(label), findsOneWidget);
+    }
+  });
+
+  testWidgets('shows the achieved message once the goal is met', (tester) async {
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final repo = LocalStudyTimerRepository(openDb: () async => db);
+    await repo.setWeeklyGoal(1); // 1 minute — trivially achievable
+
+    final monday = mondayOf(DateTime.now());
+    await db.insert('study_sessions', {
+      'id': 's2',
+      'started_at': monday.add(const Duration(hours: 9)).toIso8601String(),
+      'ended_at': monday.add(const Duration(hours: 9, minutes: 5)).toIso8601String(),
+      'duration_seconds': 300,
+      'saved_at': monday.add(const Duration(hours: 9, minutes: 5)).toIso8601String(),
+    });
+
+    await tester.pumpWidget(buildCard(repo));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('달성했어요'), findsOneWidget);
   });
 }

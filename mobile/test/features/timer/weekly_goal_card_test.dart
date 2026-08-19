@@ -28,6 +28,7 @@ void main() {
     final repo = LocalStudyTimerRepository(
       openDb: () => openAppDatabase(inMemoryDatabasePath),
     );
+    addTearDown(repo.close);
     await tester.pumpWidget(buildCard(repo));
     await tester.pumpAndSettle();
 
@@ -37,6 +38,7 @@ void main() {
   testWidgets('shows a 7-day bar chart with H:MM totals once a goal is set', (tester) async {
     final db = await openAppDatabase(inMemoryDatabasePath);
     final repo = LocalStudyTimerRepository(openDb: () async => db);
+    addTearDown(repo.close);
     await repo.setWeeklyGoal(300); // 5 hours
 
     final monday = mondayOf(DateTime.now());
@@ -64,6 +66,7 @@ void main() {
   testWidgets('shows the achieved message once the goal is met', (tester) async {
     final db = await openAppDatabase(inMemoryDatabasePath);
     final repo = LocalStudyTimerRepository(openDb: () async => db);
+    addTearDown(repo.close);
     await repo.setWeeklyGoal(1); // 1 minute — trivially achievable
 
     final monday = mondayOf(DateTime.now());

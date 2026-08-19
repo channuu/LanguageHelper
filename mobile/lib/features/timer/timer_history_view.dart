@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/models/study_session.dart';
 import '../../data/study_timer_repository.dart';
 import '../../shared/widgets/empty_state.dart';
+import '../../theme/app_theme.dart';
 
 enum TimerPeriod { week, month, year }
 
@@ -61,49 +62,57 @@ class _TimerHistoryViewState extends State<TimerHistoryView> {
     final repo = context.watch<StudyTimerRepository>();
     final range = _rangeFor(_period);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SegmentedButton<TimerPeriod>(
-          segments: const [
-            ButtonSegment(value: TimerPeriod.week, label: Text('주간')),
-            ButtonSegment(value: TimerPeriod.month, label: Text('월간')),
-            ButtonSegment(value: TimerPeriod.year, label: Text('년간')),
-          ],
-          selected: {_period},
-          onSelectionChanged: (s) => setState(() => _period = s.first),
-        ),
-        const SizedBox(height: 8),
-        SegmentedButton<TimerViewMode>(
-          segments: const [
-            ButtonSegment(value: TimerViewMode.graph, label: Text('그래프')),
-            ButtonSegment(value: TimerViewMode.list, label: Text('숫자')),
-          ],
-          selected: {_viewMode},
-          onSelectionChanged: (s) => setState(() => _viewMode = s.first),
-        ),
-        const SizedBox(height: 16),
-        FutureBuilder<List<StudySession>>(
-          future: repo.getSessionsBetween(range.start, range.end),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const SizedBox(
-                height: 200,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            final sessions = snapshot.data ?? const [];
-            if (sessions.isEmpty) {
-              return const EmptyState(message: '이 기간에 기록된 공부 시간이 없어요');
-            }
-            final isMonthGrouped = _period == TimerPeriod.year;
-            final grouped = isMonthGrouped ? _groupByMonth(sessions) : _groupByDay(sessions);
-            return _viewMode == TimerViewMode.graph
-                ? _buildGraph(grouped)
-                : _buildList(grouped, isMonthGrouped: isMonthGrouped);
-          },
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SegmentedButton<TimerPeriod>(
+            segments: const [
+              ButtonSegment(value: TimerPeriod.week, label: Text('주간')),
+              ButtonSegment(value: TimerPeriod.month, label: Text('월간')),
+              ButtonSegment(value: TimerPeriod.year, label: Text('년간')),
+            ],
+            selected: {_period},
+            onSelectionChanged: (s) => setState(() => _period = s.first),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<TimerViewMode>(
+            segments: const [
+              ButtonSegment(value: TimerViewMode.graph, label: Text('그래프')),
+              ButtonSegment(value: TimerViewMode.list, label: Text('숫자')),
+            ],
+            selected: {_viewMode},
+            onSelectionChanged: (s) => setState(() => _viewMode = s.first),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<StudySession>>(
+            future: repo.getSessionsBetween(range.start, range.end),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final sessions = snapshot.data ?? const [];
+              if (sessions.isEmpty) {
+                return const EmptyState(message: '이 기간에 기록된 공부 시간이 없어요');
+              }
+              final isMonthGrouped = _period == TimerPeriod.year;
+              final grouped = isMonthGrouped ? _groupByMonth(sessions) : _groupByDay(sessions);
+              return _viewMode == TimerViewMode.graph
+                  ? _buildGraph(grouped)
+                  : _buildList(grouped, isMonthGrouped: isMonthGrouped);
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -116,7 +125,7 @@ class _TimerHistoryViewState extends State<TimerHistoryView> {
           barGroups: [
             for (var i = 0; i < days.length; i++)
               BarChartGroupData(x: i, barRods: [
-                BarChartRodData(toY: byDay[days[i]]! / 60),
+                BarChartRodData(toY: byDay[days[i]]! / 60, color: AppColors.accent),
               ]),
           ],
         ),

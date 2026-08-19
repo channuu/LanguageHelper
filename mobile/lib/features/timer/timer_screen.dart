@@ -1,6 +1,5 @@
 // mobile/lib/features/timer/timer_screen.dart
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

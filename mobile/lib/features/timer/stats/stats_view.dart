@@ -269,32 +269,25 @@ class _StatsViewState extends State<StatsView> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                GridView.count(
-                  crossAxisCount: 7,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 5,
-                  crossAxisSpacing: 5,
-                  children: [
-                    for (final label in const ['월', '화', '수', '목', '금', '토', '일'])
-                      Center(
-                        child: Text(
-                          label,
-                          style: const TextStyle(fontFamily: AppFonts.mono, fontWeight: FontWeight.w600, fontSize: 10, color: AppColors.inkFaint),
-                        ),
+                _calendarGrid([
+                  for (final label in const ['월', '화', '수', '목', '금', '토', '일'])
+                    Center(
+                      child: Text(
+                        label,
+                        style: const TextStyle(fontFamily: AppFonts.mono, fontWeight: FontWeight.w600, fontSize: 10, color: AppColors.inkFaint),
                       ),
-                    for (final cell in _calendarCells())
-                      cell == null
-                          ? const SizedBox.shrink()
-                          : _CalendarCell(
-                              day: cell,
-                              selected: cell == _selectedDay,
-                              isToday: cell == DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
-                              dotTier: calendarDotTier(_dayTotals[cell] ?? 0, _maxSecondsInCalendarMonth()),
-                              onTap: () => setState(() => _selectedDay = cell),
-                            ),
-                  ],
-                ),
+                    ),
+                  for (final cell in _calendarCells())
+                    cell == null
+                        ? const SizedBox.shrink()
+                        : _CalendarCell(
+                            day: cell,
+                            selected: cell == _selectedDay,
+                            isToday: cell == DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
+                            dotTier: calendarDotTier(_dayTotals[cell] ?? 0, _maxSecondsInCalendarMonth()),
+                            onTap: () => setState(() => _selectedDay = cell),
+                          ),
+                ]),
                 Container(
                   margin: const EdgeInsets.only(top: 14),
                   padding: const EdgeInsets.only(top: 13),
@@ -372,6 +365,41 @@ class _StatsViewState extends State<StatsView> {
 
   void _nextMonth() {
     setState(() => _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1));
+  }
+
+  // A hand-rolled, non-scrollable 7-column grid — GridView (even with
+  // NeverScrollableScrollPhysics) still creates a Scrollable that can win
+  // the gesture arena for a vertical drag starting inside it, which blocks
+  // the ancestor SingleChildScrollView from ever seeing that drag.
+  Widget _calendarGrid(List<Widget> items) {
+    const columns = 7;
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i += columns) {
+      final rowItems = items.sublist(i, i + columns > items.length ? items.length : i + columns);
+      rows.add(
+        Row(
+          children: [
+            for (var c = 0; c < columns; c++) ...[
+              if (c > 0) const SizedBox(width: 5),
+              Expanded(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: c < rowItems.length ? rowItems[c] : const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (var r = 0; r < rows.length; r++) ...[
+          if (r > 0) const SizedBox(height: 5),
+          rows[r],
+        ],
+      ],
+    );
   }
 
   List<DateTime?> _calendarCells() {

@@ -5,6 +5,7 @@ import 'features/home/home_screen.dart';
 import 'features/import/import_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/timer/timer_screen.dart';
+import 'shared/widgets/app_bottom_nav.dart';
 import 'theme/app_theme.dart';
 
 class EnglishHelperApp extends StatelessWidget {
@@ -44,16 +45,9 @@ class _RootShellState extends State<_RootShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _index, children: _screens),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: AppBottomNav(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: '홈'),
-          NavigationDestination(icon: Icon(Icons.style), label: '플래시카드'),
-          NavigationDestination(icon: Icon(Icons.timer), label: '타이머'),
-          NavigationDestination(icon: Icon(Icons.file_download), label: '가져오기'),
-          NavigationDestination(icon: Icon(Icons.settings), label: '설정'),
-        ],
+        onTap: (i) => setState(() => _index = i),
       ),
     );
   }

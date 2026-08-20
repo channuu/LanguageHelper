@@ -119,13 +119,6 @@ class AppTheme {
           color: AppColors.ink,
         ),
       ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.accentTint,
-        labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontFamily: AppFonts.display, fontSize: 11, fontWeight: FontWeight.w600),
-        ),
-      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accent,

@@ -156,4 +156,36 @@ void main() {
       expect(calendarDotTier(300, 300), 3);
     });
   });
+
+  group('sumSecondsInRange', () {
+    test('sums only days within [start, end), excluding end', () {
+      final dayTotals = {
+        DateTime(2026, 8, 10): 600,
+        DateTime(2026, 8, 11): 300,
+        DateTime(2026, 8, 12): 900,
+      };
+      expect(
+        sumSecondsInRange(dayTotals, DateTime(2026, 8, 10), DateTime(2026, 8, 12)),
+        900, // 10th + 11th, not the 12th
+      );
+    });
+
+    test('is 0 for a range with no recorded activity', () {
+      expect(sumSecondsInRange({}, DateTime(2026, 8, 10), DateTime(2026, 8, 17)), 0);
+    });
+  });
+
+  group('periodDeltaPercent', () {
+    test('positive change rounds to the nearest percent', () {
+      expect(periodDeltaPercent(1200, 1000), 20);
+    });
+
+    test('negative change is negative', () {
+      expect(periodDeltaPercent(800, 1000), -20);
+    });
+
+    test('is null when the previous total is 0 (no baseline to compare against)', () {
+      expect(periodDeltaPercent(600, 0), isNull);
+    });
+  });
 }

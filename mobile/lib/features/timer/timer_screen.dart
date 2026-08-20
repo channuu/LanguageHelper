@@ -151,34 +151,35 @@ class _TimerScreenState extends State<TimerScreen> {
     final active = repo.activeSession;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('타이머')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _statsMode ? '통계' : '학습 타이머',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-                _StatsToggleButton(
-                  statsMode: _statsMode,
-                  onTap: () => setState(() => _statsMode = !_statsMode),
-                ),
-              ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _statsMode ? '통계' : '학습 타이머',
+                    style: Theme.of(context).textTheme.headlineLarge,
+                  ),
+                  _StatsToggleButton(
+                    statsMode: _statsMode,
+                    onTap: () => setState(() => _statsMode = !_statsMode),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: _statsMode
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: StatsView(),
-                  )
-                : _buildTimerMode(repo, active),
-          ),
-        ],
+            Expanded(
+              child: _statsMode
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: StatsView(),
+                    )
+                  : _buildTimerMode(repo, active),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -105,6 +105,27 @@ double monthlyActivityRate(Map<DateTime, int> dayTotals, DateTime monthStart, Da
   return counts.active / counts.elapsed;
 }
 
+/// Sum of [dayTotals] values for days in `[start, end)` (end exclusive).
+int sumSecondsInRange(Map<DateTime, int> dayTotals, DateTime start, DateTime end) {
+  var total = 0;
+  var day = _dateOnly(start);
+  final endDay = _dateOnly(end);
+  while (day.isBefore(endDay)) {
+    total += dayTotals[day] ?? 0;
+    day = day.add(const Duration(days: 1));
+  }
+  return total;
+}
+
+/// Percentage change of [currentTotal] vs [previousTotal], rounded to the
+/// nearest integer. Null when [previousTotal] is 0 — there's no baseline to
+/// compare against, so the delta badge should be omitted rather than
+/// showing a meaningless "+inf%".
+int? periodDeltaPercent(int currentTotal, int previousTotal) {
+  if (previousTotal <= 0) return null;
+  return ((currentTotal - previousTotal) / previousTotal * 100).round();
+}
+
 /// 0 (no dot) / 1 (small) / 2 (medium) / 3 (large) calendar-cell dot tier
 /// for a day with [daySeconds] of activity, relative to [maxSecondsInMonth]
 /// (the busiest day in the displayed month). Thresholds: <1/3 → 1,

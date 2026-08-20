@@ -23,6 +23,7 @@ class _StatsViewState extends State<StatsView> {
   Map<DateTime, int> _saveDayTotals = {};
   DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _selectedDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime? _loadWindowStart;
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _StatsViewState extends State<StatsView> {
       _dayTotals = groupSessionsByDay(sessions);
       _sessionCounts = countSessionsByDay(sessions);
       _saveDayTotals = groupSavesByDay(words, sentences);
+      _loadWindowStart = start;
       _loaded = true;
     });
   }
@@ -71,6 +73,33 @@ class _StatsViewState extends State<StatsView> {
         final end = DateTime(now.year + 1, 1, 1);
         return (start: start, end: end, scopeLabel: '올해');
     }
+  }
+
+  ({DateTime start, DateTime end}) _previousRangeFor(StatsPeriod period) {
+    final now = DateTime.now();
+    switch (period) {
+      case StatsPeriod.week:
+        final start = mondayOf(now).subtract(const Duration(days: 7));
+        return (start: start, end: start.add(const Duration(days: 7)));
+      case StatsPeriod.month:
+        final start = DateTime(now.year, now.month - 1, 1);
+        return (start: start, end: DateTime(now.year, now.month, 1));
+      case StatsPeriod.year:
+        return (start: DateTime(now.year - 1, 1, 1), end: DateTime(now.year, 1, 1));
+    }
+  }
+
+  /// Percent change vs. the immediately preceding period, or null when
+  /// there's no baseline (previous total is 0) or the previous period
+  /// falls outside the loaded data window (its total would be an
+  /// incomplete, misleading undercount rather than a real comparison).
+  int? _deltaPercent(StatsPeriod period, int currentTotal) {
+    final windowStart = _loadWindowStart;
+    if (windowStart == null) return null;
+    final previous = _previousRangeFor(period);
+    if (previous.start.isBefore(windowStart)) return null;
+    final previousTotal = sumSecondsInRange(_dayTotals, previous.start, previous.end);
+    return periodDeltaPercent(currentTotal, previousTotal);
   }
 
   List<({String label, int seconds, bool isCurrent})> _bars(StatsPeriod period) {
@@ -130,6 +159,7 @@ class _StatsViewState extends State<StatsView> {
     final counts = monthActivityCounts(_dayTotals, range.start, range.end.subtract(const Duration(days: 1)));
     final avgSeconds = counts.active == 0 ? 0 : totalSeconds ~/ counts.active;
     final maxBarSeconds = bars.fold<int>(0, (m, b) => b.seconds > m ? b.seconds : m);
+    final delta = _deltaPercent(_period, totalSeconds);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 16, bottom: 20),
@@ -225,7 +255,23 @@ class _StatsViewState extends State<StatsView> {
                   margin: const EdgeInsets.only(top: 14),
                   padding: const EdgeInsets.only(top: 13),
                   decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF0F2F7)))),
-                  child: const Text('최근 구간 기준', style: TextStyle(fontSize: 11.5, color: AppColors.inkTertiary)),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text('최근 구간 기준', style: TextStyle(fontSize: 11.5, color: AppColors.inkTertiary)),
+                      ),
+                      if (delta != null)
+                        Text(
+                          '${delta >= 0 ? '+' : ''}$delta%',
+                          style: const TextStyle(
+                            fontFamily: AppFonts.mono,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            color: AppColors.accentInk,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -292,7 +338,28 @@ class _StatsViewState extends State<StatsView> {
                   margin: const EdgeInsets.only(top: 14),
                   padding: const EdgeInsets.only(top: 13),
                   decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF0F2F7)))),
-                  child: const Text('칸을 눌러 그날 기록을 봅니다', style: TextStyle(fontSize: 11.5, color: AppColors.inkQuaternary)),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text('칸을 눌러 그날 기록을 봅니다', style: TextStyle(fontSize: 11.5, color: AppColors.inkQuaternary)),
+                      ),
+                      Row(
+                        children: [
+                          for (var tier = 1; tier <= 3; tier++) ...[
+                            if (tier > 1) const SizedBox(width: 5),
+                            Container(
+                              width: _CalendarCell._dotWidths[tier],
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: _CalendarCell._dotColors[tier],
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

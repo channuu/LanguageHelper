@@ -74,6 +74,37 @@ void main() {
     expect(find.text('1:00'), findsOneWidget); // average (7200s / 2 active days)
   });
 
+  testWidgets('shows a delta badge comparing the current period to the previous one', (tester) async {
+    final learningRepo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(learningRepo.close);
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final timerRepo = LocalStudyTimerRepository(openDb: () async => db);
+    addTearDown(timerRepo.close);
+
+    final monday = mondayOf(DateTime.now());
+    final lastMonday = monday.subtract(const Duration(days: 7));
+    await db.insert('study_sessions', {
+      'id': 'prev',
+      'started_at': lastMonday.add(const Duration(hours: 9)).toIso8601String(),
+      'ended_at': lastMonday.add(const Duration(hours: 9, minutes: 16, seconds: 40)).toIso8601String(),
+      'duration_seconds': 1000,
+      'saved_at': lastMonday.add(const Duration(hours: 9, minutes: 16, seconds: 40)).toIso8601String(),
+    });
+    await db.insert('study_sessions', {
+      'id': 'curr',
+      'started_at': monday.add(const Duration(hours: 9)).toIso8601String(),
+      'ended_at': monday.add(const Duration(hours: 9, minutes: 20)).toIso8601String(),
+      'duration_seconds': 1200,
+      'saved_at': monday.add(const Duration(hours: 9, minutes: 20)).toIso8601String(),
+    });
+
+    await tester.pumpWidget(buildView(learningRepo, timerRepo));
+    await tester.pumpAndSettle();
+
+    // (1200 - 1000) / 1000 * 100 = +20%
+    expect(find.text('+20%'), findsOneWidget);
+  });
+
   testWidgets('switching to 월간 changes the scope label', (tester) async {
     final learningRepo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
     addTearDown(learningRepo.close);

@@ -162,31 +162,35 @@ class _StatsViewState extends State<StatsView> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          range.scopeLabel,
-                          style: const TextStyle(
-                            fontFamily: AppFonts.mono,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.1,
-                            color: AppColors.inkQuaternary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            range.scopeLabel,
+                            style: const TextStyle(
+                              fontFamily: AppFonts.mono,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.1,
+                              color: AppColors.inkQuaternary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          _formatHM(totalSeconds),
-                          style: const TextStyle(
-                            fontFamily: AppFonts.display,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 34,
-                            letterSpacing: -0.02,
-                            color: AppColors.ink,
+                          const SizedBox(height: 7),
+                          Text(
+                            _formatHM(totalSeconds),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: AppFonts.display,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 34,
+                              letterSpacing: -0.02,
+                              color: AppColors.ink,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -441,6 +445,8 @@ class _StatsBarColumn extends StatelessWidget {
         Text(
           bar.label,
           textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w500,

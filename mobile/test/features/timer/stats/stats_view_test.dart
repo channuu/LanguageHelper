@@ -179,4 +179,21 @@ void main() {
     expect(find.text('2일'), findsOneWidget);
     expect(find.text('목표 달성률'), findsOneWidget);
   });
+
+  testWidgets('switching to 년간 renders the 12-bar chart without overflow', (tester) async {
+    final learningRepo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(learningRepo.close);
+    final timerRepo = LocalStudyTimerRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(timerRepo.close);
+
+    await tester.pumpWidget(buildView(learningRepo, timerRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('년간'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('올해'), findsOneWidget);
+    expect(find.text('12월'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

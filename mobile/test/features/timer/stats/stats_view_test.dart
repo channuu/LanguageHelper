@@ -150,4 +150,33 @@ void main() {
     expect(find.text('0:45'), findsOneWidget); // 학습 시간
     expect(find.text('1'), findsWidgets); // 세션 count and/or 저장 count both show "1"
   });
+
+  testWidgets('shows current streak and monthly activity rate', (tester) async {
+    final learningRepo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(learningRepo.close);
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final timerRepo = LocalStudyTimerRepository(openDb: () async => db);
+    addTearDown(timerRepo.close);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // A 2-day streak: today and yesterday.
+    for (final offset in [0, 1]) {
+      final day = today.subtract(Duration(days: offset));
+      await db.insert('study_sessions', {
+        'id': 'streak-$offset',
+        'started_at': day.add(const Duration(hours: 9)).toIso8601String(),
+        'ended_at': day.add(const Duration(hours: 9, minutes: 10)).toIso8601String(),
+        'duration_seconds': 600,
+        'saved_at': day.add(const Duration(hours: 9, minutes: 10)).toIso8601String(),
+      });
+    }
+
+    await tester.pumpWidget(buildView(learningRepo, timerRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.text('연속 학습'), findsOneWidget);
+    expect(find.text('2일'), findsOneWidget);
+    expect(find.text('목표 달성률'), findsOneWidget);
+  });
 }

@@ -328,6 +328,35 @@ class _StatsViewState extends State<StatsView> {
               ],
             ),
           ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricCard(
+                  label: '연속 학습',
+                  value: '${currentStreakDays(_dayTotals)}일',
+                  footnote: '최장 ${longestStreakDays(_dayTotals)}일',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Builder(builder: (context) {
+                  final now = DateTime.now();
+                  final counts = monthActivityCounts(
+                    _dayTotals,
+                    DateTime(now.year, now.month, 1),
+                    DateTime(now.year, now.month, now.day),
+                  );
+                  final rate = counts.elapsed == 0 ? 0 : (counts.active / counts.elapsed * 100).round();
+                  return _MetricCard(
+                    label: '목표 달성률',
+                    value: '$rate%',
+                    footnote: '이번 달 ${counts.active}/${counts.elapsed}일',
+                  );
+                }),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -494,6 +523,35 @@ class _DayStat extends StatelessWidget {
         const SizedBox(height: 5),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 19)),
       ],
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String footnote;
+  const _MetricCard({required this.label, required this.value, required this.footnote});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.inkQuaternary)),
+          const SizedBox(height: 6),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 22)),
+          const SizedBox(height: 4),
+          Text(footnote, style: const TextStyle(fontSize: 11, color: AppColors.inkFaint)),
+        ],
+      ),
     );
   }
 }

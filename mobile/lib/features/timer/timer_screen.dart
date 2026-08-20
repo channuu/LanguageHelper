@@ -288,7 +288,7 @@ class _StatsToggleButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: statsMode ? AppColors.accent : Colors.white,
+          color: statsMode ? AppColors.accent : AppColors.surface,
           border: Border.all(color: statsMode ? Colors.transparent : AppColors.border),
           borderRadius: BorderRadius.circular(12),
         ),

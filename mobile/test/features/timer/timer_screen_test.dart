@@ -167,7 +167,9 @@ void main() {
   testWidgets('tapping the stats toggle switches from 학습 타이머 to 통계 and back', (tester) async {
     final repo = LocalStudyTimerRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
     addTearDown(repo.close);
-    await tester.pumpWidget(buildScreen(repo));
+    final learningRepo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(learningRepo.close);
+    await tester.pumpWidget(buildScreen(repo, learningRepo: learningRepo));
     await settleOnce(tester);
 
     expect(find.text('학습 타이머'), findsOneWidget);

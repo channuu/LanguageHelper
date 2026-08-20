@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:english_helper_app/data/database.dart';
+import 'package:english_helper_app/data/repository.dart';
 import 'package:english_helper_app/data/study_timer_repository.dart';
 import 'package:english_helper_app/features/timer/timer_screen.dart';
 
@@ -26,9 +27,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Widget buildScreen(StudyTimerRepository repo) {
-    return ChangeNotifierProvider<StudyTimerRepository>.value(
-      value: repo,
+  Widget buildScreen(StudyTimerRepository repo, {LearningRepository? learningRepo}) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<StudyTimerRepository>.value(value: repo),
+        ChangeNotifierProvider<LearningRepository>.value(
+          value: learningRepo ?? LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath)),
+        ),
+      ],
       child: const MaterialApp(home: TimerScreen()),
     );
   }
@@ -156,5 +162,27 @@ void main() {
     // The pill's own label reads 일시정지 too (same string as the button),
     // so at least one 일시정지 text now exists in addition to the button.
     expect(find.text('일시정지'), findsWidgets);
+  });
+
+  testWidgets('tapping the stats toggle switches from 학습 타이머 to 통계 and back', (tester) async {
+    final repo = LocalStudyTimerRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(repo.close);
+    await tester.pumpWidget(buildScreen(repo));
+    await settleOnce(tester);
+
+    expect(find.text('학습 타이머'), findsOneWidget);
+    expect(find.text('통계'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.calendar_month_outlined));
+    await settleOnce(tester);
+    await settleOnce(tester);
+
+    expect(find.text('통계'), findsOneWidget);
+    expect(find.text('학습 타이머'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await settleOnce(tester);
+
+    expect(find.text('학습 타이머'), findsOneWidget);
   });
 }

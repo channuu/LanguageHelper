@@ -8,6 +8,7 @@ import '../../data/models/active_session_state.dart';
 import '../../data/study_timer_repository.dart';
 import '../../theme/app_theme.dart';
 import 'recent_sessions_card.dart';
+import 'stats/stats_view.dart';
 import 'timer_history_view.dart';
 import 'weekly_goal_card.dart';
 
@@ -24,6 +25,7 @@ class _TimerScreenState extends State<TimerScreen> {
   bool _loaded = false;
   int _todayTotalSeconds = 0;
   StudyTimerRepository? _repo;
+  bool _statsMode = false;
 
   @override
   void initState() {
@@ -150,12 +152,42 @@ class _TimerScreenState extends State<TimerScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('타이머')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
+      body: Column(
         children: [
-          Text('학습 타이머', style: Theme.of(context).textTheme.headlineLarge),
-          const SizedBox(height: 16),
-          Container(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _statsMode ? '통계' : '학습 타이머',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+                _StatsToggleButton(
+                  statsMode: _statsMode,
+                  onTap: () => setState(() => _statsMode = !_statsMode),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _statsMode
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: StatsView(),
+                  )
+                : _buildTimerMode(repo, active),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimerMode(StudyTimerRepository repo, ActiveSessionState? active) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Container(
             padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
             decoration: BoxDecoration(
               color: AppColors.surface,
@@ -189,14 +221,13 @@ class _TimerScreenState extends State<TimerScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          const WeeklyGoalCard(),
-          const SizedBox(height: 14),
-          const RecentSessionsCard(),
-          const SizedBox(height: 24),
-          const TimerHistoryView(),
-        ],
-      ),
+        const SizedBox(height: 14),
+        const WeeklyGoalCard(),
+        const SizedBox(height: 14),
+        const RecentSessionsCard(),
+        const SizedBox(height: 24),
+        const TimerHistoryView(),
+      ],
     );
   }
 }
@@ -239,6 +270,34 @@ class _StatusPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StatsToggleButton extends StatelessWidget {
+  final bool statsMode;
+  final VoidCallback onTap;
+  const _StatsToggleButton({required this.statsMode, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: statsMode ? AppColors.accent : Colors.white,
+          border: Border.all(color: statsMode ? Colors.transparent : AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          statsMode ? Icons.close : Icons.calendar_month_outlined,
+          size: 19,
+          color: statsMode ? AppColors.ink : AppColors.inkSecondary,
+        ),
       ),
     );
   }

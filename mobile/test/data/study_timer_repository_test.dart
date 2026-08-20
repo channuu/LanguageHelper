@@ -210,6 +210,16 @@ void main() {
       expect(thisWeek, 300);
     });
 
+    test('changing the goal a second time within the same week returns the newest value', () async {
+      // Both calls have the same effective_from (mondayOf the current week),
+      // so the read query must break the tie by recency, not leave it to
+      // SQLite's unspecified same-key ordering.
+      await repo.setWeeklyGoal(300);
+      await repo.setWeeklyGoal(360);
+      final thisWeek = await repo.getWeeklyGoalMinutes(mondayOf(clock.current));
+      expect(thisWeek, 360);
+    });
+
     test('changing the goal does not retroactively change a past week', () async {
       // Week of Aug 10: goal 300
       await repo.setWeeklyGoal(300);

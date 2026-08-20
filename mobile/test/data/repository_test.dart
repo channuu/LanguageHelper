@@ -5,6 +5,7 @@ import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/models/word.dart';
 import 'package:english_helper_app/data/models/sentence.dart';
 import 'package:english_helper_app/data/repository.dart';
+import 'package:english_helper_app/data/review_schedule.dart';
 
 Word _word(String id, {int reviewCount = 0}) => Word(
       id: id,
@@ -75,20 +76,59 @@ void main() {
     expect(sentences.map((s) => s.id), ['s2']);
   });
 
-  test('markWordReviewed increments reviewCount and sets nextReviewAt', () async {
+  test('markWordReviewed increments reviewCount, bumps reviewLevel, and schedules nextReviewAt', () async {
     await repo.saveWord(_word('w1', reviewCount: 2));
     await repo.markWordReviewed('w1');
     final word = (await repo.getWords()).single;
     expect(word.reviewCount, 3);
+    expect(word.reviewLevel, 1);
+    expect(word.lastReviewedAt, isNotNull);
     expect(word.nextReviewAt, isNotNull);
   });
 
-  test('markSentenceReviewed increments reviewCount and sets nextReviewAt', () async {
+  test('markWordReviewed caps reviewLevel at kMaxReviewLevel', () async {
+    await repo.saveWord(_word('w1').copyWith(reviewLevel: kMaxReviewLevel));
+    await repo.markWordReviewed('w1');
+    final word = (await repo.getWords()).single;
+    expect(word.reviewLevel, kMaxReviewLevel);
+  });
+
+  test('markSentenceReviewed increments reviewCount, bumps reviewLevel, and schedules nextReviewAt', () async {
     await repo.saveSentence(_sentence('s1'));
     await repo.markSentenceReviewed('s1');
     final sentence = (await repo.getSentences()).single;
     expect(sentence.reviewCount, 1);
+    expect(sentence.reviewLevel, 1);
+    expect(sentence.lastReviewedAt, isNotNull);
     expect(sentence.nextReviewAt, isNotNull);
+  });
+
+  test('setWordReviewLevel sets an arbitrary level directly', () async {
+    await repo.saveWord(_word('w1'));
+    await repo.setWordReviewLevel('w1', 3);
+    final word = (await repo.getWords()).single;
+    expect(word.reviewLevel, 3);
+    expect(word.lastReviewedAt, isNotNull);
+    expect(word.nextReviewAt, isNotNull);
+  });
+
+  test('setWordReviewLevel(id, 0) clears a pre-existing nextReviewAt', () async {
+    await repo.saveWord(_word('w1').copyWith(
+      reviewLevel: 2,
+      nextReviewAt: '2026-08-08T00:00:00.000Z',
+    ));
+    await repo.setWordReviewLevel('w1', 0);
+    final word = (await repo.getWords()).single;
+    expect(word.reviewLevel, 0);
+    expect(word.nextReviewAt, isNull);
+  });
+
+  test('setSentenceReviewLevel sets an arbitrary level directly', () async {
+    await repo.saveSentence(_sentence('s1'));
+    await repo.setSentenceReviewLevel('s1', 0);
+    final sentence = (await repo.getSentences()).single;
+    expect(sentence.reviewLevel, 0);
+    expect(sentence.nextReviewAt, isNull); // level 0 has no schedule
   });
 
   test('getDatabasePath returns the path of the open database', () async {
@@ -126,12 +166,62 @@ void main() {
       await repo.saveWord(_word('w1', reviewCount: 5));
 
       // Import file has w1 (duplicate, should be ignored) and w2 (new),
-      // plus one new sentence.
+      // plus one new sentence. Create a backup-compatible database
+      // (without review_level columns) for the import.
       final importPath = '${tempDir.path}/import.sqlite';
-      final importDb = await openAppDatabase(importPath);
-      await importDb.insert('words', _word('w1', reviewCount: 0).toMap());
-      await importDb.insert('words', _word('w2').toMap());
-      await importDb.insert('sentences', _sentence('s1').toMap());
+      final importDb = await databaseFactory.openDatabase(
+        importPath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS words (
+                id TEXT PRIMARY KEY,
+                word TEXT NOT NULL,
+                definition TEXT,
+                sentence TEXT,
+                translation TEXT,
+                platform TEXT,
+                content_title TEXT,
+                content_id TEXT,
+                timestamp REAL,
+                saved_at TEXT,
+                review_count INTEGER DEFAULT 0,
+                next_review_at TEXT
+              )
+            ''');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS sentences (
+                id TEXT PRIMARY KEY,
+                original TEXT NOT NULL,
+                translation TEXT,
+                platform TEXT,
+                content_title TEXT,
+                content_id TEXT,
+                timestamp REAL,
+                saved_at TEXT,
+                review_count INTEGER DEFAULT 0,
+                next_review_at TEXT
+              )
+            ''');
+          },
+        ),
+      );
+      // Insert without review_level/last_reviewed_at to simulate a Chrome
+      // extension backup file (which doesn't know about those columns).
+      final w1Map = _word('w1', reviewCount: 0).toMap()
+        ..remove('review_level')
+        ..remove('last_reviewed_at');
+      final w2Map = _word('w2').toMap()
+        ..remove('review_level')
+        ..remove('last_reviewed_at');
+      final s1Map = _sentence('s1').toMap()
+        ..remove('review_level')
+        ..remove('last_reviewed_at');
+
+      await importDb.insert('words', w1Map);
+      await importDb.insert('words', w2Map);
+      await importDb.insert('sentences', s1Map);
       await importDb.close();
 
       final result = await repo.mergeFromFile(importPath);

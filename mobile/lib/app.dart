@@ -30,12 +30,14 @@ class _RootShell extends StatefulWidget {
 class _RootShellState extends State<_RootShell> {
   int _index = 0;
 
+  // Order matches the design mockup's AppNav.dc.html exactly:
+  // 홈 / 플래시카드 / 타이머 / 가져오기 / 설정.
   static const _screens = [
     HomeScreen(),
     FlashcardScreen(),
+    TimerScreen(),
     ImportScreen(),
     SettingsScreen(),
-    TimerScreen(),
   ];
 
   @override
@@ -48,9 +50,9 @@ class _RootShellState extends State<_RootShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home), label: '홈'),
           NavigationDestination(icon: Icon(Icons.style), label: '플래시카드'),
+          NavigationDestination(icon: Icon(Icons.timer), label: '타이머'),
           NavigationDestination(icon: Icon(Icons.file_download), label: '가져오기'),
           NavigationDestination(icon: Icon(Icons.settings), label: '설정'),
-          NavigationDestination(icon: Icon(Icons.timer), label: '타이머'),
         ],
       ),
     );

@@ -59,5 +59,71 @@ void main() {
       expect(updated.nextReviewAt, '2026-08-03T00:00:00.000Z');
       expect(updated.original, 'x');
     });
+
+    test('toMap/fromMap round-trips reviewLevel and lastReviewedAt', () {
+      final sentence = Sentence(
+        id: 's1', original: 's-w1', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        reviewLevel: 3,
+        lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      );
+      final restored = Sentence.fromMap(sentence.toMap());
+      expect(restored.reviewLevel, 3);
+      expect(restored.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+    });
+
+    test('fromMap defaults reviewLevel to 0 and lastReviewedAt to null when missing', () {
+      final restored = Sentence.fromMap({
+        'id': 's2', 'original': 'brief', 'platform': 'youtube',
+        'timestamp': 5, 'saved_at': '2026-08-02T00:00:00.000Z',
+      });
+      expect(restored.reviewLevel, 0);
+      expect(restored.lastReviewedAt, isNull);
+    });
+
+    test('copyWith updates reviewLevel and lastReviewedAt', () {
+      final sentence = Sentence(
+        id: 's1', original: 's-w1', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+      );
+      final updated = sentence.copyWith(reviewLevel: 2, lastReviewedAt: '2026-08-10T00:00:00.000Z');
+      expect(updated.reviewLevel, 2);
+      expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+      expect(updated.original, 's-w1');
+    });
+
+    test('copyWith can explicitly clear nextReviewAt and lastReviewedAt to null', () {
+      final sentence = Sentence(
+        id: 's1', original: 's-w1', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        nextReviewAt: '2026-08-08T00:00:00.000Z',
+        lastReviewedAt: '2026-08-01T00:00:00.000Z',
+      );
+      final cleared = sentence.copyWith(nextReviewAt: null, lastReviewedAt: null);
+      expect(cleared.nextReviewAt, isNull);
+      expect(cleared.lastReviewedAt, isNull);
+    });
+
+    test('copyWith updates original/translation but leaves other fields (including nextReviewAt) untouched', () {
+      final sentence = Sentence(
+        id: 's1', original: 'Nothing in life is ephemeral.', translation: '덧없는',
+        platform: 'netflix', contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        reviewCount: 5, reviewLevel: 3,
+        nextReviewAt: '2099-01-01T00:00:00.000Z',
+        lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      );
+      final updated = sentence.copyWith(original: 'New original.');
+
+      expect(updated.original, 'New original.');
+      expect(updated.translation, '덧없는');
+      expect(updated.reviewCount, 5);
+      expect(updated.reviewLevel, 3);
+      expect(updated.nextReviewAt, '2099-01-01T00:00:00.000Z');
+      expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+    });
   });
 }

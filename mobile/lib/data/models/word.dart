@@ -1,3 +1,5 @@
+const _unset = Object();
+
 class Word {
   final String id;
   final String word;
@@ -11,6 +13,8 @@ class Word {
   final String savedAt;
   final int reviewCount;
   final String? nextReviewAt;
+  final int reviewLevel;
+  final String? lastReviewedAt;
 
   const Word({
     required this.id,
@@ -25,6 +29,8 @@ class Word {
     required this.savedAt,
     this.reviewCount = 0,
     this.nextReviewAt,
+    this.reviewLevel = 0,
+    this.lastReviewedAt,
   });
 
   Map<String, Object?> toMap() => {
@@ -40,6 +46,8 @@ class Word {
         'saved_at': savedAt,
         'review_count': reviewCount,
         'next_review_at': nextReviewAt,
+        'review_level': reviewLevel,
+        'last_reviewed_at': lastReviewedAt,
       };
 
   factory Word.fromMap(Map<String, Object?> map) => Word(
@@ -55,20 +63,37 @@ class Word {
         savedAt: (map['saved_at'] as String?) ?? '',
         reviewCount: (map['review_count'] as int?) ?? 0,
         nextReviewAt: map['next_review_at'] as String?,
+        reviewLevel: (map['review_level'] as int?) ?? 0,
+        lastReviewedAt: map['last_reviewed_at'] as String?,
       );
 
-  Word copyWith({int? reviewCount, String? nextReviewAt}) => Word(
+  Word copyWith({
+    String? word,
+    String? translation,
+    String? sentence,
+    int? reviewCount,
+    Object? nextReviewAt = _unset,
+    int? reviewLevel,
+    Object? lastReviewedAt = _unset,
+  }) =>
+      Word(
         id: id,
-        word: word,
+        word: word ?? this.word,
         definition: definition,
-        sentence: sentence,
-        translation: translation,
+        sentence: sentence ?? this.sentence,
+        translation: translation ?? this.translation,
         platform: platform,
         contentTitle: contentTitle,
         contentId: contentId,
         timestamp: timestamp,
         savedAt: savedAt,
         reviewCount: reviewCount ?? this.reviewCount,
-        nextReviewAt: nextReviewAt ?? this.nextReviewAt,
+        nextReviewAt: identical(nextReviewAt, _unset)
+            ? this.nextReviewAt
+            : nextReviewAt as String?,
+        reviewLevel: reviewLevel ?? this.reviewLevel,
+        lastReviewedAt: identical(lastReviewedAt, _unset)
+            ? this.lastReviewedAt
+            : lastReviewedAt as String?,
       );
 }

@@ -170,7 +170,13 @@ class LocalStudyTimerRepository extends ChangeNotifier implements StudyTimerRepo
       'weekly_goals',
       where: 'effective_from <= ?',
       whereArgs: [forWeekStart.toIso8601String()],
-      orderBy: 'effective_from DESC',
+      // Ties on effective_from (multiple goals set within the same week)
+      // must resolve to the most recently inserted row — SQLite otherwise
+      // leaves same-key ordering unspecified. created_at isn't a reliable
+      // tiebreaker on its own (millisecond/clock resolution can tie too),
+      // so fall back to the table's implicit rowid, which strictly
+      // increases with insertion order.
+      orderBy: 'effective_from DESC, rowid DESC',
       limit: 1,
     );
     if (rows.isEmpty) return null;

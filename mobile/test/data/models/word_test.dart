@@ -66,5 +66,74 @@ void main() {
       expect(updated.word, 'ephemeral');
       expect(updated.id, 'w1');
     });
+
+    test('toMap/fromMap round-trips reviewLevel and lastReviewedAt', () {
+      final word = Word(
+        id: 'w1', word: 'ephemeral', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        reviewLevel: 3,
+        lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      );
+      final restored = Word.fromMap(word.toMap());
+      expect(restored.reviewLevel, 3);
+      expect(restored.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+    });
+
+    test('fromMap defaults reviewLevel to 0 and lastReviewedAt to null when missing', () {
+      final restored = Word.fromMap({
+        'id': 'w2', 'word': 'brief', 'platform': 'youtube',
+        'timestamp': 10, 'saved_at': '2026-08-02T00:00:00.000Z',
+      });
+      expect(restored.reviewLevel, 0);
+      expect(restored.lastReviewedAt, isNull);
+    });
+
+    test('copyWith updates reviewLevel and lastReviewedAt', () {
+      final word = Word(
+        id: 'w1', word: 'ephemeral', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+      );
+      final updated = word.copyWith(reviewLevel: 2, lastReviewedAt: '2026-08-10T00:00:00.000Z');
+      expect(updated.reviewLevel, 2);
+      expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+      expect(updated.word, 'ephemeral');
+    });
+
+    test('copyWith can explicitly clear nextReviewAt and lastReviewedAt to null', () {
+      final word = Word(
+        id: 'w1', word: 'ephemeral', platform: 'netflix',
+        contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        nextReviewAt: '2026-08-08T00:00:00.000Z',
+        lastReviewedAt: '2026-08-01T00:00:00.000Z',
+      );
+      final cleared = word.copyWith(nextReviewAt: null, lastReviewedAt: null);
+      expect(cleared.nextReviewAt, isNull);
+      expect(cleared.lastReviewedAt, isNull);
+    });
+
+    test('copyWith updates word/translation/sentence but leaves other fields (including definition and nextReviewAt) untouched', () {
+      final word = Word(
+        id: 'w1', word: 'ephemeral', definition: 'lasting for a very short time',
+        sentence: 'Nothing in life is ephemeral.', translation: '덧없는',
+        platform: 'netflix', contentTitle: 'x', contentId: 'y', timestamp: 1,
+        savedAt: '2026-08-02T00:00:00.000Z',
+        reviewCount: 5, reviewLevel: 3,
+        nextReviewAt: '2099-01-01T00:00:00.000Z',
+        lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      );
+      final updated = word.copyWith(word: 'new-word');
+
+      expect(updated.word, 'new-word');
+      expect(updated.translation, '덧없는');
+      expect(updated.sentence, 'Nothing in life is ephemeral.');
+      expect(updated.definition, 'lasting for a very short time');
+      expect(updated.reviewCount, 5);
+      expect(updated.reviewLevel, 3);
+      expect(updated.nextReviewAt, '2099-01-01T00:00:00.000Z');
+      expect(updated.lastReviewedAt, '2026-08-10T00:00:00.000Z');
+    });
   });
 }

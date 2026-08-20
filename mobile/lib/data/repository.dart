@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'database.dart';
 import 'models/sentence.dart';
 import 'models/word.dart';
+import 'review_schedule.dart';
 
 class MergeResult {
   final int newWords;
@@ -29,6 +30,8 @@ abstract class LearningRepository extends ChangeNotifier {
   Future<void> deleteSentence(String id);
   Future<void> markWordReviewed(String id);
   Future<void> markSentenceReviewed(String id);
+  Future<void> setWordReviewLevel(String id, int level);
+  Future<void> setSentenceReviewLevel(String id, int level);
   Future<MergeResult> mergeFromFile(String filePath);
   Future<String> getDatabasePath();
   Future<void> close();
@@ -98,9 +101,13 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
     final rows = await db.query('words', where: 'id = ?', whereArgs: [id]);
     if (rows.isEmpty) return;
     final word = Word.fromMap(rows.single);
+    final newLevel = (word.reviewLevel + 1).clamp(0, kMaxReviewLevel);
+    final now = DateTime.now();
     final updated = word.copyWith(
       reviewCount: word.reviewCount + 1,
-      nextReviewAt: DateTime.now().add(const Duration(days: 1)).toIso8601String(),
+      reviewLevel: newLevel,
+      lastReviewedAt: now.toIso8601String(),
+      nextReviewAt: nextReviewAtForLevel(newLevel, now),
     );
     await db.insert('words', updated.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -113,9 +120,47 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
     final rows = await db.query('sentences', where: 'id = ?', whereArgs: [id]);
     if (rows.isEmpty) return;
     final sentence = Sentence.fromMap(rows.single);
+    final newLevel = (sentence.reviewLevel + 1).clamp(0, kMaxReviewLevel);
+    final now = DateTime.now();
     final updated = sentence.copyWith(
       reviewCount: sentence.reviewCount + 1,
-      nextReviewAt: DateTime.now().add(const Duration(days: 1)).toIso8601String(),
+      reviewLevel: newLevel,
+      lastReviewedAt: now.toIso8601String(),
+      nextReviewAt: nextReviewAtForLevel(newLevel, now),
+    );
+    await db.insert('sentences', updated.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setWordReviewLevel(String id, int level) async {
+    final db = await _database;
+    final rows = await db.query('words', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final word = Word.fromMap(rows.single);
+    final now = DateTime.now();
+    final updated = word.copyWith(
+      reviewLevel: level,
+      lastReviewedAt: now.toIso8601String(),
+      nextReviewAt: nextReviewAtForLevel(level, now),
+    );
+    await db.insert('words', updated.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setSentenceReviewLevel(String id, int level) async {
+    final db = await _database;
+    final rows = await db.query('sentences', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final sentence = Sentence.fromMap(rows.single);
+    final now = DateTime.now();
+    final updated = sentence.copyWith(
+      reviewLevel: level,
+      lastReviewedAt: now.toIso8601String(),
+      nextReviewAt: nextReviewAtForLevel(level, now),
     );
     await db.insert('sentences', updated.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);

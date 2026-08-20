@@ -9,7 +9,6 @@ import '../../data/study_timer_repository.dart';
 import '../../theme/app_theme.dart';
 import 'recent_sessions_card.dart';
 import 'stats/stats_view.dart';
-import 'timer_history_view.dart';
 import 'weekly_goal_card.dart';
 
 class TimerScreen extends StatefulWidget {
@@ -226,8 +225,6 @@ class _TimerScreenState extends State<TimerScreen> {
         const WeeklyGoalCard(),
         const SizedBox(height: 14),
         const RecentSessionsCard(),
-        const SizedBox(height: 24),
-        const TimerHistoryView(),
       ],
     );
   }

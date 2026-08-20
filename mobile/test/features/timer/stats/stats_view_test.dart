@@ -89,4 +89,65 @@ void main() {
     expect(find.text('이번 달'), findsOneWidget);
     expect(find.text('이번 주'), findsNothing);
   });
+
+  testWidgets('calendar shows a dot only for days with recorded activity', (tester) async {
+    final learningRepo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(learningRepo.close);
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final timerRepo = LocalStudyTimerRepository(openDb: () async => db);
+    addTearDown(timerRepo.close);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    await db.insert('study_sessions', {
+      'id': 's1',
+      'started_at': today.add(const Duration(hours: 9)).toIso8601String(),
+      'ended_at': today.add(const Duration(hours: 9, minutes: 30)).toIso8601String(),
+      'duration_seconds': 1800,
+      'saved_at': today.add(const Duration(hours: 9, minutes: 30)).toIso8601String(),
+    });
+
+    await tester.pumpWidget(buildView(learningRepo, timerRepo));
+    await tester.pumpAndSettle();
+
+    expect(find.text('${today.day}'), findsOneWidget);
+    // Month navigation header is present.
+    expect(find.text('‹'), findsOneWidget);
+    expect(find.text('›'), findsOneWidget);
+  });
+
+  testWidgets('tapping a calendar day updates the day-detail panel', (tester) async {
+    final learningRepo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    addTearDown(learningRepo.close);
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final timerRepo = LocalStudyTimerRepository(openDb: () async => db);
+    addTearDown(timerRepo.close);
+
+    final now = DateTime.now();
+    // Pick a day earlier in the month than today, so it's guaranteed to be
+    // a distinct, already-elapsed day regardless of what "today" is.
+    final targetDay = DateTime(now.year, now.month, 1);
+    await db.insert('study_sessions', {
+      'id': 's1',
+      'started_at': targetDay.add(const Duration(hours: 9)).toIso8601String(),
+      'ended_at': targetDay.add(const Duration(hours: 9, minutes: 45)).toIso8601String(),
+      'duration_seconds': 2700,
+      'saved_at': targetDay.add(const Duration(hours: 9, minutes: 45)).toIso8601String(),
+    });
+    await db.insert('words', {
+      'id': 'w1', 'word': 'ephemeral', 'platform': 'youtube',
+      'content_title': 't', 'content_id': 'c', 'timestamp': 0,
+      'saved_at': targetDay.add(const Duration(hours: 9, minutes: 45)).toIso8601String(),
+      'review_level': 0,
+    });
+
+    await tester.pumpWidget(buildView(learningRepo, timerRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('1').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('0:45'), findsOneWidget); // 학습 시간
+    expect(find.text('1'), findsWidgets); // 세션 count and/or 저장 count both show "1"
+  });
 }

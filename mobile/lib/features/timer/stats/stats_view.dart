@@ -21,6 +21,8 @@ class _StatsViewState extends State<StatsView> {
   Map<DateTime, int> _dayTotals = {};
   Map<DateTime, int> _sessionCounts = {};
   Map<DateTime, int> _saveDayTotals = {};
+  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _selectedDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
   @override
   void initState() {
@@ -224,9 +226,138 @@ class _StatsViewState extends State<StatsView> {
               ],
             ),
           ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: _prevMonth,
+                      child: const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Center(child: Text('‹', style: TextStyle(fontSize: 18, color: AppColors.inkTertiary))),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '${_calendarMonth.year}년 ${_calendarMonth.month}월',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _nextMonth,
+                      child: const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Center(child: Text('›', style: TextStyle(fontSize: 18, color: AppColors.inkTertiary))),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                GridView.count(
+                  crossAxisCount: 7,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 5,
+                  crossAxisSpacing: 5,
+                  children: [
+                    for (final label in const ['월', '화', '수', '목', '금', '토', '일'])
+                      Center(
+                        child: Text(
+                          label,
+                          style: const TextStyle(fontFamily: AppFonts.mono, fontWeight: FontWeight.w600, fontSize: 10, color: AppColors.inkFaint),
+                        ),
+                      ),
+                    for (final cell in _calendarCells())
+                      cell == null
+                          ? const SizedBox.shrink()
+                          : _CalendarCell(
+                              day: cell,
+                              selected: cell == _selectedDay,
+                              isToday: cell == DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
+                              dotTier: calendarDotTier(_dayTotals[cell] ?? 0, _maxSecondsInCalendarMonth()),
+                              onTap: () => setState(() => _selectedDay = cell),
+                            ),
+                  ],
+                ),
+                Container(
+                  margin: const EdgeInsets.only(top: 14),
+                  padding: const EdgeInsets.only(top: 13),
+                  decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF0F2F7)))),
+                  child: const Text('칸을 눌러 그날 기록을 봅니다', style: TextStyle(fontSize: 11.5, color: AppColors.inkQuaternary)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_selectedDay.month}월 ${_selectedDay.day}일',
+                  style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 10.5, fontWeight: FontWeight.w600, letterSpacing: 0.1, color: AppColors.inkQuaternary),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(child: _DayStat(label: '학습 시간', value: _formatHM(_dayTotals[_selectedDay] ?? 0))),
+                    Container(width: 1, height: 36, color: const Color(0xFFF0F2F7)),
+                    Expanded(child: _DayStat(label: '세션', value: '${_sessionCounts[_selectedDay] ?? 0}')),
+                    Container(width: 1, height: 36, color: const Color(0xFFF0F2F7)),
+                    Expanded(child: _DayStat(label: '저장', value: '${_saveDayTotals[_selectedDay] ?? 0}')),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  void _prevMonth() {
+    setState(() => _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month - 1, 1));
+  }
+
+  void _nextMonth() {
+    setState(() => _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1));
+  }
+
+  List<DateTime?> _calendarCells() {
+    final daysInMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0).day;
+    final leadingBlanks = _calendarMonth.weekday - 1; // Monday=1 -> 0 blanks
+    return [
+      for (var i = 0; i < leadingBlanks; i++) null,
+      for (var d = 1; d <= daysInMonth; d++) DateTime(_calendarMonth.year, _calendarMonth.month, d),
+    ];
+  }
+
+  int _maxSecondsInCalendarMonth() {
+    final daysInMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0).day;
+    var max = 0;
+    for (var d = 1; d <= daysInMonth; d++) {
+      final seconds = _dayTotals[DateTime(_calendarMonth.year, _calendarMonth.month, d)] ?? 0;
+      if (seconds > max) max = seconds;
+    }
+    return max;
   }
 
   Widget _periodSegment(String label, StatsPeriod value) {
@@ -287,6 +418,81 @@ class _StatsBarColumn extends StatelessWidget {
             color: bar.isCurrent ? AppColors.ink : AppColors.inkQuaternary,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _CalendarCell extends StatelessWidget {
+  final DateTime day;
+  final bool selected;
+  final bool isToday;
+  final int dotTier;
+  final VoidCallback onTap;
+
+  const _CalendarCell({
+    required this.day,
+    required this.selected,
+    required this.isToday,
+    required this.dotTier,
+    required this.onTap,
+  });
+
+  static const _dotColors = [null, Color(0xFFFACCB7), Color(0xFFFEA47C), Color(0xFFFB864D)];
+  static const _dotWidths = [0.0, 11.0, 15.0, 19.0];
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentTint : AppColors.surface,
+          border: Border.all(color: selected ? AppColors.accent : const Color(0xFFE7EAF1)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '${day.day}',
+              style: TextStyle(
+                fontFamily: AppFonts.mono,
+                fontSize: 11.5,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 3),
+            SizedBox(
+              height: 3,
+              width: _dotWidths[dotTier],
+              child: dotTier == 0
+                  ? null
+                  : DecoratedBox(
+                      decoration: BoxDecoration(color: _dotColors[dotTier], borderRadius: BorderRadius.circular(2)),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DayStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DayStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.inkQuaternary)),
+        const SizedBox(height: 5),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 19)),
       ],
     );
   }

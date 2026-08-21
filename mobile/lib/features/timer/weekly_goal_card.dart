@@ -38,7 +38,7 @@ class WeeklyGoalCard extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _GoalSheet(
+      builder: (_) => GoalSheet(
         initialHours: currentGoalHours,
         currentTotalSeconds: currentTotalSeconds,
       ),
@@ -221,16 +221,16 @@ class WeeklyGoalCard extends StatelessWidget {
   }
 }
 
-class _GoalSheet extends StatefulWidget {
+class GoalSheet extends StatefulWidget {
   final int initialHours;
   final int currentTotalSeconds;
-  const _GoalSheet({required this.initialHours, required this.currentTotalSeconds});
+  const GoalSheet({super.key, required this.initialHours, required this.currentTotalSeconds});
 
   @override
-  State<_GoalSheet> createState() => _GoalSheetState();
+  State<GoalSheet> createState() => _GoalSheetState();
 }
 
-class _GoalSheetState extends State<_GoalSheet> {
+class _GoalSheetState extends State<GoalSheet> {
   static const _tickHours = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 21];
   static const _presetHours = [3, 5, 7, 10];
   static const _minHours = 1;

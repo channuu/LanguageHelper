@@ -4,6 +4,9 @@
   let enCues = [];
   let nativeCues = [];
   let lastActiveIdx = -1;
+  let searchQuery = '';
+  let autoScrollEnabled = true;
+  let savedSet = new Set();
 
   function formatTime(sec) {
     const m = Math.floor(sec / 60);
@@ -13,6 +16,31 @@
 
   function findNativeText(enCue) {
     return nativeCues.find(c => Math.abs(c.start - enCue.start) < 1.0)?.text || '';
+  }
+
+  /**
+   * Returns the Set of enCue texts that are already saved as sentences,
+   * so renderList() can show a checkmark instead of "+"  for those lines.
+   * Pure — takes the already-fetched sentence list, does no I/O itself.
+   * @param {{original: string}[]} savedSentences
+   * @returns {Set<string>}
+   */
+  function savedTextSet(savedSentences) {
+    return new Set((savedSentences || []).map(s => s.original));
+  }
+
+  /**
+   * Case/whitespace-insensitive substring match used by the search box.
+   * Pure — no DOM access.
+   * @param {string} query
+   * @param {{text: string}} enCue
+   * @param {string} nativeText
+   * @returns {boolean}
+   */
+  function matchesQuery(query, enCue, nativeText) {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return enCue.text.toLowerCase().includes(q) || (nativeText || '').toLowerCase().includes(q);
   }
 
   function _escapeHtml(str) {
@@ -142,11 +170,33 @@ ${rows}
       '<button class="eh-panel-btn" id="eh-panel-collapse">✕</button>';
     panel.appendChild(header);
 
+    const searchRow = document.createElement('div');
+    searchRow.className = 'eh-panel-search-row';
+    searchRow.innerHTML = '<input type="text" id="eh-panel-search" class="eh-panel-search-input" placeholder="검색">';
+    panel.appendChild(searchRow);
+
     const list = document.createElement('div');
     list.className = 'eh-panel-list';
     list.id = 'eh-panel-list';
     list.innerHTML = '<div class="eh-panel-empty">자막 로딩 중...</div>';
     panel.appendChild(list);
+
+    const footer = document.createElement('div');
+    footer.className = 'eh-panel-footer';
+    footer.innerHTML =
+      '<span class="eh-panel-footer-count" id="eh-panel-footer-count"></span>' +
+      `<span class="eh-panel-autoscroll${autoScrollEnabled ? ' on' : ''}" id="eh-panel-autoscroll">자동 스크롤</span>`;
+    panel.appendChild(footer);
+
+    searchRow.querySelector('#eh-panel-search').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderList();
+    });
+
+    footer.querySelector('#eh-panel-autoscroll').addEventListener('click', (e) => {
+      autoScrollEnabled = !autoScrollEnabled;
+      e.currentTarget.classList.toggle('on', autoScrollEnabled);
+    });
 
     if (_isYouTube()) {
       // ── LR과 동일한 구조: wrapper(relative block) + panel(absolute inset:0) ──
@@ -258,9 +308,17 @@ ${rows}
       return;
     }
     const s = window.EH.settings;
+    const visibleCues = enCues
+      .map((cue, idx) => ({ cue, idx, native: findNativeText(cue) }))
+      .filter(({ cue, native }) => matchesQuery(searchQuery, cue, native));
+
+    if (!visibleCues.length) {
+      list.innerHTML = '<div class="eh-panel-empty">검색 결과가 없습니다</div>';
+      return;
+    }
+
     list.innerHTML = '';
-    enCues.forEach((cue, idx) => {
-      const native = findNativeText(cue);
+    visibleCues.forEach(({ cue, idx, native }) => {
       const item = document.createElement('div');
       item.className = 'eh-panel-item';
       item.dataset.idx = idx;
@@ -285,17 +343,24 @@ ${rows}
         textWrap.appendChild(nativeSpan);
       }
 
+      const isSaved = savedSet.has(cue.text);
       const saveBtn = document.createElement('button');
-      saveBtn.className = 'eh-panel-item-save';
-      saveBtn.textContent = '＋';
-      saveBtn.title = '문장 저장';
+      saveBtn.className = 'eh-panel-item-save' + (isSaved ? ' saved' : '');
+      saveBtn.textContent = isSaved ? '✓' : '＋';
+      saveBtn.title = isSaved ? '이미 저장됨' : '문장 저장';
+      saveBtn.disabled = isSaved;
       saveBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (isSaved) return;
         window.EH.Storage.saveSentence({
           original: cue.text,
           translation: native,
           timestamp: cue.start
-        }).then(() => window.EH.showToast?.('✓ 문장 저장됨'));
+        }).then(() => {
+          savedSet.add(cue.text);
+          window.EH.showToast?.('✓ 문장 저장됨');
+          renderList();
+        });
       });
 
       item.appendChild(time);
@@ -304,6 +369,9 @@ ${rows}
       item.addEventListener('click', () => window.EH.adapter.seekTo(cue.start + 0.1));
       list.appendChild(item);
     });
+
+    const countEl = document.getElementById('eh-panel-footer-count');
+    if (countEl) countEl.textContent = `이 영상에서 저장 ${savedSet.size}`;
   }
 
   function highlight(enText) {
@@ -315,7 +383,7 @@ ${rows}
     const active = document.querySelector(`.eh-panel-item[data-idx="${idx}"]`);
     if (active) {
       active.classList.add('active');
-      active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      if (autoScrollEnabled) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
 
@@ -342,11 +410,22 @@ ${rows}
     return !nowHidden;
   }
 
+  async function loadSavedSet() {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'GET_ALL' });
+      savedSet = savedTextSet((res && res.sentences) || []);
+    } catch (_) {
+      savedSet = new Set();
+    }
+  }
+
   function setup(adapter) {
     createDOM();
     const tracks = adapter.getSubtitleTracks();
     enCues = tracks.find(t => t.lang === 'en')?.cues || [];
     nativeCues = tracks.find(t => t.lang !== 'en')?.cues || [];
+
+    loadSavedSet().then(renderList);
 
     if (typeof adapter.onTracksReady === 'function') {
       adapter.onTracksReady((tracks) => {

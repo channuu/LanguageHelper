@@ -443,6 +443,10 @@ ${rows}
         nativeCues = tracks.find(t => t.lang !== 'en')?.cues || [];
         console.log('[EH:panel] onTracksReady — enCues:', enCues.length, 'nativeCues:', nativeCues.length, 'listEl:', !!document.getElementById('eh-panel-list'));
         renderList();
+        // SPA 네비게이션(예: YouTube 영상 전환)으로 트랙이 교체될 때도
+        // savedSet을 새 영상의 contentId 기준으로 다시 불러와야
+        // 푸터 개수/체크마크가 이전 영상 데이터로 고정되지 않는다.
+        loadSavedSet().then(renderList);
       });
     }
 

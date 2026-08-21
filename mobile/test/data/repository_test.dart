@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/models/word.dart';
@@ -32,6 +33,10 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
   });
 
   late LocalSQLiteRepository repo;
@@ -228,6 +233,8 @@ void main() {
 
       expect(result.newWords, 1);
       expect(result.newSentences, 1);
+      expect(result.skippedWords, 1); // w1 was a duplicate
+      expect(result.skippedSentences, 0);
 
       final words = await repo.getWords();
       expect(words.map((w) => w.id).toSet(), {'w1', 'w2'});
@@ -257,6 +264,95 @@ void main() {
         () => repo.mergeFromFile(extraColsPath),
         throwsA(isA<InvalidBackupFileException>()),
       );
+    });
+  });
+
+  group('getLastImportSummary', () {
+    test('returns null before any import has happened', () async {
+      final summary = await repo.getLastImportSummary();
+      expect(summary, isNull);
+    });
+
+    test('returns the most recent import summary after a successful merge', () async {
+      final tempDir = await Directory.systemTemp.createTemp('eh_last_import_test');
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final importPath = '${tempDir.path}/import.sqlite';
+      final importDb = await databaseFactory.openDatabase(
+        importPath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS words (
+                id TEXT PRIMARY KEY,
+                word TEXT NOT NULL,
+                definition TEXT,
+                sentence TEXT,
+                translation TEXT,
+                platform TEXT,
+                content_title TEXT,
+                content_id TEXT,
+                timestamp REAL,
+                saved_at TEXT,
+                review_count INTEGER DEFAULT 0,
+                next_review_at TEXT
+              )
+            ''');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS sentences (
+                id TEXT PRIMARY KEY,
+                original TEXT NOT NULL,
+                translation TEXT,
+                platform TEXT,
+                content_title TEXT,
+                content_id TEXT,
+                timestamp REAL,
+                saved_at TEXT,
+                review_count INTEGER DEFAULT 0,
+                next_review_at TEXT
+              )
+            ''');
+          },
+        ),
+      );
+      final w1Map = _word('w1').toMap()
+        ..remove('review_level')
+        ..remove('last_reviewed_at');
+      final s1Map = _sentence('s1').toMap()
+        ..remove('review_level')
+        ..remove('last_reviewed_at');
+      await importDb.insert('words', w1Map);
+      await importDb.insert('sentences', s1Map);
+      await importDb.close();
+
+      await repo.mergeFromFile(importPath);
+      final summary = await repo.getLastImportSummary();
+
+      expect(summary, isNotNull);
+      expect(summary!.newWords, 1);
+      expect(summary.newSentences, 1);
+      expect(summary.skippedWords, 0);
+      expect(summary.skippedSentences, 0);
+      expect(summary.importedAt.difference(DateTime.now()).abs() < const Duration(seconds: 5), isTrue);
+    });
+
+    test('a failed import (invalid backup file) does not update the summary', () async {
+      final tempDir = await Directory.systemTemp.createTemp('eh_last_import_fail_test');
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final badPath = '${tempDir.path}/bad.sqlite';
+      final badDb = await databaseFactory.openDatabase(badPath);
+      await badDb.execute('CREATE TABLE not_words (id TEXT)');
+      await badDb.close();
+
+      await expectLater(
+        () => repo.mergeFromFile(badPath),
+        throwsA(isA<InvalidBackupFileException>()),
+      );
+
+      final summary = await repo.getLastImportSummary();
+      expect(summary, isNull);
     });
   });
 }

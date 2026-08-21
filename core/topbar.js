@@ -77,6 +77,10 @@
       panelOn = e.detail.visible;
       updateToggleState(panelToggleRef, panelOn);
     });
+    // 단어/문장 저장 시마다 카운트 재조회 (팝업/패널에서 dispatch)
+    document.addEventListener('eh-item-saved', () => {
+      refreshCount(count);
+    });
   }
 
   function buildToggle(label, initialOn, onClick) {

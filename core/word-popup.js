@@ -85,6 +85,7 @@
         sentence, translation, timestamp
       }).then(() => {
         window.EH.showToast?.(`✓ "${word}" 저장됨`);
+        document.dispatchEvent(new CustomEvent('eh-item-saved'));
         hide();
       });
     });
@@ -93,6 +94,7 @@
       window.EH.Storage.saveSentence({ original: sentence, translation, timestamp })
         .then(() => {
           window.EH.showToast?.('✓ 문장 저장됨');
+          document.dispatchEvent(new CustomEvent('eh-item-saved'));
           hide();
         });
     });

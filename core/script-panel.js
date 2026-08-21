@@ -361,6 +361,7 @@ ${rows}
         }).then(() => {
           savedSet.add(cue.text);
           window.EH.showToast?.('✓ 문장 저장됨');
+          document.dispatchEvent(new CustomEvent('eh-item-saved'));
           renderList();
         });
       });

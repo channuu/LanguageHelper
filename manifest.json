@@ -137,7 +137,12 @@
     },
     {
       "resources": ["vendor/sql-wasm.wasm"],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.netflix.com/*",
+        "https://www.disneyplus.com/*",
+        "https://*.coupangplay.com/*"
+      ]
     },
     {
       "resources": ["ui/fonts/*.woff2"],

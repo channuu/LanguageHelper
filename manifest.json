@@ -30,6 +30,7 @@
       "js": [
         "core/adapter-interface.js",
         "core/storage.js",
+        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",
@@ -49,6 +50,7 @@
       "js": [
         "core/adapter-interface.js",
         "core/storage.js",
+        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",
@@ -62,6 +64,7 @@
       "js": [
         "core/adapter-interface.js",
         "core/storage.js",
+        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",
@@ -81,6 +84,7 @@
       "js": [
         "core/adapter-interface.js",
         "core/storage.js",
+        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",

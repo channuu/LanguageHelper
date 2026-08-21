@@ -71,10 +71,12 @@
   // 팝업 / service worker 메시지 수신
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === 'TOGGLE_OVERLAY') {
-      window.EH.SubtitleEngine?.toggle();
+      const visible = window.EH.SubtitleEngine?.toggle();
+      document.dispatchEvent(new CustomEvent('eh-overlay-toggled', { detail: { visible } }));
     }
     if (msg.type === 'TOGGLE_PANEL') {
-      window.EH.ScriptPanel?.toggle(msg.visible);
+      const visible = window.EH.ScriptPanel?.toggle(msg.visible);
+      document.dispatchEvent(new CustomEvent('eh-panel-toggled', { detail: { visible } }));
     }
     if (msg.type === 'APPLY_SETTINGS') {
       applySettings(msg.settings);

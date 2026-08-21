@@ -182,6 +182,7 @@
   function toggle() {
     visible = !visible;
     document.getElementById('eh-overlay')?.classList.toggle('hidden', !visible);
+    return visible;
   }
 
   window.EH = window.EH || {};

@@ -3,6 +3,8 @@
 
   let overlayOn = true;
   let panelOn = true;
+  let overlayToggleRef = null;
+  let panelToggleRef = null;
 
   function createDOM(adapter) {
     if (document.getElementById('eh-topbar')) return;
@@ -27,6 +29,7 @@
       window.EH.SubtitleEngine?.toggle();
       updateToggleState(overlayToggle, overlayOn);
     });
+    overlayToggleRef = overlayToggle;
     bar.appendChild(overlayToggle.el);
 
     const panelToggle = buildToggle('스크립트 패널', panelOn, () => {
@@ -34,6 +37,7 @@
       window.EH.ScriptPanel?.toggle(panelOn);
       updateToggleState(panelToggle, panelOn);
     });
+    panelToggleRef = panelToggle;
     bar.appendChild(panelToggle.el);
 
     const spacer = document.createElement('div');
@@ -60,6 +64,19 @@
     bar.appendChild(settingsBtn);
 
     document.body.appendChild(bar);
+
+    // 팝업 등 다른 UI에서 SubtitleEngine/ScriptPanel을 직접 토글한 경우에도
+    // 스위치 표시가 어긋나지 않도록 동기화 (여기서는 다시 toggle()을 호출하지 않는다).
+    document.addEventListener('eh-overlay-toggled', (e) => {
+      if (!overlayToggleRef || !e.detail || typeof e.detail.visible !== 'boolean') return;
+      overlayOn = e.detail.visible;
+      updateToggleState(overlayToggleRef, overlayOn);
+    });
+    document.addEventListener('eh-panel-toggled', (e) => {
+      if (!panelToggleRef || !e.detail || typeof e.detail.visible !== 'boolean') return;
+      panelOn = e.detail.visible;
+      updateToggleState(panelToggleRef, panelOn);
+    });
   }
 
   function buildToggle(label, initialOn, onClick) {

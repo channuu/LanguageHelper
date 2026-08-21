@@ -328,7 +328,7 @@ ${rows}
     const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
     const target = wrapper || panel;
-    if (!target) return;
+    if (!target) return undefined;
     let nowHidden;
     if (forceVisible !== undefined) {
       target.classList.toggle('hidden', !forceVisible);
@@ -338,6 +338,7 @@ ${rows}
       target.classList.toggle('hidden');
     }
     if (!_isYouTube()) _setLayoutForPanel(!nowHidden);
+    return !nowHidden;
   }
 
   function setup(adapter) {

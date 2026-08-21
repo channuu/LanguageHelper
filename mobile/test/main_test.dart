@@ -59,7 +59,7 @@ void main() {
 
     await tester.tap(find.text('가져오기'));
     await settleOnce(tester);
-    expect(find.text('SQLite 파일 선택'), findsOneWidget);
+    expect(find.text('파일 선택'), findsOneWidget);
 
     await tester.tap(find.text('설정'));
     await settleOnce(tester);

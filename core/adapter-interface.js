@@ -51,6 +51,7 @@
 
     // 각 코어 모듈은 window.EH.* 에 등록 후 이 함수를 기다린다
     if (window.EH.TopBar)         window.EH.TopBar.setup(adapter);
+    if (window.EH.SettingsPanel)  window.EH.SettingsPanel.setup(adapter);
     if (window.EH.SubtitleEngine) window.EH.SubtitleEngine.setup(adapter);
     if (window.EH.ScriptPanel)    window.EH.ScriptPanel.setup(adapter);
     if (window.EH.WordPopup)      window.EH.WordPopup.setup(adapter);

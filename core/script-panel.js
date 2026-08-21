@@ -361,5 +361,5 @@ ${rows}
   }
 
   window.EH = window.EH || {};
-  window.EH.ScriptPanel = { setup, highlight, toggle, applySettings };
+  window.EH.ScriptPanel = { setup, highlight, toggle, applySettings, exportScript };
 })();

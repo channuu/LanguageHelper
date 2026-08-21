@@ -30,7 +30,9 @@
       "js": [
         "core/adapter-interface.js",
         "core/topbar.js",
+        "core/settings-panel.js",
         "core/storage.js",
+        "vendor/sql-wasm.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
@@ -51,7 +53,9 @@
       "js": [
         "core/adapter-interface.js",
         "core/topbar.js",
+        "core/settings-panel.js",
         "core/storage.js",
+        "vendor/sql-wasm.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
@@ -66,7 +70,9 @@
       "js": [
         "core/adapter-interface.js",
         "core/topbar.js",
+        "core/settings-panel.js",
         "core/storage.js",
+        "vendor/sql-wasm.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
@@ -87,7 +93,9 @@
       "js": [
         "core/adapter-interface.js",
         "core/topbar.js",
+        "core/settings-panel.js",
         "core/storage.js",
+        "vendor/sql-wasm.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",

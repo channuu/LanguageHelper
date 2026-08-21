@@ -69,7 +69,7 @@
    */
   async function exportAll(words, sentences, opts = {}) {
     const SQL = await initSqlJs({
-      locateFile: opts.locateFile || (f => '../vendor/' + f)
+      locateFile: opts.locateFile || (f => chrome.runtime.getURL('vendor/' + f))
     });
     const data = buildDatabase(SQL, words, sentences);
 

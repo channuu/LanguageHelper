@@ -22,6 +22,8 @@
    * Returns the Set of enCue texts that are already saved as sentences,
    * so renderList() can show a checkmark instead of "+"  for those lines.
    * Pure — takes the already-fetched sentence list, does no I/O itself.
+   * Callers are expected to pre-filter the list to the current video's
+   * contentId so this stays consistent with the footer's video-scoped count.
    * @param {{original: string}[]} savedSentences
    * @returns {Set<string>}
    */
@@ -413,7 +415,15 @@ ${rows}
   async function loadSavedSet() {
     try {
       const res = await chrome.runtime.sendMessage({ type: 'GET_ALL' });
-      savedSet = savedTextSet((res && res.sentences) || []);
+      const sentences = (res && res.sentences) || [];
+      // 저장 목록 전체(GET_ALL)에서 현재 영상(contentId)에 해당하는 것만 필터링.
+      // 푸터의 "이 영상에서 저장" 라벨과 체크마크 둘 다 이 영상 범위로 통일해야
+      // 개수와 체크마크 표시가 서로 어긋나지 않는다.
+      const contentId = window.EH.adapter?.getPlatformMeta?.()?.contentId;
+      const scoped = contentId
+        ? sentences.filter(s => s.contentId === contentId)
+        : sentences;
+      savedSet = savedTextSet(scoped);
     } catch (_) {
       savedSet = new Set();
     }

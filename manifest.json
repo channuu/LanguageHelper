@@ -29,6 +29,7 @@
       "matches": ["https://www.youtube.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/topbar.js",
         "core/storage.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",
@@ -49,6 +50,7 @@
       "matches": ["https://www.netflix.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/topbar.js",
         "core/storage.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",
@@ -63,6 +65,7 @@
       "matches": ["https://www.disneyplus.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/topbar.js",
         "core/storage.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",
@@ -83,6 +86,7 @@
       "matches": ["https://*.coupangplay.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/topbar.js",
         "core/storage.js",
         "core/sqlite-export.js",
         "core/subtitle-engine.js",

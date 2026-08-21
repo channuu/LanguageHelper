@@ -252,3 +252,67 @@
 }
 .eh-popup-btn:hover { background: rgba(var(--eh-gold-rgb), 0.18); }
 .eh-popup-loading { color: rgba(var(--eh-text-rgb), 0.4); font-size: 13px; text-align: center; padding: 12px 0; }
+
+#eh-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 2147483000;
+  height: 46px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  background: var(--eh-surface);
+  border-bottom: 1px solid rgba(var(--eh-gold-rgb), 0.16);
+  font-family: var(--eh-font-body);
+}
+
+.eh-topbar-brand { display: flex; align-items: baseline; gap: 7px; }
+.eh-topbar-name { font-weight: 600; font-size: 14px; color: var(--eh-text); letter-spacing: -0.01em; }
+.eh-topbar-badge {
+  font: 600 9px var(--eh-font-mono);
+  letter-spacing: 0.08em;
+  color: var(--eh-gold-strong);
+  border: 1px solid rgba(var(--eh-gold-rgb), 0.3);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.eh-topbar-divider { width: 1px; height: 18px; background: rgba(var(--eh-text-rgb), 0.1); }
+
+.eh-topbar-toggle { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.eh-topbar-switch {
+  display: inline-block;
+  width: 32px; height: 18px;
+  border-radius: 9px;
+  background: rgba(var(--eh-text-rgb), 0.18);
+  position: relative;
+  transition: background 0.15s;
+}
+.eh-topbar-switch.on { background: var(--eh-accent); }
+.eh-topbar-knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 7px;
+  background: var(--eh-text);
+  transition: left 0.15s;
+}
+.eh-topbar-switch.on .eh-topbar-knob { left: 16px; }
+.eh-topbar-toggle-label { font-size: 12px; color: var(--eh-text); }
+.eh-topbar-toggle-label.dim { color: rgba(var(--eh-text-rgb), 0.4); }
+
+.eh-topbar-count { font: 11px var(--eh-font-mono); color: rgba(var(--eh-text-rgb), 0.34); }
+
+.eh-topbar-settings-btn {
+  display: flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 11px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(var(--eh-text-rgb), 0.14);
+  color: rgba(var(--eh-text-rgb), 0.75);
+  font: 600 12px var(--eh-font-body);
+}
+.eh-topbar-settings-btn:hover { border-color: rgba(var(--eh-gold-rgb), 0.4); color: var(--eh-gold); }

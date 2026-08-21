@@ -63,7 +63,7 @@ void main() {
 
     await tester.tap(find.text('설정'));
     await settleOnce(tester);
-    expect(find.text('모국어 (Native Language)'), findsOneWidget);
+    expect(find.text('모국어'), findsOneWidget);
 
     await tester.tap(find.text('타이머'));
     await settleOnce(tester);

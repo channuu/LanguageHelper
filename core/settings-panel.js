@@ -133,11 +133,13 @@
     open = true;
     render();
     panelEl.classList.remove('hidden');
+    document.dispatchEvent(new CustomEvent('eh-settings-opened'));
   }
 
   function hide() {
     open = false;
     panelEl.classList.add('hidden');
+    document.dispatchEvent(new CustomEvent('eh-settings-closed'));
   }
 
   function toggle() {
@@ -147,6 +149,8 @@
   function setup() {
     createDOM();
     document.addEventListener('eh-settings-toggle', toggle);
+    // 라이브러리 패널이 열리면 설정 패널은 닫혀 상호 배타적으로 유지한다.
+    document.addEventListener('eh-library-opened', () => { if (open) hide(); });
   }
 
   window.EH = window.EH || {};

@@ -16,6 +16,7 @@
     brand.className = 'eh-topbar-brand';
     const meta = adapter.getPlatformMeta?.() || { platform: '' };
     brand.innerHTML =
+      `<img class="eh-topbar-icon" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">` +
       '<span class="eh-topbar-name">English Helper</span>' +
       `<span class="eh-topbar-badge">${esc((meta.platform || '').toUpperCase())}</span>`;
     bar.appendChild(brand);
@@ -44,11 +45,19 @@
     spacer.style.flex = '1';
     bar.appendChild(spacer);
 
-    const count = document.createElement('span');
-    count.id = 'eh-topbar-count';
-    count.className = 'eh-topbar-count';
-    bar.appendChild(count);
-    refreshCount(count);
+    const libBtn = document.createElement('div');
+    libBtn.id = 'eh-topbar-library';
+    libBtn.className = 'eh-topbar-lib-btn';
+    libBtn.innerHTML =
+      '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">' +
+      '<path d="M3.2 1.9h6.6a1 1 0 0 1 1 1v8.2l-4.3-2.4-4.3 2.4V2.9a1 1 0 0 1 1-1z"></path></svg>' +
+      '<span>저장 목록</span>' +
+      '<span class="eh-topbar-lib-count" id="eh-topbar-lib-count"></span>';
+    libBtn.addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('eh-library-toggle'));
+    });
+    bar.appendChild(libBtn);
+    refreshCount(libBtn.querySelector('#eh-topbar-lib-count'));
 
     const settingsBtn = document.createElement('div');
     settingsBtn.id = 'eh-topbar-settings';
@@ -77,10 +86,16 @@
       panelOn = e.detail.visible;
       updateToggleState(panelToggleRef, panelOn);
     });
-    // 단어/문장 저장 시마다 카운트 재조회 (팝업/패널에서 dispatch)
+    // 단어/문장 저장 시마다 라이브러리 버튼의 개수 배지 재조회
     document.addEventListener('eh-item-saved', () => {
-      refreshCount(count);
+      refreshCount(libBtn.querySelector('#eh-topbar-lib-count'));
     });
+
+    // 설정/라이브러리 패널의 열림·닫힘에 맞춰 해당 버튼에 active 스타일 적용
+    document.addEventListener('eh-settings-opened', () => settingsBtn.classList.add('active'));
+    document.addEventListener('eh-settings-closed', () => settingsBtn.classList.remove('active'));
+    document.addEventListener('eh-library-opened', () => libBtn.classList.add('active'));
+    document.addEventListener('eh-library-closed', () => libBtn.classList.remove('active'));
   }
 
   function buildToggle(label, initialOn, onClick) {

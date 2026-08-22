@@ -19,6 +19,25 @@
     return _origXHROpen.apply(this, arguments);
   };
 
+  // ── 다른 확장 프로그램(예: Language Reactor)이 같은 페이지 컨텍스트에서
+  // fetch/XHR을 똑같이 가로채는 경우, 우리가 그 확장의 자체 프록시/난독화된
+  // timedtext 요청을 "YouTube 진짜 요청"으로 착각해 캡처할 수 있다. 진짜
+  // YouTube 파라미터의 형태와 명백히 다른 값(예: signature가 ip와 동일,
+  // lang이 실제 언어 코드 형태가 아님)이면 신뢰하지 않고 무시한다. ──
+  function _looksLikeRealTimedtextParams(params) {
+    const lang = params.get('lang') || '';
+    const sig = params.get('signature') || '';
+    const ip = params.get('ip') || '';
+    // 실제 YouTube 언어 코드는 소문자(+옵션 점/하이픈) 조합만 쓴다
+    // (en, ko, a.en, en-US 등). 숫자가 섞인 짧은 토큰은 다른 확장이 채워
+    // 넣은 난독화 값일 가능성이 높다.
+    if (lang && !/^[a-zA-Z]{1,3}(\.[a-zA-Z]{1,3})?(-[A-Za-z0-9]+)?$/.test(lang)) return false;
+    // signature가 ip와 완전히 같은 값이면 정상적인 서명이 아니다 — 다른
+    // 확장이 익명화용으로 같은 자리표시자를 여러 필드에 채워 넣은 흔적.
+    if (sig && ip && sig === ip) return false;
+    return true;
+  }
+
   // ── timedtext URL에서 pot + base URL 추출 (XHR + fetch 공통 헬퍼) ──
   function _extractPotFromUrl(url) {
     if (typeof url !== 'string') return;
@@ -26,6 +45,10 @@
     try {
       const [path, qs] = url.split('?');
       const params = new URLSearchParams(qs || '');
+      if (!_looksLikeRealTimedtextParams(params)) {
+        dlog('[EH] ignoring timedtext URL — looks mutated by another extension');
+        return;
+      }
       const pot = params.get('pot');
       const videoId = params.get('v');
       const lang = params.get('lang');

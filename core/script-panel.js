@@ -332,10 +332,22 @@ ${rows}
         // 확장 시엔 고정(fixed) 모드로 강제 전환해 더 넓은 폭을 확보한다.
         const wrapper = document.getElementById('eh-panel-wrapper');
         if (expanded) {
+          // Same inline-width-shadows-CSS issue as the non-YouTube branch:
+          // any pre-existing inline width (e.g. restored from localStorage
+          // by the fixed-mode fallback, or set by a resize-drag before
+          // expanding) would beat the .expanded class's 480px rule.
+          savedInlineWidth = panel.style.width || null;
+          panel.style.width = '';
           panel.classList.add('fixed-mode', 'expanded');
           if (wrapper) wrapper.classList.add('hidden');
           if (panel.parentElement !== document.body) document.body.appendChild(panel);
         } else {
+          // Returning to embedded mode must NOT carry any inline width —
+          // the embedded CSS rule relies on left:0/right:0 with no explicit
+          // width, and a leftover inline width would override that and
+          // break the "fill the wrapper" layout. Unlike the non-YouTube
+          // branch, we don't restore savedInlineWidth here; just clear it.
+          panel.style.width = '';
           panel.classList.remove('fixed-mode', 'expanded');
           if (wrapper) {
             wrapper.classList.remove('hidden');
@@ -368,10 +380,10 @@ ${rows}
       window.EH.showToast?.('패널 숨김 — 팝업에서 다시 켤 수 있어요');
     });
 
-    attachPanelResize(panel, resizeHandle);
+    attachPanelResize(panel, resizeHandle, () => expanded, (w) => { savedInlineWidth = w; });
   }
 
-  function attachPanelResize(panel, handle) {
+  function attachPanelResize(panel, handle, isExpanded, setSavedWidth) {
     let resizing = false, startX, startW;
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -387,6 +399,11 @@ ${rows}
       const w = Math.min(560, Math.max(200, startW - (e.clientX - startX)));
       panel.style.width = w + 'px';
       if (!fixed) _setLayoutForPanel(true);
+      // If the user resizes WHILE expanded, the drag overwrites
+      // panel.style.width directly — keep the saved pre-expand width in
+      // sync so un-expanding restores the width just set here, not a
+      // stale value from before expand was toggled on.
+      if (isExpanded()) setSavedWidth(panel.style.width);
     });
     document.addEventListener('mouseup', () => {
       if (!resizing) return;

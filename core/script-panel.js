@@ -377,7 +377,7 @@ ${rows}
     hideBtn.addEventListener('click', () => {
       toggle(false);
       document.dispatchEvent(new CustomEvent('eh-panel-toggled', { detail: { visible: false } }));
-      window.EH.showToast?.('패널 숨김 — 팝업에서 다시 켤 수 있어요');
+      window.EH.showToast?.('패널 숨김 — 상단 바에서 다시 켤 수 있어요');
     });
 
     attachPanelResize(panel, resizeHandle, () => expanded, (w) => { savedInlineWidth = w; });

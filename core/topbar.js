@@ -119,7 +119,7 @@
     try {
       const res = await chrome.runtime.sendMessage({ type: 'GET_ALL' });
       const total = ((res && res.words) || []).length + ((res && res.sentences) || []).length;
-      countEl.textContent = '저장 ' + total;
+      countEl.textContent = String(total);
     } catch (_) {
       countEl.textContent = '';
     }

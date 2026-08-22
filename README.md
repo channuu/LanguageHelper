@@ -16,9 +16,6 @@ english-helper-extension/
 │   ├── youtube.js                 # YouTube 자막 추출 + 오버레이
 │   ├── netflix.js                 # Netflix 자막 추출 + 오버레이
 │   └── overlay.css                # 오버레이 스타일
-├── popup/
-│   ├── popup.html                 # 팝업 UI
-│   └── popup.js                   # 팝업 로직
 ├── icons/                         # 아이콘 이미지 (직접 추가)
 │   ├── icon16.png
 │   ├── icon48.png

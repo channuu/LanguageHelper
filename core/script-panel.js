@@ -146,29 +146,54 @@ ${rows}
     return parseFloat(raw) || 522;
   }
 
+  // 패널이 현재 "밀어내기(fixed)" 상태인지, 아니면 #secondary에 임베드되어
+  // 이미 확보된 공간을 쓰는 상태인지 — 플랫폼이 아니라 이 클래스로 판단해야
+  // YouTube의 좁은 창/극장모드 폴백(fixed-mode)에서도 push가 적용된다.
+  function _isPanelFixed() {
+    const panel = document.getElementById('eh-panel');
+    return !!(panel && panel.classList.contains('fixed-mode'));
+  }
+
+  // wrapper(임베드)와 panel(밀어내기) 중 현재 실제로 보여야 하는 대상을 기준으로
+  // 숨김 여부를 판단한다 — toggle()의 detached 판정과 동일한 기준을 재사용.
+  function _isPanelVisible() {
+    const wrapper = document.getElementById('eh-panel-wrapper');
+    const panel = document.getElementById('eh-panel');
+    if (!panel) return false;
+    const detached = !!(wrapper && panel.parentElement !== wrapper);
+    const target = detached ? panel : (wrapper || panel);
+    return !target.classList.contains('hidden');
+  }
+
   function _setLayoutForPanel(visible) {
-    if (_isYouTube()) {
+    const panel = document.getElementById('eh-panel');
+    if (!_isPanelFixed()) {
+      // 임베드 모드: #secondary 안에서 이미 확보된 사이드바 공간을 쓰므로
+      // 본문을 별도로 밀어낼 필요가 없다 — wrapper만 보이기/숨기기.
       const wrapper = document.getElementById('eh-panel-wrapper');
       if (wrapper) wrapper.classList.toggle('hidden', !visible);
-    } else {
-      let style = document.getElementById('eh-panel-push-style');
-      if (!style) {
-        style = document.createElement('style');
-        style.id = 'eh-panel-push-style';
-        document.head.appendChild(style);
-      }
-      if (!visible) { style.textContent = ''; return; }
-      const panel = document.getElementById('eh-panel');
-      // getBoundingClientRect() reflects the panel's ACTUAL rendered width,
-      // whether that width comes from an inline style (manual resize / saved
-      // width) or from a CSS class like .expanded — parseInt(panel.style.width)
-      // would silently fall back to 400 whenever the width is class-driven.
-      const w = panel ? (panel.getBoundingClientRect().width || 400) : 400;
-      style.textContent = `
-        html { overflow-x: hidden !important; }
-        body { padding-right: ${w}px !important; box-sizing: border-box !important; }
-      `;
+      const style = document.getElementById('eh-panel-push-style');
+      if (style) style.textContent = '';
+      return;
     }
+    // 밀어내기(fixed) 모드 — YouTube의 사이드바 없는 폴백을 포함해 항상 본문을
+    // 오른쪽으로 밀어 우측에 실제 여백을 만든다 (Language Reactor와 동일한 동작).
+    let style = document.getElementById('eh-panel-push-style');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'eh-panel-push-style';
+      document.head.appendChild(style);
+    }
+    if (!visible || !panel) { style.textContent = ''; return; }
+    // getBoundingClientRect() reflects the panel's ACTUAL rendered width,
+    // whether that width comes from an inline style (manual resize / saved
+    // width) or from a CSS class like .expanded — parseInt(panel.style.width)
+    // would silently fall back to 400 whenever the width is class-driven.
+    const w = panel.getBoundingClientRect().width || 400;
+    style.textContent = `
+      html { overflow-x: hidden !important; }
+      body { padding-right: ${w}px !important; box-sizing: border-box !important; }
+    `;
   }
 
   function createDOM() {
@@ -280,7 +305,7 @@ ${rows}
             secondary.insertBefore(wrapper, secondary.firstChild);
           }
         } else {
-          // 좁은 창/사이드바 없음: 우측 고정 오버레이 폴백
+          // 좁은 창/사이드바 없음: 우측 고정 밀어내기 폴백 (더 이상 오버레이가 아님)
           if (!panel.classList.contains('fixed-mode') || panel.parentElement !== document.body) {
             panel.classList.add('fixed-mode');
             wrapper.style.height = '';
@@ -289,6 +314,8 @@ ${rows}
             document.body.appendChild(panel);
           }
         }
+        // 임베드↔밀어내기 전환 때마다 push 스타일을 현재 모드/가시성에 맞춰 재적용.
+        _setLayoutForPanel(_isPanelVisible());
       };
 
       // 레이아웃이 준비될 때까지 재시도 후 전략 적용
@@ -341,6 +368,7 @@ ${rows}
           panel.classList.add('fixed-mode', 'expanded');
           if (wrapper) wrapper.classList.add('hidden');
           if (panel.parentElement !== document.body) document.body.appendChild(panel);
+          _setLayoutForPanel(true);
         } else {
           // Returning to embedded mode must NOT carry any inline width —
           // the embedded CSS rule relies on left:0/right:0 with no explicit
@@ -349,10 +377,10 @@ ${rows}
           // branch, we don't restore savedInlineWidth here; just clear it.
           panel.style.width = '';
           panel.classList.remove('fixed-mode', 'expanded');
-          if (wrapper) {
-            wrapper.classList.remove('hidden');
-            wrapper.appendChild(panel);
-          }
+          if (wrapper) wrapper.appendChild(panel);
+          // 임베드 모드로 복귀 — _setLayoutForPanel이 fixed-mode 해제를 감지해
+          // push 스타일을 지우고 wrapper의 hidden 상태를 다시 관리한다.
+          _setLayoutForPanel(true);
         }
       } else {
         // An inline panel.style.width (set by manual resize-drag or restored
@@ -398,7 +426,10 @@ ${rows}
       if (_isYouTube() && !fixed) return;
       const w = Math.min(560, Math.max(200, startW - (e.clientX - startX)));
       panel.style.width = w + 'px';
-      if (!fixed) _setLayoutForPanel(true);
+      // 밀어내기 모드에서는 드래그 중에도 push 폭을 실시간으로 갱신해야
+      // 우측 여백이 패널 크기와 어긋나지 않는다. (fixed는 이 지점에서 항상
+      // true이지만, 위쪽 early-return 조건이 바뀌어도 안전하도록 명시적으로 체크.)
+      if (fixed) _setLayoutForPanel(true);
       // If the user resizes WHILE expanded, the drag overwrites
       // panel.style.width directly — keep the saved pre-expand width in
       // sync so un-expanding restores the width just set here, not a
@@ -562,7 +593,7 @@ ${rows}
       nowHidden = !target.classList.contains('hidden');
       target.classList.toggle('hidden');
     }
-    if (!_isYouTube()) _setLayoutForPanel(!nowHidden);
+    _setLayoutForPanel(!nowHidden);
     return !nowHidden;
   }
 

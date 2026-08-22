@@ -458,15 +458,12 @@ ${rows}
     const idx = enCues.findIndex(c => c.text === enText);
     if (idx === -1 || idx === lastActiveIdx) return;
     lastActiveIdx = idx;
-    document.querySelectorAll('.eh-panel-item').forEach(el => el.classList.remove('active'));
+    // NOW 배지는 렌더링 시점(active/NOW 클래스)에 결정되므로, 활성 줄이 바뀔 때마다
+    // 검색/필터로 새 활성 줄이 현재 DOM에 없더라도(=active가 null이어도) 무조건
+    // 다시 그려서 이전 줄에 붙은 NOW 배지가 남지 않도록 한다.
+    renderList();
     const active = document.querySelector(`.eh-panel-item[data-idx="${idx}"]`);
-    if (active) {
-      active.classList.add('active');
-      // NOW 배지는 렌더링 시점에 결정되므로, 활성 줄이 바뀔 때마다 다시 그린다.
-      renderList();
-      const reActive = document.querySelector(`.eh-panel-item[data-idx="${idx}"]`);
-      if (autoScrollEnabled && reActive) reActive.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
+    if (active && autoScrollEnabled) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   function applySettings(s) {
@@ -523,6 +520,10 @@ ${rows}
       adapter.onTracksReady((tracks) => {
         enCues = tracks.find(t => t.lang === 'en')?.cues || [];
         nativeCues = tracks.find(t => t.lang !== 'en')?.cues || [];
+        // SPA 네비게이션으로 영상이 바뀌면 제목도 새 영상 기준으로 갱신해야
+        // 패널 상단에 이전 영상 제목이 그대로 남지 않는다.
+        const titleRowEl = document.getElementById('eh-panel-title-row');
+        if (titleRowEl) titleRowEl.textContent = adapter.getPlatformMeta?.()?.title || '';
         console.log('[EH:panel] onTracksReady — enCues:', enCues.length, 'nativeCues:', nativeCues.length, 'listEl:', !!document.getElementById('eh-panel-list'));
         renderList();
         // SPA 네비게이션(예: YouTube 영상 전환)으로 트랙이 교체될 때도

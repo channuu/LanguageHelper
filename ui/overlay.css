@@ -164,7 +164,7 @@
 .eh-panel-item {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 8px 12px;
-  cursor: pointer;
+  cursor: default;
   border-left: 2px solid transparent;
   transition: background 0.12s, border-color 0.12s;
 }
@@ -520,15 +520,21 @@
   color: var(--eh-gold-strong); margin-top: 4px;
 }
 
-.eh-panel-item-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
-.eh-panel-item:hover .eh-panel-item-actions { opacity: 1; }
+/* opacity는 래퍼가 아니라 각 버튼에 개별 지정한다 — 래퍼 자체를 opacity:0으로 두면
+   (CSS opacity는 조상 stacking context와 곱해져 렌더링되므로) 자식의 opacity:1로도
+   되돌릴 수 없어, "저장됨" 체크마크(.eh-panel-item-save.saved)를 항상 보이게 할 수
+   없다. 버튼별로 opacity를 관리하면 복사 버튼은 항상 hover-to-reveal을 유지하면서
+   저장 버튼만 .saved일 때 항상 보이게 만들 수 있다. */
+.eh-panel-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .eh-panel-item-copy {
   background: none; border: none;
   color: rgba(var(--eh-gold-rgb), 0.4);
   cursor: pointer; font-size: 13px;
   width: 22px; height: 22px; border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.15s;
 }
+.eh-panel-item:hover .eh-panel-item-copy { opacity: 1; }
 .eh-panel-item-copy:hover { color: var(--eh-gold); background: rgba(var(--eh-gold-rgb), 0.1); }
 .eh-panel-item-copy.copied { color: var(--eh-gold); }
 

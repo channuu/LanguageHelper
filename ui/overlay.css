@@ -550,3 +550,8 @@
 .eh-panel-autoscroll-switch.on .eh-panel-autoscroll-knob { left: 14px; }
 .eh-panel-autoscroll-label { font: 600 10.5px var(--eh-font-body); color: var(--eh-gold-strong); }
 .eh-panel-autoscroll-label.dim { color: rgba(var(--eh-text-rgb), 0.4); }
+
+#eh-panel.fixed-mode.expanded {
+  width: 480px;
+}
+.eh-panel-btn.active { color: var(--eh-gold); background: rgba(var(--eh-gold-rgb), 0.14); }

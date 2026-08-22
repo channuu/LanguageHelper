@@ -181,6 +181,7 @@ ${rows}
     header.className = 'eh-panel-header';
     header.innerHTML =
       '<span class="eh-panel-title">Script</span>' +
+      '<button class="eh-panel-btn" id="eh-panel-expand" title="실제 크기로 확장">⤢</button>' +
       '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>' +
       '<button class="eh-panel-btn" id="eh-panel-hide">−</button>' +
       '<button class="eh-panel-btn" id="eh-panel-collapse">✕</button>';
@@ -301,8 +302,34 @@ ${rows}
     const collapseBtn = header.querySelector('#eh-panel-collapse');
     const hideBtn     = header.querySelector('#eh-panel-hide');
     const exportBtn   = header.querySelector('#eh-panel-export');
+    const expandBtn   = header.querySelector('#eh-panel-expand');
 
     exportBtn.addEventListener('click', exportScript);
+
+    let expanded = false;
+    expandBtn.addEventListener('click', () => {
+      expanded = !expanded;
+      expandBtn.classList.toggle('active', expanded);
+      if (_isYouTube()) {
+        // YouTube: #secondary 임베드는 폭을 우리가 제어할 수 없으므로,
+        // 확장 시엔 고정(fixed) 모드로 강제 전환해 더 넓은 폭을 확보한다.
+        const wrapper = document.getElementById('eh-panel-wrapper');
+        if (expanded) {
+          panel.classList.add('fixed-mode', 'expanded');
+          if (wrapper) wrapper.classList.add('hidden');
+          if (panel.parentElement !== document.body) document.body.appendChild(panel);
+        } else {
+          panel.classList.remove('fixed-mode', 'expanded');
+          if (wrapper) {
+            wrapper.classList.remove('hidden');
+            wrapper.appendChild(panel);
+          }
+        }
+      } else {
+        panel.classList.toggle('expanded', expanded);
+        _setLayoutForPanel(true);
+      }
+    });
 
     collapseBtn.addEventListener('click', () => {
       const collapsed = panel.classList.toggle('collapsed');

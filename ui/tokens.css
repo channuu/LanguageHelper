@@ -51,7 +51,7 @@
   /* 골드 액센트 (모국어 자막, 활성 상태, 보더) — rgba(var(--eh-gold-rgb), alpha)로 다양한 투명도 파생 */
   --eh-gold: #ffd97a;
   --eh-gold-rgb: 255, 217, 122;
-  --eh-gold-strong: #ffe6a8;
+  --eh-gold-strong: #fba962; /* oklch(0.8 0.13 60), §1h 상단 바 배지·설정 타이틀·슬라이더 값·프리뷰 모국어 텍스트 */
   --eh-gold-dim: rgba(255, 217, 122, 0.65);
 
   /* 오렌지 액센트 (저장/선택/재생 위치 표시) — oklch(0.74 0.16 45) */

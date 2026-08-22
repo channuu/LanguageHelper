@@ -60,12 +60,6 @@ async function handleMessage(message) {
       return { success: true };
     }
 
-    case 'TOGGLE_EXTENSION': {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: 'TOGGLE_OVERLAY' }).catch(() => {});
-      return { success: true };
-    }
-
     default:
       return { success: false, error: 'Unknown message type: ' + message.type };
   }

@@ -374,6 +374,7 @@ ${rows}
 
       const item = document.createElement('div');
       item.className = 'eh-panel-item';
+      item.classList.toggle('active', isActive);
       item.dataset.idx = idx;
 
       const timeCol = document.createElement('div');

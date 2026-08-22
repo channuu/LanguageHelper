@@ -170,7 +170,6 @@
 }
 .eh-panel-item:hover  { background: rgba(var(--eh-gold-rgb), 0.06); }
 .eh-panel-item.active {
-  background: rgba(var(--eh-gold-rgb), 0.10);
   border-left-color: var(--eh-gold);
 }
 .eh-panel-item-save {

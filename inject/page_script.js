@@ -111,6 +111,21 @@
     } catch (e) {}
   }
 
+  // ── baseUrl 자체(예: player.getPlayerResponse()로 읽은 captionTracks[].baseUrl)가
+  // 다른 확장(예: Language Reactor)에 의해 이미 오염된 값인지 확인. 네트워크 캡처
+  // (_extractPotFromUrl)뿐 아니라 이 fallback 경로도 같은 검증을 거쳐야 한다 —
+  // LR은 페이지의 player 응답 객체 자체를 패치하므로, 우리가 getPlayerResponse()로
+  // 직접 읽어도 이미 변형된 값을 받을 수 있다. ──
+  function _baseUrlLooksReal(baseUrl) {
+    if (!baseUrl) return false;
+    try {
+      const qs = baseUrl.split('?')[1] || '';
+      return _looksLikeRealTimedtextParams(new URLSearchParams(qs));
+    } catch (e) {
+      return true; // 파싱 자체가 실패하면 판단 보류 — 기존 동작 유지
+    }
+  }
+
   // ── pot 포함하여 자막 fetch ───────────────────────────────────────
   async function fetchCaptionXml(baseUrl, pot, tlang) {
     if (!baseUrl) return null;
@@ -169,16 +184,28 @@
         const pot = videoId ? await waitForPot(videoId) : null;
         dlog('[EH] pot=', pot ? pot.slice(0, 20) + '...' : null);
 
-        // baseUrl 결정: enTrack과 같은 언어의 캡처된 URL 우선, 없으면 track.baseUrl
-        // (videoId만으로 캐시를 잡으면 다른 언어 트랙의 URL이 먼저 캐싱되어 고정될 수 있음)
+        // baseUrl 결정: enTrack과 같은 언어의 캡처된 URL 우선, 없으면 track.baseUrl.
+        // 캡처된 값은 이미 _looksLikeRealTimedtextParams를 통과한 것만 캐싱되지만,
+        // enTrack.baseUrl(getPlayerResponse() 직접 읽기)은 그 검증을 거치지 않았으므로
+        // 여기서 별도로 검증한다 — LR 등 다른 확장이 player 응답 객체 자체를 패치해
+        // 두면 이 경로도 오염된 값을 돌려줄 수 있다.
         const timedtextKey = videoId + ':' + (enTrack?.languageCode || '');
-        const resolvedBase = _timedtextBase[timedtextKey] || enTrack?.baseUrl || null;
+        const capturedBase = _timedtextBase[timedtextKey] || null;
+        const fallbackBase = _baseUrlLooksReal(enTrack?.baseUrl) ? enTrack.baseUrl : null;
+        const resolvedBase = capturedBase || fallbackBase || null;
         dlog('[EH] resolvedBase:', resolvedBase?.slice(0, 80) || 'NULL');
 
-        const [enXml, nativeXml] = await Promise.all([
-          fetchCaptionXml(resolvedBase, pot, null),
-          fetchCaptionXml(resolvedBase, pot, nativeLang)
-        ]);
+        // 트랙은 있는데(captionTracks.length > 0) 쓸 수 있는 URL이 하나도 없다면,
+        // 자막이 정말 없는 게 아니라 다른 확장(예: Language Reactor)이 페이지의
+        // 자막 데이터 경로를 오염시켰을 가능성이 높다 — 침묵하는 대신 명확히 알린다.
+        const conflictSuspected = !resolvedBase && !!enTrack?.baseUrl;
+
+        const [enXml, nativeXml] = resolvedBase
+          ? await Promise.all([
+              fetchCaptionXml(resolvedBase, pot, null),
+              fetchCaptionXml(resolvedBase, pot, nativeLang)
+            ])
+          : [null, null];
 
         dlog('[EH] enXml len=', enXml?.length, 'nativeXml len=', nativeXml?.length);
         window.postMessage({
@@ -186,7 +213,8 @@
           videoId,
           enXml: enXml || '',
           nativeXml: nativeXml || '',
-          nativeLang
+          nativeLang,
+          conflictSuspected
         }, '*');
       } catch (err) { console.error('[EH] TRIGGER error', err); }
     }

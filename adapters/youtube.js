@@ -75,6 +75,12 @@
 
         if (e.data.enXml)     this._enCues     = this._parseContent(e.data.enXml);
         if (e.data.nativeXml) this._nativeCues  = this._parseContent(e.data.nativeXml);
+        // 자막 URL이 다른 확장(예: Language Reactor)에 의해 오염된 것으로 보이면
+        // 조용히 빈 자막을 보여주는 대신 원인을 알린다. 영상당 한 번만.
+        if (e.data.conflictSuspected && !this._conflictWarned) {
+          this._conflictWarned = true;
+          window.EH.showToast?.('다른 자막 확장 프로그램(예: Language Reactor)과 충돌해 자막을 불러오지 못했어요');
+        }
         this._triggerTracksReady();
       }
     }
@@ -213,6 +219,7 @@
           this._lastEnText = '';
           this._lastNativeText = '';
           this._currentVideoId = '';
+          this._conflictWarned = false;
           // 영상 변경 시 새 자막 로드
           setTimeout(() => {
             const nativeLang = window.EH.settings?.nativeLang || 'ko';

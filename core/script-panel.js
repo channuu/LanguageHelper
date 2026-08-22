@@ -153,9 +153,14 @@ ${rows}
     // width) or from a CSS class like .expanded — parseInt(panel.style.width)
     // would silently fall back to 400 whenever the width is class-driven.
     const w = panel.getBoundingClientRect().width || 400;
+    // body만 밀면 대부분의 페이지에서는 통하지만, YouTube는 콘텐츠가 일반적인
+    // block-flow가 아니라 자체 박스 모델을 가진 커스텀 엘리먼트(ytd-app 등)
+    // 안에 있어서 body의 padding/margin이 그대로 전파되지 않는다 — 반드시
+    // 이 엘리먼트들에도 같은 margin-right를 직접 줘야 실제로 밀린다.
     style.textContent = `
       html { overflow-x: hidden !important; }
-      body { padding-right: ${w}px !important; box-sizing: border-box !important; }
+      body { margin-right: ${w}px !important; box-sizing: border-box !important; }
+      #movie_player, ytd-app, #page-manager { margin-right: ${w}px !important; box-sizing: border-box !important; }
     `;
   }
 

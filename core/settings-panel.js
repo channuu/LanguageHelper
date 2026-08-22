@@ -2,9 +2,9 @@
   'use strict';
 
   const LANGS = { ko: '한국어', ja: '日本語', zh: '中文', es: 'Español', fr: 'Français', de: 'Deutsch' };
-  // 9 ticks spanning the existing 12–52px enSize range and 10–48px nativeSize range.
-  const EN_TICKS = [12, 17, 22, 27, 32, 37, 42, 47, 52];
-  const KO_TICKS = [10, 14, 18, 22, 26, 30, 34, 41, 48];
+  // 2026-08-22 목업 재확인 값 그대로 사용 (§1h/1i DCLogic enTicks/koTicks).
+  const EN_TICKS = [12, 17, 22, 26, 31, 36, 41, 46, 52];
+  const KO_TICKS = [10, 14, 18, 22, 26, 32, 38, 44, 48];
 
   let panelEl = null;
   let open = false;

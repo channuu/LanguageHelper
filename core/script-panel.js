@@ -219,9 +219,7 @@ ${rows}
     header.innerHTML =
       '<span class="eh-panel-title">Script</span>' +
       '<button class="eh-panel-btn" id="eh-panel-expand" title="실제 크기로 확장">⤢</button>' +
-      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>' +
-      '<button class="eh-panel-btn" id="eh-panel-hide">−</button>' +
-      '<button class="eh-panel-btn" id="eh-panel-collapse">✕</button>';
+      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>';
     panel.appendChild(header);
 
     const titleRow = document.createElement('div');
@@ -344,8 +342,6 @@ ${rows}
       _setLayoutForPanel(true);
     }
 
-    const collapseBtn = header.querySelector('#eh-panel-collapse');
-    const hideBtn     = header.querySelector('#eh-panel-hide');
     const exportBtn   = header.querySelector('#eh-panel-export');
     const expandBtn   = header.querySelector('#eh-panel-expand');
 
@@ -395,17 +391,6 @@ ${rows}
         panel.classList.toggle('expanded', expanded);
         _setLayoutForPanel(true);
       }
-    });
-
-    collapseBtn.addEventListener('click', () => {
-      const collapsed = panel.classList.toggle('collapsed');
-      collapseBtn.textContent = collapsed ? '▶' : '✕';
-    });
-
-    hideBtn.addEventListener('click', () => {
-      toggle(false);
-      document.dispatchEvent(new CustomEvent('eh-panel-toggled', { detail: { visible: false } }));
-      window.EH.showToast?.('패널 숨김 — 상단 바에서 다시 켤 수 있어요');
     });
 
     attachPanelResize(panel, resizeHandle, () => expanded, (w) => { savedInlineWidth = w; });

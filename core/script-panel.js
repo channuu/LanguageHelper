@@ -7,6 +7,7 @@
   let searchQuery = '';
   let autoScrollEnabled = true;
   let savedSet = new Set();
+  let saveFilter = 'all'; // 'all' | 'saved' | 'unsaved'
 
   function formatTime(sec) {
     const m = Math.floor(sec / 60);
@@ -43,6 +44,19 @@
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return enCue.text.toLowerCase().includes(q) || (nativeText || '').toLowerCase().includes(q);
+  }
+
+  /**
+   * Combines the search-query match with the saved/unsaved filter chip.
+   * Pure — no DOM access.
+   * @param {'all'|'saved'|'unsaved'} filter
+   * @param {boolean} isSaved
+   * @returns {boolean}
+   */
+  function matchesFilter(filter, isSaved) {
+    if (filter === 'saved') return isSaved;
+    if (filter === 'unsaved') return !isSaved;
+    return true;
   }
 
   function _escapeHtml(str) {
@@ -172,10 +186,33 @@ ${rows}
       '<button class="eh-panel-btn" id="eh-panel-collapse">✕</button>';
     panel.appendChild(header);
 
+    const titleRow = document.createElement('div');
+    titleRow.className = 'eh-panel-title-row';
+    titleRow.id = 'eh-panel-title-row';
+    panel.appendChild(titleRow);
+
     const searchRow = document.createElement('div');
     searchRow.className = 'eh-panel-search-row';
-    searchRow.innerHTML = '<input type="text" id="eh-panel-search" class="eh-panel-search-input" placeholder="검색">';
+    searchRow.innerHTML =
+      '<input type="text" id="eh-panel-search" class="eh-panel-search-input" placeholder="스크립트 검색">' +
+      '<span class="eh-panel-search-count" id="eh-panel-search-count"></span>';
     panel.appendChild(searchRow);
+
+    const filterRow = document.createElement('div');
+    filterRow.className = 'eh-panel-filter-row';
+    filterRow.innerHTML = `
+      <div class="eh-panel-filter-chip active" data-filter="all">전체</div>
+      <div class="eh-panel-filter-chip" data-filter="saved">저장한 줄</div>
+      <div class="eh-panel-filter-chip" data-filter="unsaved">미저장</div>
+    `;
+    panel.appendChild(filterRow);
+    filterRow.querySelectorAll('.eh-panel-filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        saveFilter = chip.dataset.filter;
+        filterRow.querySelectorAll('.eh-panel-filter-chip').forEach(c => c.classList.toggle('active', c === chip));
+        renderList();
+      });
+    });
 
     const list = document.createElement('div');
     list.className = 'eh-panel-list';
@@ -187,7 +224,10 @@ ${rows}
     footer.className = 'eh-panel-footer';
     footer.innerHTML =
       '<span class="eh-panel-footer-count" id="eh-panel-footer-count"></span>' +
-      `<span class="eh-panel-autoscroll${autoScrollEnabled ? ' on' : ''}" id="eh-panel-autoscroll">자동 스크롤</span>`;
+      `<div class="eh-panel-autoscroll-toggle" id="eh-panel-autoscroll">` +
+      `<span class="eh-panel-autoscroll-switch${autoScrollEnabled ? ' on' : ''}"><span class="eh-panel-autoscroll-knob"></span></span>` +
+      `<span class="eh-panel-autoscroll-label${autoScrollEnabled ? '' : ' dim'}">자동 스크롤</span>` +
+      `</div>`;
     panel.appendChild(footer);
 
     searchRow.querySelector('#eh-panel-search').addEventListener('input', (e) => {
@@ -195,9 +235,11 @@ ${rows}
       renderList();
     });
 
-    footer.querySelector('#eh-panel-autoscroll').addEventListener('click', (e) => {
+    footer.querySelector('#eh-panel-autoscroll').addEventListener('click', () => {
       autoScrollEnabled = !autoScrollEnabled;
-      e.currentTarget.classList.toggle('on', autoScrollEnabled);
+      const el = footer.querySelector('#eh-panel-autoscroll');
+      el.querySelector('.eh-panel-autoscroll-switch').classList.toggle('on', autoScrollEnabled);
+      el.querySelector('.eh-panel-autoscroll-label').classList.toggle('dim', !autoScrollEnabled);
     });
 
     if (_isYouTube()) {
@@ -310,9 +352,16 @@ ${rows}
       return;
     }
     const s = window.EH.settings;
-    const visibleCues = enCues
-      .map((cue, idx) => ({ cue, idx, native: findNativeText(cue) }))
-      .filter(({ cue, native }) => matchesQuery(searchQuery, cue, native));
+    const withMeta = enCues.map((cue, idx) => ({
+      cue, idx, native: findNativeText(cue), isSaved: savedSet.has(cue.text)
+    }));
+    const visibleCues = withMeta.filter(({ cue, native, isSaved }) =>
+      matchesQuery(searchQuery, cue, native) && matchesFilter(saveFilter, isSaved));
+
+    const searchCountEl = document.getElementById('eh-panel-search-count');
+    if (searchCountEl) {
+      searchCountEl.textContent = searchQuery.trim() ? `${visibleCues.length}건` : `${enCues.length}줄`;
+    }
 
     if (!visibleCues.length) {
       list.innerHTML = '<div class="eh-panel-empty">검색 결과가 없습니다</div>';
@@ -320,14 +369,22 @@ ${rows}
     }
 
     list.innerHTML = '';
-    visibleCues.forEach(({ cue, idx, native }) => {
+    visibleCues.forEach(({ cue, idx, native, isSaved }) => {
+      const isActive = idx === lastActiveIdx;
+
       const item = document.createElement('div');
       item.className = 'eh-panel-item';
       item.dataset.idx = idx;
 
-      const time = document.createElement('span');
-      time.className = 'eh-panel-time';
-      time.textContent = formatTime(cue.start);
+      const timeCol = document.createElement('div');
+      timeCol.className = 'eh-panel-time-col';
+      timeCol.innerHTML =
+        `<span class="eh-panel-time">${formatTime(cue.start)}</span>` +
+        (isActive ? '<span class="eh-panel-now">NOW</span>' : '');
+      timeCol.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.EH.adapter.seekTo(cue.start + 0.1);
+      });
 
       const textWrap = document.createElement('div');
       textWrap.className = 'eh-panel-textwrap';
@@ -345,7 +402,24 @@ ${rows}
         textWrap.appendChild(nativeSpan);
       }
 
-      const isSaved = savedSet.has(cue.text);
+      const actions = document.createElement('div');
+      actions.className = 'eh-panel-item-actions';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'eh-panel-item-copy';
+      copyBtn.textContent = '⧉';
+      copyBtn.title = '영어 문장 복사';
+      copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (navigator.clipboard) navigator.clipboard.writeText(cue.text).catch(() => {});
+        copyBtn.classList.add('copied');
+        copyBtn.textContent = '✓';
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          copyBtn.textContent = '⧉';
+        }, 1400);
+      });
+
       const saveBtn = document.createElement('button');
       saveBtn.className = 'eh-panel-item-save' + (isSaved ? ' saved' : '');
       saveBtn.textContent = isSaved ? '✓' : '＋';
@@ -366,15 +440,17 @@ ${rows}
         });
       });
 
-      item.appendChild(time);
+      actions.appendChild(copyBtn);
+      actions.appendChild(saveBtn);
+
+      item.appendChild(timeCol);
       item.appendChild(textWrap);
-      item.appendChild(saveBtn);
-      item.addEventListener('click', () => window.EH.adapter.seekTo(cue.start + 0.1));
+      item.appendChild(actions);
       list.appendChild(item);
     });
 
     const countEl = document.getElementById('eh-panel-footer-count');
-    if (countEl) countEl.textContent = `이 영상에서 저장 ${savedSet.size}`;
+    if (countEl) countEl.textContent = `저장 ${savedSet.size} / ${enCues.length}줄`;
   }
 
   function highlight(enText) {
@@ -386,7 +462,10 @@ ${rows}
     const active = document.querySelector(`.eh-panel-item[data-idx="${idx}"]`);
     if (active) {
       active.classList.add('active');
-      if (autoScrollEnabled) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // NOW 배지는 렌더링 시점에 결정되므로, 활성 줄이 바뀔 때마다 다시 그린다.
+      renderList();
+      const reActive = document.querySelector(`.eh-panel-item[data-idx="${idx}"]`);
+      if (autoScrollEnabled && reActive) reActive.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
 
@@ -432,6 +511,8 @@ ${rows}
 
   function setup(adapter) {
     createDOM();
+    const titleRow = document.getElementById('eh-panel-title-row');
+    if (titleRow) titleRow.textContent = adapter.getPlatformMeta?.()?.title || '';
     const tracks = adapter.getSubtitleTracks();
     enCues = tracks.find(t => t.lang === 'en')?.cues || [];
     nativeCues = tracks.find(t => t.lang !== 'en')?.cues || [];

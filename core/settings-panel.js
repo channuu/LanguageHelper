@@ -94,13 +94,22 @@
 
   function sliderBlock(label, key, value, ticks) {
     const sizeKey = key === 'en' ? 'enSize' : 'nativeSize';
+    const glyph = key === 'en' ? 'A' : '가';
     return `
       <div class="eh-settings-slider-header" style="margin-top:18px">
         <span class="eh-settings-label" style="margin:0">${esc(label)}</span>
         <span class="eh-settings-slider-value" data-size-label="${key}">${value}px</span>
       </div>
-      <div class="eh-settings-slider-row" data-slider="${key}" data-size-key="${sizeKey}">
-        ${ticks.map(t => `<div class="eh-settings-tick${t <= value ? ' active' : ''}" data-tick="${t}"></div>`).join('')}
+      <div class="eh-settings-slider-track" style="margin-top:11px">
+        <span class="eh-settings-glyph small">${glyph}</span>
+        <div class="eh-settings-slider-row" data-slider="${key}" data-size-key="${sizeKey}">
+          ${ticks.map((t, i) => `
+            <div class="eh-settings-tick-col" data-tick="${t}">
+              <div class="eh-settings-tick${t <= value ? ' active' : ''}" style="height:${36 + i * 8}%"></div>
+            </div>
+          `).join('')}
+        </div>
+        <span class="eh-settings-glyph large">${glyph}</span>
       </div>
     `;
   }
@@ -108,9 +117,9 @@
   function attachSlider(key, ticks) {
     const row = panelEl.querySelector(`.eh-settings-slider-row[data-slider="${key}"]`);
     if (!row) return;
-    row.querySelectorAll('.eh-settings-tick').forEach(tickEl => {
-      tickEl.addEventListener('click', () => {
-        const value = Number(tickEl.dataset.tick);
+    row.querySelectorAll('.eh-settings-tick-col').forEach(colEl => {
+      colEl.addEventListener('click', () => {
+        const value = Number(colEl.dataset.tick);
         const sizeKey = row.dataset.sizeKey;
         window.EH.applySettings({ [sizeKey]: value });
         render();

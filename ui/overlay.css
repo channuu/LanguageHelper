@@ -87,8 +87,21 @@
 }
 #eh-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ── 사이드 패널 본체 — 항상 고정(fixed) 밀어내기 방식 (임베드 없음) ──── */
+/* ── 사이드 패널 wrapper (YouTube: #secondary 안에 삽입, LR과 동일 구조) ── */
+#eh-panel-wrapper {
+  position: relative;
+  width: 100%;
+  z-index: 2;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+#eh-panel-wrapper.hidden { display: none !important; }
+
+/* ── 사이드 패널 본체 ────────────────────────────── */
 #eh-panel {
+  /* YouTube: wrapper 안에서 absolute로 완전히 채움 */
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
   padding-bottom: 20px;
   background: rgba(var(--eh-panel-rgb), 0.97);
   border-left: 1px solid rgba(var(--eh-gold-rgb), 0.15);
@@ -102,14 +115,13 @@
   overflow: hidden;
 }
 
-/* 비YouTube 플랫폼용 fallback (fixed) — 목업 §1i처럼 살짝 둥근 모서리의
- * 떠 있는 카드 형태로 표시 (설정/저장 목록 패널과 동일한 여백 규칙). 모서리
- * 둥글기(border-radius)는 #eh-panel 기본 규칙에서 이미 적용되어 임베드 모드
- * 에서도 함께 적용된다. */
+/* 사이드바가 없는 경우(좁은 창/극장모드, Netflix/Disney+/쿠팡플레이)의 고정
+ * 폴백 — Language Reactor를 라이브로 확인해 전체 높이로 도킹하는 형태로
+ * 맞춤 (우리 자체 상단 바(46px)만큼만 위에서 비워둔다). */
 #eh-panel.fixed-mode {
   position: fixed;
-  right: 16px; top: 52px;
-  left: auto; bottom: 16px;
+  right: 0; top: 52px;
+  left: auto; bottom: 0;
   width: 400px;
   border: 1px solid rgba(var(--eh-gold-rgb), 0.2);
   box-shadow: 0 24px 50px rgba(var(--eh-black-rgb), 0.55);

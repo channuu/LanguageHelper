@@ -105,6 +105,7 @@
   padding-bottom: 20px; /* LR #lln-vertical-view-subs padding-bottom 동일 */
   background: rgba(var(--eh-panel-rgb), 0.97);
   border-left: 1px solid rgba(var(--eh-gold-rgb), 0.15);
+  border-radius: 14px;
   z-index: 9999998;
   display: flex;
   flex-direction: column;
@@ -115,14 +116,15 @@
 }
 
 /* 비YouTube 플랫폼용 fallback (fixed) — 목업 §1i처럼 살짝 둥근 모서리의
- * 떠 있는 카드 형태로 표시 (설정/저장 목록 패널과 동일한 여백 규칙). */
+ * 떠 있는 카드 형태로 표시 (설정/저장 목록 패널과 동일한 여백 규칙). 모서리
+ * 둥글기(border-radius)는 #eh-panel 기본 규칙에서 이미 적용되어 임베드 모드
+ * 에서도 함께 적용된다. */
 #eh-panel.fixed-mode {
   position: fixed;
   right: 16px; top: 52px;
   left: auto; bottom: 16px;
   width: 400px;
   border: 1px solid rgba(var(--eh-gold-rgb), 0.2);
-  border-radius: 14px;
   box-shadow: 0 24px 50px rgba(var(--eh-black-rgb), 0.55);
 }
 

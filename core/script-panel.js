@@ -135,50 +135,12 @@ ${rows}
     URL.revokeObjectURL(url);
   }
 
-  function _isYouTube() {
-    return location.hostname.includes('youtube.com');
-  }
-
-  // YouTube CSS 변수에서 패널 높이 읽기 (LR .lln-vertical-view height와 동일 기준)
-  function _getYouTubePanelHeight() {
-    const flexy = document.querySelector('ytd-watch-flexy');
-    if (!flexy) return 522;
-    const raw = getComputedStyle(flexy).getPropertyValue('--ytd-watch-flexy-panel-max-height').trim();
-    return parseFloat(raw) || 522;
-  }
-
-  // 패널이 현재 "밀어내기(fixed)" 상태인지, 아니면 #secondary에 임베드되어
-  // 이미 확보된 공간을 쓰는 상태인지 — 플랫폼이 아니라 이 클래스로 판단해야
-  // YouTube의 좁은 창/극장모드 폴백(fixed-mode)에서도 push가 적용된다.
-  function _isPanelFixed() {
-    const panel = document.getElementById('eh-panel');
-    return !!(panel && panel.classList.contains('fixed-mode'));
-  }
-
-  // wrapper(임베드)와 panel(밀어내기) 중 현재 실제로 보여야 하는 대상을 기준으로
-  // 숨김 여부를 판단한다 — toggle()의 detached 판정과 동일한 기준을 재사용.
-  function _isPanelVisible() {
-    const wrapper = document.getElementById('eh-panel-wrapper');
-    const panel = document.getElementById('eh-panel');
-    if (!panel) return false;
-    const detached = !!(wrapper && panel.parentElement !== wrapper);
-    const target = detached ? panel : (wrapper || panel);
-    return !target.classList.contains('hidden');
-  }
-
+  // 스크립트 패널은 항상 고정(fixed) 밀어내기 방식으로만 표시한다 — YouTube의
+  // #secondary 사이드바에 임베드하지 않는다(플랫폼/창 크기와 무관하게 일관된
+  // 동작을 위해). 패널이 보이는 동안 항상 본문을 오른쪽으로 밀어 실제 여백을
+  // 만든다 (Language Reactor와 동일한 동작).
   function _setLayoutForPanel(visible) {
     const panel = document.getElementById('eh-panel');
-    if (!_isPanelFixed()) {
-      // 임베드 모드: #secondary 안에서 이미 확보된 사이드바 공간을 쓰므로
-      // 본문을 별도로 밀어낼 필요가 없다 — wrapper만 보이기/숨기기.
-      const wrapper = document.getElementById('eh-panel-wrapper');
-      if (wrapper) wrapper.classList.toggle('hidden', !visible);
-      const style = document.getElementById('eh-panel-push-style');
-      if (style) style.textContent = '';
-      return;
-    }
-    // 밀어내기(fixed) 모드 — YouTube의 사이드바 없는 폴백을 포함해 항상 본문을
-    // 오른쪽으로 밀어 우측에 실제 여백을 만든다 (Language Reactor와 동일한 동작).
     let style = document.getElementById('eh-panel-push-style');
     if (!style) {
       style = document.createElement('style');
@@ -198,14 +160,11 @@ ${rows}
   }
 
   function createDOM() {
-    if (document.getElementById('eh-panel-wrapper') || document.getElementById('eh-panel')) return;
+    if (document.getElementById('eh-panel')) return;
 
     const panel = document.createElement('div');
     panel.id = 'eh-panel';
 
-    // Hoisted so applyMountStrategy() (defined below, and invoked from the
-    // window 'resize' listener) can see the current expand state — it must
-    // not re-embed the panel while expanded (see Bug 4 fix below).
     let expanded = false;
     // Holds the panel's inline width (from manual resize-drag or the saved
     // localStorage width) while expanded, so it can be restored afterwards.
@@ -279,69 +238,13 @@ ${rows}
       el.querySelector('.eh-panel-autoscroll-label').classList.toggle('dim', !autoScrollEnabled);
     });
 
-    if (_isYouTube()) {
-      // ── LR과 동일한 구조: wrapper(relative block) + panel(absolute inset:0) ──
-      // #secondary 사용 가능(넓은 창) → 임베드 / 0폭(좁은 창·극장) → 우측 고정 폴백
-      const wrapper = document.createElement('div');
-      wrapper.id = 'eh-panel-wrapper';
-      wrapper.appendChild(panel);
-
-      const applyMountStrategy = () => {
-        // While expanded, the panel has been force-switched to a floating
-        // fixed panel on document.body and the wrapper is intentionally
-        // hidden/empty — re-running the mount strategy here (e.g. from the
-        // resize listener) would silently re-embed it into #secondary,
-        // leaving it invisible and desyncing the expand button's state.
-        if (expanded) return;
-        const secondary = document.querySelector('#secondary');
-        const secWidth = secondary ? secondary.offsetWidth : 0;
-        if (secondary && secWidth > 0) {
-          // 넓은 창: #secondary에 임베드 (LR 방식)
-          panel.classList.remove('fixed-mode');
-          if (panel.parentElement !== wrapper) wrapper.appendChild(panel);
-          wrapper.style.height = _getYouTubePanelHeight() + 'px';
-          if (wrapper.parentElement !== secondary) {
-            secondary.insertBefore(wrapper, secondary.firstChild);
-          }
-        } else {
-          // 좁은 창/사이드바 없음: 우측 고정 밀어내기 폴백 (더 이상 오버레이가 아님)
-          if (!panel.classList.contains('fixed-mode') || panel.parentElement !== document.body) {
-            panel.classList.add('fixed-mode');
-            wrapper.style.height = '';
-            const savedW = localStorage.getItem('eh-panel-width');
-            if (savedW) panel.style.width = savedW;
-            document.body.appendChild(panel);
-          }
-        }
-        // 임베드↔밀어내기 전환 때마다 push 스타일을 현재 모드/가시성에 맞춰 재적용.
-        _setLayoutForPanel(_isPanelVisible());
-      };
-
-      // 레이아웃이 준비될 때까지 재시도 후 전략 적용
-      let tries = 0;
-      const tryMount = () => {
-        if (document.querySelector('#secondary') || tries++ > 20) {
-          applyMountStrategy();
-        } else {
-          setTimeout(tryMount, 300);
-        }
-      };
-      tryMount();
-
-      // 창 크기 변경 시 임베드↔고정 재평가
-      let resizeTimer = null;
-      window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(applyMountStrategy, 200);
-      });
-    } else {
-      // 기타 플랫폼: body에 fixed 모드
-      panel.classList.add('fixed-mode');
-      const savedW = localStorage.getItem('eh-panel-width');
-      if (savedW) panel.style.width = savedW;
-      document.body.appendChild(panel);
-      _setLayoutForPanel(true);
-    }
+    // 플랫폼/창 크기와 무관하게 항상 고정 밀어내기 방식으로만 표시한다 —
+    // YouTube 사이드바(#secondary) 임베드는 더 이상 사용하지 않는다.
+    panel.classList.add('fixed-mode');
+    const savedW = localStorage.getItem('eh-panel-width');
+    if (savedW) panel.style.width = savedW;
+    document.body.appendChild(panel);
+    _setLayoutForPanel(true);
 
     const exportBtn   = header.querySelector('#eh-panel-export');
     const expandBtn   = header.querySelector('#eh-panel-expand');
@@ -351,47 +254,17 @@ ${rows}
     expandBtn.addEventListener('click', () => {
       expanded = !expanded;
       expandBtn.classList.toggle('active', expanded);
-      if (_isYouTube()) {
-        // YouTube: #secondary 임베드는 폭을 우리가 제어할 수 없으므로,
-        // 확장 시엔 고정(fixed) 모드로 강제 전환해 더 넓은 폭을 확보한다.
-        const wrapper = document.getElementById('eh-panel-wrapper');
-        if (expanded) {
-          // Same inline-width-shadows-CSS issue as the non-YouTube branch:
-          // any pre-existing inline width (e.g. restored from localStorage
-          // by the fixed-mode fallback, or set by a resize-drag before
-          // expanding) would beat the .expanded class's 480px rule.
-          savedInlineWidth = panel.style.width || null;
-          panel.style.width = '';
-          panel.classList.add('fixed-mode', 'expanded');
-          if (wrapper) wrapper.classList.add('hidden');
-          if (panel.parentElement !== document.body) document.body.appendChild(panel);
-          _setLayoutForPanel(true);
-        } else {
-          // Returning to embedded mode must NOT carry any inline width —
-          // the embedded CSS rule relies on left:0/right:0 with no explicit
-          // width, and a leftover inline width would override that and
-          // break the "fill the wrapper" layout. Unlike the non-YouTube
-          // branch, we don't restore savedInlineWidth here; just clear it.
-          panel.style.width = '';
-          panel.classList.remove('fixed-mode', 'expanded');
-          if (wrapper) wrapper.appendChild(panel);
-          // 임베드 모드로 복귀 — _setLayoutForPanel이 fixed-mode 해제를 감지해
-          // push 스타일을 지우고 wrapper의 hidden 상태를 다시 관리한다.
-          _setLayoutForPanel(true);
-        }
+      // An inline panel.style.width (set by manual resize-drag or restored
+      // from localStorage on load) always beats the .expanded class's CSS
+      // width, so it must be cleared while expanded and restored after.
+      if (expanded) {
+        savedInlineWidth = panel.style.width || null;
+        panel.style.width = '';
       } else {
-        // An inline panel.style.width (set by manual resize-drag or restored
-        // from localStorage on load) always beats the .expanded class's CSS
-        // width, so it must be cleared while expanded and restored after.
-        if (expanded) {
-          savedInlineWidth = panel.style.width || null;
-          panel.style.width = '';
-        } else {
-          panel.style.width = savedInlineWidth || '';
-        }
-        panel.classList.toggle('expanded', expanded);
-        _setLayoutForPanel(true);
+        panel.style.width = savedInlineWidth || '';
       }
+      panel.classList.toggle('expanded', expanded);
+      _setLayoutForPanel(true);
     });
 
     attachPanelResize(panel, resizeHandle, () => expanded, (w) => { savedInlineWidth = w; });
@@ -407,15 +280,11 @@ ${rows}
     });
     document.addEventListener('mousemove', (e) => {
       if (!resizing) return;
-      // 임베드 모드(#secondary)에서는 리사이즈 불가, 고정 모드에서는 허용
-      const fixed = panel.classList.contains('fixed-mode');
-      if (_isYouTube() && !fixed) return;
       const w = Math.min(560, Math.max(200, startW - (e.clientX - startX)));
       panel.style.width = w + 'px';
-      // 밀어내기 모드에서는 드래그 중에도 push 폭을 실시간으로 갱신해야
-      // 우측 여백이 패널 크기와 어긋나지 않는다. (fixed는 이 지점에서 항상
-      // true이지만, 위쪽 early-return 조건이 바뀌어도 안전하도록 명시적으로 체크.)
-      if (fixed) _setLayoutForPanel(true);
+      // 드래그 중에도 push 폭을 실시간으로 갱신해야 우측 여백이 패널 크기와
+      // 어긋나지 않는다.
+      _setLayoutForPanel(true);
       // If the user resizes WHILE expanded, the drag overwrites
       // panel.style.width directly — keep the saved pre-expand width in
       // sync so un-expanding restores the width just set here, not a
@@ -426,8 +295,7 @@ ${rows}
       if (!resizing) return;
       resizing = false;
       document.body.style.cursor = '';
-      const fixed = panel.classList.contains('fixed-mode');
-      if (!_isYouTube() || fixed) localStorage.setItem('eh-panel-width', panel.style.width);
+      localStorage.setItem('eh-panel-width', panel.style.width);
     });
   }
 
@@ -563,23 +431,15 @@ ${rows}
   }
 
   function toggle(forceVisible) {
-    const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
-    // While expanded (or, on YouTube, whenever the panel has been detached
-    // to the fixed-mode floating layout on document.body) the wrapper is
-    // empty/hidden and no longer the visible element — toggling it would be
-    // a no-op. Target the panel itself whenever it isn't currently mounted
-    // inside the wrapper.
-    const detached = !!(panel && wrapper && panel.parentElement !== wrapper);
-    const target = detached ? panel : (wrapper || panel);
-    if (!target) return undefined;
+    if (!panel) return undefined;
     let nowHidden;
     if (forceVisible !== undefined) {
-      target.classList.toggle('hidden', !forceVisible);
+      panel.classList.toggle('hidden', !forceVisible);
       nowHidden = !forceVisible;
     } else {
-      nowHidden = !target.classList.contains('hidden');
-      target.classList.toggle('hidden');
+      nowHidden = !panel.classList.contains('hidden');
+      panel.classList.toggle('hidden');
     }
     _setLayoutForPanel(!nowHidden);
     return !nowHidden;

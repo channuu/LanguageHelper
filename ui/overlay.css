@@ -87,22 +87,9 @@
 }
 #eh-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ── 사이드 패널 wrapper (YouTube: #secondary 안에 삽입, LR과 동일 구조) ── */
-#eh-panel-wrapper {
-  position: relative;
-  width: 100%;
-  z-index: 2;
-  flex-shrink: 0;
-  margin-bottom: 12px; /* LR .lln-vertical-view margin-bottom 동일 */
-}
-#eh-panel-wrapper.hidden { display: none !important; }
-
-/* ── 사이드 패널 본체 ────────────────────────────── */
+/* ── 사이드 패널 본체 — 항상 고정(fixed) 밀어내기 방식 (임베드 없음) ──── */
 #eh-panel {
-  /* YouTube: wrapper 안에서 absolute로 완전히 채움 (LR #lln-vertical-view-subs 동일) */
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  padding-bottom: 20px; /* LR #lln-vertical-view-subs padding-bottom 동일 */
+  padding-bottom: 20px;
   background: rgba(var(--eh-panel-rgb), 0.97);
   border-left: 1px solid rgba(var(--eh-gold-rgb), 0.15);
   border-radius: 14px;

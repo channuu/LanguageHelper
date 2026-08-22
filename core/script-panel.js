@@ -8,6 +8,7 @@
   let autoScrollEnabled = true;
   let savedSet = new Set();
   let saveFilter = 'all'; // 'all' | 'saved' | 'unsaved'
+  let captionConflictSuspected = false;
 
   function formatTime(sec) {
     const m = Math.floor(sec / 60);
@@ -434,7 +435,9 @@ ${rows}
     const list = document.getElementById('eh-panel-list');
     if (!list) return;
     if (!enCues.length) {
-      list.innerHTML = '<div class="eh-panel-empty">자막 없음</div>';
+      list.innerHTML = captionConflictSuspected
+        ? '<div class="eh-panel-empty eh-panel-empty-conflict">다른 자막 확장 프로그램(예: Language Reactor)과 충돌해<br>자막을 불러오지 못했어요.<br><br>해당 확장 프로그램을 잠시 꺼보시거나,<br>새로고침 후 다시 시도해 주세요.</div>'
+        : '<div class="eh-panel-empty">자막 없음</div>';
       return;
     }
     const s = window.EH.settings;
@@ -606,6 +609,13 @@ ${rows}
     const tracks = adapter.getSubtitleTracks();
     enCues = tracks.find(t => t.lang === 'en')?.cues || [];
     nativeCues = tracks.find(t => t.lang !== 'en')?.cues || [];
+
+    // 다른 자막 확장 프로그램과의 충돌이 의심되면 "자막 없음" 대신 안내 문구를
+    // 보여준다 — 성공적으로 자막을 받으면 다시 false로 돌아와 일반 상태로 복귀.
+    document.addEventListener('eh-caption-conflict', (e) => {
+      captionConflictSuspected = !!e.detail?.suspected;
+      renderList();
+    });
 
     loadSavedSet().then(renderList);
 

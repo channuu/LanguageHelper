@@ -164,6 +164,10 @@
   color: var(--eh-text-fainter);
   font-size: 12px;
 }
+.eh-panel-empty-conflict {
+  color: rgba(var(--eh-text-rgb), 0.6);
+  line-height: 1.6;
+}
 
 .eh-panel-item {
   display: flex; align-items: flex-start; gap: 8px;

@@ -76,7 +76,11 @@
         if (e.data.enXml)     this._enCues     = this._parseContent(e.data.enXml);
         if (e.data.nativeXml) this._nativeCues  = this._parseContent(e.data.nativeXml);
         // 자막 URL이 다른 확장(예: Language Reactor)에 의해 오염된 것으로 보이면
-        // 조용히 빈 자막을 보여주는 대신 원인을 알린다. 영상당 한 번만.
+        // 조용히 빈 자막을 보여주는 대신 원인을 알린다 — 토스트(1회)와, 스크립트
+        // 패널이 "자막 없음" 대신 안내 문구를 보여줄 수 있도록 이벤트로도 전달.
+        document.dispatchEvent(new CustomEvent('eh-caption-conflict', {
+          detail: { suspected: !!e.data.conflictSuspected }
+        }));
         if (e.data.conflictSuspected && !this._conflictWarned) {
           this._conflictWarned = true;
           window.EH.showToast?.('다른 자막 확장 프로그램(예: Language Reactor)과 충돌해 자막을 불러오지 못했어요');

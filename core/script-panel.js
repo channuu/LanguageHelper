@@ -159,7 +159,11 @@ ${rows}
       }
       if (!visible) { style.textContent = ''; return; }
       const panel = document.getElementById('eh-panel');
-      const w = panel ? (parseInt(panel.style.width) || 400) : 400;
+      // getBoundingClientRect() reflects the panel's ACTUAL rendered width,
+      // whether that width comes from an inline style (manual resize / saved
+      // width) or from a CSS class like .expanded — parseInt(panel.style.width)
+      // would silently fall back to 400 whenever the width is class-driven.
+      const w = panel ? (panel.getBoundingClientRect().width || 400) : 400;
       style.textContent = `
         html { overflow-x: hidden !important; }
         body { padding-right: ${w}px !important; box-sizing: border-box !important; }
@@ -172,6 +176,14 @@ ${rows}
 
     const panel = document.createElement('div');
     panel.id = 'eh-panel';
+
+    // Hoisted so applyMountStrategy() (defined below, and invoked from the
+    // window 'resize' listener) can see the current expand state — it must
+    // not re-embed the panel while expanded (see Bug 4 fix below).
+    let expanded = false;
+    // Holds the panel's inline width (from manual resize-drag or the saved
+    // localStorage width) while expanded, so it can be restored afterwards.
+    let savedInlineWidth = null;
 
     const resizeHandle = document.createElement('div');
     resizeHandle.id = 'eh-panel-resize';
@@ -251,6 +263,12 @@ ${rows}
       wrapper.appendChild(panel);
 
       const applyMountStrategy = () => {
+        // While expanded, the panel has been force-switched to a floating
+        // fixed panel on document.body and the wrapper is intentionally
+        // hidden/empty — re-running the mount strategy here (e.g. from the
+        // resize listener) would silently re-embed it into #secondary,
+        // leaving it invisible and desyncing the expand button's state.
+        if (expanded) return;
         const secondary = document.querySelector('#secondary');
         const secWidth = secondary ? secondary.offsetWidth : 0;
         if (secondary && secWidth > 0) {
@@ -306,7 +324,6 @@ ${rows}
 
     exportBtn.addEventListener('click', exportScript);
 
-    let expanded = false;
     expandBtn.addEventListener('click', () => {
       expanded = !expanded;
       expandBtn.classList.toggle('active', expanded);
@@ -326,6 +343,15 @@ ${rows}
           }
         }
       } else {
+        // An inline panel.style.width (set by manual resize-drag or restored
+        // from localStorage on load) always beats the .expanded class's CSS
+        // width, so it must be cleared while expanded and restored after.
+        if (expanded) {
+          savedInlineWidth = panel.style.width || null;
+          panel.style.width = '';
+        } else {
+          panel.style.width = savedInlineWidth || '';
+        }
         panel.classList.toggle('expanded', expanded);
         _setLayoutForPanel(true);
       }
@@ -503,7 +529,13 @@ ${rows}
   function toggle(forceVisible) {
     const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
-    const target = wrapper || panel;
+    // While expanded (or, on YouTube, whenever the panel has been detached
+    // to the fixed-mode floating layout on document.body) the wrapper is
+    // empty/hidden and no longer the visible element — toggling it would be
+    // a no-op. Target the panel itself whenever it isn't currently mounted
+    // inside the wrapper.
+    const detached = !!(panel && wrapper && panel.parentElement !== wrapper);
+    const target = detached ? panel : (wrapper || panel);
     if (!target) return undefined;
     let nowHidden;
     if (forceVisible !== undefined) {

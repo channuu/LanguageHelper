@@ -139,12 +139,17 @@ ${rows}
     return location.hostname.includes('youtube.com');
   }
 
-  // YouTube CSS 변수에서 패널 높이 읽기 (LR .lln-vertical-view height와 동일 기준)
+  // YouTube CSS 변수에서 패널 높이 읽기. YouTube 자체가 쓰는 "패널 최대 높이"
+  // 값을 그대로 쓰면 스크립트를 읽기엔 너무 짧아서, 1.5배로 늘려서 더 많은
+  // 줄이 한 번에 보이도록 한다 (최대 900px까지).
   function _getYouTubePanelHeight() {
     const flexy = document.querySelector('ytd-watch-flexy');
-    if (!flexy) return 522;
-    const raw = getComputedStyle(flexy).getPropertyValue('--ytd-watch-flexy-panel-max-height').trim();
-    return parseFloat(raw) || 522;
+    const base = (() => {
+      if (!flexy) return 522;
+      const raw = getComputedStyle(flexy).getPropertyValue('--ytd-watch-flexy-panel-max-height').trim();
+      return parseFloat(raw) || 522;
+    })();
+    return Math.min(base * 1.5, 900);
   }
 
   // 패널이 현재 "밀어내기(fixed)" 상태인지, 아니면 #secondary에 임베드되어

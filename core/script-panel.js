@@ -153,14 +153,15 @@ ${rows}
     // width) or from a CSS class like .expanded — parseInt(panel.style.width)
     // would silently fall back to 400 whenever the width is class-driven.
     const w = panel.getBoundingClientRect().width || 400;
-    // body만 밀면 대부분의 페이지에서는 통하지만, YouTube는 콘텐츠가 일반적인
-    // block-flow가 아니라 자체 박스 모델을 가진 커스텀 엘리먼트(ytd-app 등)
-    // 안에 있어서 body의 padding/margin이 그대로 전파되지 않는다 — 반드시
-    // 이 엘리먼트들에도 같은 margin-right를 직접 줘야 실제로 밀린다.
+    // YouTube의 ytd-app은 position:absolute라서 margin-right로는 안 밀린다
+    // (Language Reactor의 실제 적용 스타일을 라이브로 확인해 검증됨 —
+    // ytd-app { position:absolute; margin-right:0; width:<줄어든 px> } 형태로
+    // width 자체를 직접 줄이는 방식을 쓰고 있었다). margin 대신 width를
+    // 뷰포트 폭에서 패널 폭만큼 뺀 값으로 직접 설정해야 실제로 줄어든다.
     style.textContent = `
       html { overflow-x: hidden !important; }
       body { margin-right: ${w}px !important; box-sizing: border-box !important; }
-      #movie_player, ytd-app, #page-manager { margin-right: ${w}px !important; box-sizing: border-box !important; }
+      ytd-app { width: calc(100% - ${w}px) !important; box-sizing: border-box !important; }
     `;
   }
 

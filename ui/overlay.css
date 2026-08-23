@@ -133,6 +133,19 @@
 
 #eh-panel.hidden { display: none !important; }
 
+/* Netflix 자막/음성 설정 팝업 — .watch-video--player-view의 폭을 줄이면서
+ * 이 팝업도 같은 축소된 컨테이너 안에 있어 함께 좁아져 잘려 보인다
+ * (LR은 이 요소를 직접 찾아 lln-ss-injected 클래스를 붙여 제약에서 뺀다,
+ * 라이브로 확인해 폭 차이 730px vs 627px로 검증됨). position:fixed로
+ * 전환하면 percentage 폭이 뷰포트 기준으로 다시 계산되어 원래 크기를
+ * 되찾고, z-index도 패널보다 높여 항상 위에 뜨도록 한다. */
+[data-uia="selector-audio-subtitle"] {
+  position: fixed !important;
+  width: auto !important;
+  max-width: none !important;
+  z-index: 2147483002 !important;
+}
+
 .eh-panel-header {
   padding: 12px 12px 12px 14px;
   border-bottom: 1px solid rgba(var(--eh-gold-rgb), 0.12);

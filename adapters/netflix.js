@@ -33,8 +33,11 @@
     }
 
     seekTo(seconds) {
-      const video = document.querySelector('video');
-      if (video) video.currentTime = seconds;
+      // Netflix 자체 플레이어 API로 이동시켜야 한다 — video.currentTime을
+      // 직접 바꾸면 스트리밍 상태 관리자가 이를 인지 못 해 재생이 멈춘다.
+      // 실제 API 호출은 페이지 컨텍스트(MAIN world)에서만 가능하므로
+      // inject/netflix_inject.js로 메시지를 보내 처리한다.
+      window.postMessage({ type: 'EH_NF_SEEK', seconds }, '*');
     }
 
     onSubtitleChange(callback) {

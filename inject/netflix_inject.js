@@ -59,9 +59,40 @@
     return urls?.[0] || null;
   }
 
+  // ── 시크(EH_NF_SEEK) — Netflix 자체 플레이어 API로 이동 ────────────
+  // video.currentTime을 직접 바꾸면 Netflix의 DRM/스트리밍 상태 관리자가
+  // 이를 인지하지 못해 재생을 멈춰버린다(재동기화 목적). 공식(비공개지만
+  // 널리 쓰이는) 플레이어 API를 통해 이동해야 재생이 끊기지 않는다.
+  function _netflixSeek(seconds) {
+    try {
+      const videoPlayer = window.netflix?.appContext?.state?.playerApp?.getAPI?.()?.videoPlayer;
+      const sessionId = videoPlayer?.getAllPlayerSessionIds?.()[0];
+      const player = sessionId ? videoPlayer.getVideoPlayerBySessionId(sessionId) : null;
+      if (player && typeof player.seek === 'function') {
+        player.seek(Math.round(seconds * 1000)); // Netflix API는 밀리초 단위
+        return true;
+      }
+    } catch (e) {
+      dlog('[EH:nf] seek via player API failed', e);
+    }
+    return false;
+  }
+
   // ── content script 메시지 수신 ───────────────────────────────────
   window.addEventListener('message', async (e) => {
     if (e.source !== window) return;
+
+    if (e.data?.type === 'EH_NF_SEEK') {
+      const ok = _netflixSeek(e.data.seconds);
+      if (!ok) {
+        // 플레이어 API를 못 찾은 경우에만 폴백 — 일시정지 위험은 있지만
+        // 아예 이동 못 하는 것보다는 낫다.
+        const video = document.querySelector('video');
+        if (video) video.currentTime = e.data.seconds;
+      }
+      return;
+    }
+
     if (e.data?.type !== 'EH_NF_TRIGGER_LOAD') return;
 
     try {

@@ -171,7 +171,7 @@
 .eh-panel-item {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 8px 12px;
-  cursor: default;
+  cursor: pointer;
   border-left: 2px solid transparent;
   transition: background 0.12s, border-color 0.12s;
 }

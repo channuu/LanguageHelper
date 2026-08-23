@@ -546,6 +546,12 @@ ${rows}
       item.appendChild(timeCol);
       item.appendChild(textWrap);
       item.appendChild(actions);
+      // 시간 칼럼뿐 아니라 줄 전체(문장 본문 포함)를 클릭해도 그 지점으로
+      // 이동한다 — 복사/저장 버튼은 각자 stopPropagation으로 이 핸들러를
+      // 가로채지 않는다.
+      item.addEventListener('click', () => {
+        window.EH.adapter.seekTo(cue.start + 0.1);
+      });
       list.appendChild(item);
     });
 

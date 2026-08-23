@@ -12,28 +12,18 @@
     { n: 3, label: '길게', bars: ['38px', '38px', '20px'] }
   ];
   const LINE_NOTES = {
-    1: '한 화면에 한 줄만 담고, 문장이 길면 넘치는 부분은 줄입니다. 화면을 가장 적게 가립니다.',
-    2: '두 줄까지 채워 표시합니다. 대부분의 문장이 한 번에 들어옵니다.',
-    3: '세 줄까지 채워 긴 문장도 끊지 않고 한 번에 보여줍니다.'
+    1: '한 번에 아주 짧은 분량만 보여줍니다. 긴 문장은 여러 항목으로 나뉘어요.',
+    2: '적당한 분량을 한 번에 보여줍니다. 대부분의 문장이 한 항목에 들어옵니다.',
+    3: '보통보다 1.5~2배 더 긴 분량을 한 번에 보여줍니다. 아주 긴 문장만 나뉘어요.'
   };
-  // 줄 수 설정에 따라 실제로 얼마나 잘리는지 보여주기 위해 일부러 긴 문장을 사용.
-  const PREVIEW_EN = {
-    1: "She said it like it was obvious, and I don't even care anymore.",
-    2: "She said it like it was obvious, and I don't even care anymore.",
-    3: "She said it like it was obvious, and I kept turning it over all night — I don't even care anymore, everything leaves a mark somewhere."
-  };
-  const PREVIEW_KO = {
-    1: '그녀는 당연한 일처럼 말했고, 나는 이제 신경도 안 써.',
-    2: '그녀는 당연한 일처럼 말했고, 나는 이제 신경도 안 써.',
-    3: '그녀는 당연한 일처럼 말했고, 나는 밤새 그 말을 되짚었다 — 나는 이제 신경도 안 써, 모든 것은 어딘가에 흔적을 남긴다.'
-  };
+  // 스크립트 패널/오버레이와 똑같이 core/cue-utils.js로 실제 청크를 만들어
+  // 미리보기에 쓴다 — 미리보기가 실제 동작과 어긋나면 설정의 의미가 없다.
+  // 옵션별 차이가 실제로 보이도록 일부러 긴 문장 하나를 그대로 사용한다.
+  const PREVIEW_EN_FULL = "She said it like it was obvious, and I kept turning it over all night — I don't even care anymore, everything leaves a mark somewhere, and nothing in life is ever truly ephemeral.";
+  const PREVIEW_KO_FULL = '그녀는 당연한 일처럼 말했고, 나는 밤새 그 말을 되짚었다 — 나는 이제 신경도 안 써, 모든 것은 어딘가에 흔적을 남기고, 인생에서 진짜로 덧없는 것은 없다.';
 
   let panelEl = null;
   let open = false;
-
-  function clampStyle(lines) {
-    return `display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:${lines};overflow:hidden`;
-  }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -42,6 +32,7 @@
 
   function render() {
     const s = window.EH.settings;
+    const previewEn = window.EH.CueUtils.splitIntoChunks(PREVIEW_EN_FULL, s.cueLines)[0];
     panelEl.innerHTML = `
       <div class="eh-settings-header">
         <span class="eh-settings-title">SETTINGS</span>
@@ -79,8 +70,8 @@
 
         <div class="eh-settings-label" style="margin-top:18px">미리보기</div>
         <div class="eh-settings-preview">
-          <div class="eh-settings-preview-en" style="font-size:${s.enSize}px;${clampStyle(s.cueLines)}">${esc(PREVIEW_EN[s.cueLines])}</div>
-          ${s.mode !== 'en' ? `<div class="eh-settings-preview-ko" style="font-size:${s.nativeSize}px;${clampStyle(s.cueLines)}">${esc(PREVIEW_KO[s.cueLines])}</div>` : ''}
+          <div class="eh-settings-preview-en" style="font-size:${s.enSize}px">${esc(previewEn)}</div>
+          ${s.mode !== 'en' ? `<div class="eh-settings-preview-ko" style="font-size:${s.nativeSize}px">${esc(PREVIEW_KO_FULL)}</div>` : ''}
         </div>
 
         <div class="eh-settings-divider"></div>

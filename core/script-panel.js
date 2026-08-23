@@ -11,6 +11,15 @@
   let captionConflictSuspected = false;
   let captionLoadFailed = false;
 
+  // §1h "한 줄에 표시할 분량" — 청크 분할 자체는 core/cue-utils.js가 담당한다.
+  // 오버레이(adapters/*.js)도 같은 유틸을 써야 스크립트 패널과 자막 오버레이가
+  // 항상 같은 문장을 보여준다 — 로직이 두 곳에 따로 있으면 반드시 갈라진다.
+  function _buildChunkRows(cue, idx, native, isSaved, cueLines) {
+    return window.EH.CueUtils.getChunksWithTiming(cue, cueLines).map((chunk) => {
+      return { cue, idx, native, isSaved, chunkText: chunk.text, chunkStart: chunk.start, isFirst: chunk.isFirst };
+    });
+  }
+
   function formatTime(sec) {
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
@@ -59,15 +68,6 @@
     if (filter === 'saved') return isSaved;
     if (filter === 'unsaved') return !isSaved;
     return true;
-  }
-
-  // §1h "한 줄에 표시할 분량" — 영상 위 오버레이와 동일한 줄 수만큼만 보여주고
-  // 나머지는 말줄임 처리해, 패널에서 미리 보는 문장 길이가 오버레이와 어긋나지 않게 한다.
-  function _applyCueClamp(el, lines) {
-    el.style.display = '-webkit-box';
-    el.style.webkitBoxOrient = 'vertical';
-    el.style.webkitLineClamp = String(lines);
-    el.style.overflow = 'hidden';
   }
 
   function _escapeHtml(str) {
@@ -462,6 +462,16 @@ ${rows}
     });
 
     attachPanelResize(panel, resizeHandle, () => expanded, (w) => { savedInlineWidth = w; });
+
+    // 패널 안의 버튼(복사/저장/필터/자동스크롤 등)을 클릭하면 그 버튼이
+    // 키보드 포커스를 가져가는데, 유튜브/넷플릭스 등은 포커스가 자기
+    // 플레이어 영역을 벗어나 있으면 스페이스바 재생/일시정지 단축키를
+    // 무시한다 — 검색창(타이핑이 필요)만 빼고, 패널 안 클릭이 포커스를
+    // 가져가지 않게 해서 스페이스바가 계속 영상에 그대로 먹히게 한다.
+    panel.addEventListener('mousedown', (e) => {
+      if (e.target.closest('#eh-panel-search')) return;
+      e.preventDefault();
+    });
   }
 
   function attachPanelResize(panel, handle, isExpanded, setSavedWidth) {
@@ -530,93 +540,96 @@ ${rows}
     list.innerHTML = '';
     visibleCues.forEach(({ cue, idx, native, isSaved }) => {
       const isActive = idx === lastActiveIdx;
+      const rows = _buildChunkRows(cue, idx, native, isSaved, s.cueLines);
 
-      const item = document.createElement('div');
-      item.className = 'eh-panel-item';
-      item.classList.toggle('active', isActive);
-      item.dataset.idx = idx;
+      rows.forEach((row) => {
+        const item = document.createElement('div');
+        item.className = 'eh-panel-item' + (row.isFirst ? '' : ' continuation');
+        item.classList.toggle('active', isActive);
+        item.dataset.idx = idx;
 
-      const timeCol = document.createElement('div');
-      timeCol.className = 'eh-panel-time-col';
-      timeCol.innerHTML =
-        `<span class="eh-panel-time">${formatTime(cue.start)}</span>` +
-        (isActive ? '<span class="eh-panel-now">NOW</span>' : '');
-      timeCol.addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.EH.adapter.seekTo(cue.start + 0.1);
-      });
-
-      const textWrap = document.createElement('div');
-      textWrap.className = 'eh-panel-textwrap';
-
-      const enSpan = document.createElement('span');
-      enSpan.className = 'eh-panel-en';
-      enSpan.textContent = cue.text;
-      _applyCueClamp(enSpan, s.cueLines);
-      textWrap.appendChild(enSpan);
-
-      if (native) {
-        const nativeSpan = document.createElement('span');
-        nativeSpan.className = 'eh-panel-native';
-        nativeSpan.textContent = native;
-        // display:none일 때도 clamp를 걸어두면 모드 전환(applySettings) 시
-        // display만 'block'으로 되돌려도 clamp가 이미 적용된 채로 남는다.
-        _applyCueClamp(nativeSpan, s.cueLines);
-        if (s.mode === 'en') nativeSpan.style.display = 'none';
-        textWrap.appendChild(nativeSpan);
-      }
-
-      const actions = document.createElement('div');
-      actions.className = 'eh-panel-item-actions';
-
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'eh-panel-item-copy';
-      copyBtn.textContent = '⧉';
-      copyBtn.title = '영어 문장 복사';
-      copyBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (navigator.clipboard) navigator.clipboard.writeText(cue.text).catch(() => {});
-        copyBtn.classList.add('copied');
-        copyBtn.textContent = '✓';
-        setTimeout(() => {
-          copyBtn.classList.remove('copied');
-          copyBtn.textContent = '⧉';
-        }, 1400);
-      });
-
-      const saveBtn = document.createElement('button');
-      saveBtn.className = 'eh-panel-item-save' + (isSaved ? ' saved' : '');
-      saveBtn.textContent = isSaved ? '✓' : '＋';
-      saveBtn.title = isSaved ? '이미 저장됨' : '문장 저장';
-      saveBtn.disabled = isSaved;
-      saveBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (isSaved) return;
-        window.EH.Storage.saveSentence({
-          original: cue.text,
-          translation: native,
-          timestamp: cue.start
-        }).then(() => {
-          savedSet.add(cue.text);
-          window.EH.showToast?.('✓ 문장 저장됨');
-          document.dispatchEvent(new CustomEvent('eh-item-saved'));
-          renderList();
+        const timeCol = document.createElement('div');
+        timeCol.className = 'eh-panel-time-col';
+        timeCol.innerHTML = row.isFirst
+          ? `<span class="eh-panel-time">${formatTime(cue.start)}</span>` + (isActive ? '<span class="eh-panel-now">NOW</span>' : '')
+          : '<span class="eh-panel-time eh-panel-time-continuation">↳</span>';
+        timeCol.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.EH.adapter.seekTo(row.chunkStart + 0.1);
         });
-      });
 
-      actions.appendChild(copyBtn);
-      actions.appendChild(saveBtn);
+        const textWrap = document.createElement('div');
+        textWrap.className = 'eh-panel-textwrap';
 
-      item.appendChild(timeCol);
-      item.appendChild(textWrap);
-      item.appendChild(actions);
-      // 시간 칼럼뿐 아니라 줄 전체(문장 본문 포함)를 클릭해도 그 지점으로
-      // 이동한다 — 복사/저장 버튼은 각자 stopPropagation으로 이 핸들러를
-      // 가로채지 않는다.
-      item.addEventListener('click', () => {
-        window.EH.adapter.seekTo(cue.start + 0.1);
+        const enSpan = document.createElement('span');
+        enSpan.className = 'eh-panel-en';
+        enSpan.textContent = row.chunkText;
+        textWrap.appendChild(enSpan);
+
+        // 번역/복사/저장은 문장 전체(cue) 기준이라 청크마다 반복하지 않고
+        // 첫 청크에만 붙인다.
+        if (row.isFirst && native) {
+          const nativeSpan = document.createElement('span');
+          nativeSpan.className = 'eh-panel-native';
+          nativeSpan.textContent = native;
+          if (s.mode === 'en') nativeSpan.style.display = 'none';
+          textWrap.appendChild(nativeSpan);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'eh-panel-item-actions';
+
+        if (row.isFirst) {
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'eh-panel-item-copy';
+          copyBtn.textContent = '⧉';
+          copyBtn.title = '영어 문장 복사';
+          copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (navigator.clipboard) navigator.clipboard.writeText(cue.text).catch(() => {});
+            copyBtn.classList.add('copied');
+            copyBtn.textContent = '✓';
+            setTimeout(() => {
+              copyBtn.classList.remove('copied');
+              copyBtn.textContent = '⧉';
+            }, 1400);
+          });
+
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'eh-panel-item-save' + (isSaved ? ' saved' : '');
+          saveBtn.textContent = isSaved ? '✓' : '＋';
+          saveBtn.title = isSaved ? '이미 저장됨' : '문장 저장';
+          saveBtn.disabled = isSaved;
+          saveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isSaved) return;
+            window.EH.Storage.saveSentence({
+              original: cue.text,
+              translation: native,
+              timestamp: cue.start
+            }).then(() => {
+              savedSet.add(cue.text);
+              window.EH.showToast?.('✓ 문장 저장됨');
+              document.dispatchEvent(new CustomEvent('eh-item-saved'));
+              renderList();
+            });
+          });
+
+          actions.appendChild(copyBtn);
+          actions.appendChild(saveBtn);
+        }
+
+        item.appendChild(timeCol);
+        item.appendChild(textWrap);
+        item.appendChild(actions);
+        // 시간 칼럼뿐 아니라 줄 전체(문장 본문 포함)를 클릭해도 그 지점으로
+        // 이동한다 — 복사/저장 버튼은 각자 stopPropagation으로 이 핸들러를
+        // 가로채지 않는다.
+        item.addEventListener('click', () => {
+          window.EH.adapter.seekTo(row.chunkStart + 0.1);
+        });
+        list.appendChild(item);
       });
-      list.appendChild(item);
     });
 
     const countEl = document.getElementById('eh-panel-footer-count');
@@ -627,21 +640,38 @@ ${rows}
     if (!enText) return;
     const idx = enCues.findIndex(c => c.text === enText);
     if (idx === -1 || idx === lastActiveIdx) return;
+    // idx가 한 번에 여러 칸 뛰면(순차 재생이 아니라) 사용자가 타임라인을
+    // 직접 옮긴 것으로 본다 — 이 경우 새 위치를 패널 맨 위로 올려 그 뒤로
+    // 이어지는 스크립트를 최대한 많이 보여준다.
+    const seeked = lastActiveIdx !== -1 && Math.abs(idx - lastActiveIdx) > 1;
     lastActiveIdx = idx;
     // NOW 배지는 렌더링 시점(active/NOW 클래스)에 결정되므로, 활성 줄이 바뀔 때마다
     // 검색/필터로 새 활성 줄이 현재 DOM에 없더라도(=active가 null이어도) 무조건
     // 다시 그려서 이전 줄에 붙은 NOW 배지가 남지 않도록 한다.
     renderList();
     const active = document.querySelector(`.eh-panel-item[data-idx="${idx}"]`);
-    if (active && autoScrollEnabled) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (!active || !autoScrollEnabled) return;
+
+    if (seeked) {
+      active.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return;
+    }
+
+    // 순차 재생 중에는 활성 줄이 이미 화면 안에 있으면 스크롤하지 않는다 —
+    // 화면 아래로 벗어나려는 순간에만(=패널의 마지막으로 보이던 줄이 되는
+    // 순간) 조금씩 끌려가는 대신 맨 위로 넘겨 다음 페이지 분량을 한 번에
+    // 보여준다.
+    const list = document.getElementById('eh-panel-list');
+    const listRect = list?.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const isVisible = listRect && activeRect.top >= listRect.top && activeRect.bottom <= listRect.bottom;
+    if (!isVisible) active.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   function applySettings(s) {
-    document.querySelectorAll('.eh-panel-en').forEach(el => _applyCueClamp(el, s.cueLines));
-    document.querySelectorAll('.eh-panel-native').forEach(el => {
-      _applyCueClamp(el, s.cueLines);
-      if (s.mode === 'en') el.style.display = 'none';
-    });
+    // cueLines가 바뀌면 청크 구성 자체(항목 개수)가 달라지므로 부분 패치 대신
+    // 통째로 다시 그린다.
+    renderList();
   }
 
   function toggle(forceVisible) {

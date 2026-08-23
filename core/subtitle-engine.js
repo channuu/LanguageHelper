@@ -5,18 +5,47 @@
   let currentEnText = '';
   let currentNativeText = '';
   let rafId = null;
+  // 사용자가 오버레이를 직접 드래그해서 위치를 저장한 적이 있으면 그 이후로는
+  // 자동 재중앙정렬을 하지 않는다 — 있는 그대로 존중.
+  let userPositioned = false;
 
-  // §1h "한 줄에 표시할 분량" — 줄 수가 적을수록 박스도 좁혀서 실제로 더 자주 줄바꿈되게 한다.
+  // 오버레이는 body 기준 position:fixed라서 CSS left:50%는 항상 "뷰포트 전체"의
+  // 중앙이다. 그런데 스크립트 패널이 열려 영상 영역이 좁아지면(밀어내기든
+  // 임베드든) 실제 영상은 화면 왼쪽에 치우쳐 있으므로, 뷰포트 중앙에 고정된
+  // 자막이 영상 중앙에서 벗어나 보인다 — 반드시 <video> 요소 자신의 실제
+  // 렌더링 중심을 기준으로 잡아야 한다.
+  function _getVideoCenterX() {
+    const video = document.querySelector('video');
+    const r = video?.getBoundingClientRect();
+    if (r && r.width > 0) return r.left + r.width / 2;
+    return window.innerWidth / 2;
+  }
+
+  // 넷플릭스 자체 하단 컨트롤바(재생바+버튼) 높이는 창 크기/배율/UI 버전에
+  // 따라 달라진다 — 고정 px로 "이 정도면 충분하겠지"라고 잡으면 화면이
+  // 작거나 배율이 다른 사용자에게는 여전히 겹치거나, 반대로 너무 위로
+  // 떠버릴 수 있다. 실제 컨트롤바 요소의 렌더링 높이를 직접 읽어 그 위에
+  // 자막을 놓는다 — data-uia는 넷플릭스가 자동화 테스트용으로 쓰는 값이라
+  // 화면 크기와 무관하게 안정적이고, 클래스명(해시)보다 잘 안 바뀐다.
+  function _getBottomClearance() {
+    if (location.hostname.includes('netflix.com')) {
+      const controls = document.querySelector('[data-uia="controls-standard"]')
+        || document.querySelector('.watch-video--bottom-controls-container');
+      const r = controls?.getBoundingClientRect();
+      if (r && r.height > 0) return Math.round(window.innerHeight - r.top + 12);
+    }
+    return 80; // ui/overlay.css의 #eh-overlay 기본값과 동일
+  }
+
+  // §1h "한 줄에 표시할 분량" — 줄 수가 적을수록 박스를 좁혀 더 자주 줄바꿈되게
+  // 한다. webkit-line-clamp로 넘치는 줄을 잘라버리면 오버레이만 스크립트
+  // 패널과 다른(내용이 사라지는) 문장을 보여주게 되므로 쓰지 않는다 — 문장은
+  // 절대 잘리지 않고, 박스 폭만 좁아져 줄바꿈이 더 잦아진다(길이가 짧아
+  // 보이는 효과). 항상 스크립트 패널과 동일한 전체 텍스트를 보여준다.
   const CUE_MAX_WIDTH = { 1: '46vw', 2: '62vw', 3: '80vw' };
 
   function applyCueLines(overlay, enLine, nativeLine, cueLines) {
     overlay.style.maxWidth = CUE_MAX_WIDTH[cueLines] || CUE_MAX_WIDTH[2];
-    [enLine, nativeLine].forEach(el => {
-      el.style.display = '-webkit-box';
-      el.style.webkitBoxOrient = 'vertical';
-      el.style.webkitLineClamp = String(cueLines);
-      el.style.overflow = 'hidden';
-    });
   }
 
   function createDOM() {
@@ -47,6 +76,7 @@
     attachDrag(overlay, enLine, nativeLine);
     attachResize(overlay, enLine, nativeLine, handle);
     applyCueLines(overlay, enLine, nativeLine, window.EH.settings?.cueLines || 2);
+    _watchVideoRecenter(overlay);
   }
 
   // 위치는 "중심 x(px) + 하단 거리(px)"로 저장한다.
@@ -54,12 +84,14 @@
   function restorePosition(overlay, enLine, nativeLine) {
     const saved = JSON.parse(localStorage.getItem('eh-overlay-pos') || 'null');
     if (saved && typeof saved.cx === 'number' && typeof saved.bottom === 'number') {
+      userPositioned = true;
       overlay.style.left = saved.cx + 'px';
       overlay.style.bottom = saved.bottom + 'px';
       overlay.style.top = 'auto';
       overlay.style.transform = 'translateX(-50%)';
     } else if (saved && typeof saved.left === 'string' && typeof saved.top === 'string') {
       // 구버전 포맷({left,top} 절대좌표) → 신버전(중심 x + 하단 거리)으로 1회 변환
+      userPositioned = true;
       const left = parseFloat(saved.left) || 0;
       const top = parseFloat(saved.top) || 0;
       const cx = left + overlay.offsetWidth / 2;
@@ -68,9 +100,55 @@
       overlay.style.bottom = bottom + 'px';
       overlay.style.top = 'auto';
       overlay.style.transform = 'translateX(-50%)';
+    } else {
+      // 저장된 위치가 없으면 뷰포트 중앙이 아니라 실제 영상 중앙에 맞춘다.
+      overlay.style.left = _getVideoCenterX() + 'px';
+      overlay.style.bottom = _getBottomClearance() + 'px';
+      overlay.style.transform = 'translateX(-50%)';
     }
     if (saved?.enSize) enLine.style.fontSize = saved.enSize;
     if (saved?.nativeSize) nativeLine.style.fontSize = saved.nativeSize;
+  }
+
+  // 사용자가 직접 위치를 지정하지 않은 동안에는, 패널이 열리고 닫히거나 창
+  // 크기/배율이 바뀌어 영상 영역이나 컨트롤바 높이가 달라질 때마다 자막을
+  // 계속 그에 맞춰 재배치한다. <video>·컨트롤바 자신의 렌더링 크기를 직접
+  // 관찰하므로 창 크기·배율·밀어내기/임베드 등 원인과 무관하게 항상 실제
+  // 화면에 맞는 값을 쓴다 — px 하나를 고정으로 못박지 않는다.
+  // createDOM() 시점엔 플랫폼이 아직 <video>/컨트롤바 엘리먼트를 만들지
+  // 않은 경우가 많아 restorePosition()의 최초 계산이 폴백값으로 굳어버릴
+  // 수 있다 — 실제로 나타날 때까지 재시도하고, 찾자마자 즉시 한 번
+  // 재배치한 뒤 감시를 시작한다.
+  function _watchVideoRecenter(overlay) {
+    let observedVideo = null;
+    let observedControls = null;
+    let timer = null;
+    const reposition = () => {
+      if (userPositioned) return;
+      overlay.style.left = _getVideoCenterX() + 'px';
+      overlay.style.bottom = _getBottomClearance() + 'px';
+    };
+    const scheduleReposition = () => {
+      clearTimeout(timer);
+      timer = setTimeout(reposition, 150);
+    };
+    const tryObserve = () => {
+      const video = document.querySelector('video');
+      if (video && video !== observedVideo) {
+        observedVideo = video;
+        reposition();
+        new ResizeObserver(scheduleReposition).observe(video);
+      }
+      const controls = document.querySelector('[data-uia="controls-standard"]')
+        || document.querySelector('.watch-video--bottom-controls-container');
+      if (controls && controls !== observedControls) {
+        observedControls = controls;
+        reposition();
+        new ResizeObserver(scheduleReposition).observe(controls);
+      }
+    };
+    tryObserve();
+    new MutationObserver(tryObserve).observe(document.body, { subtree: true, childList: true });
   }
 
   function attachDrag(overlay, enLine, nativeLine) {
@@ -125,6 +203,7 @@
   }
 
   function savePosition(overlay, enLine, nativeLine) {
+    userPositioned = true;
     const r = overlay.getBoundingClientRect();
     localStorage.setItem('eh-overlay-pos', JSON.stringify({
       cx: r.left + r.width / 2,
@@ -133,7 +212,11 @@
     }));
   }
 
-  function renderSubtitles(enText, nativeText) {
+  // enText: 지금 화면에 보여줄 텍스트(§1h 설정에 따라 문장 전체이거나 청크
+  // 일부일 수 있다). fullText: 그 청크가 속한 원래 문장 전체 — 스크립트
+  // 패널 하이라이트와 단어 팝업의 문맥은 항상 "원래 문장 전체" 기준이어야
+  // 스크립트 패널이 보여주는 것과 어긋나지 않는다.
+  function renderSubtitles(enText, nativeText, fullEnText) {
     const enLine = document.getElementById('eh-en-line');
     const nativeLine = document.getElementById('eh-native-line');
     if (!enLine || !visible) return;
@@ -141,6 +224,7 @@
     if (enText === currentEnText && nativeText === currentNativeText) return;
     currentEnText = enText;
     currentNativeText = nativeText;
+    fullEnText = fullEnText || enText;
 
     // 영어 자막: 단어별 span으로 분리 (클릭 가능)
     enLine.innerHTML = '';
@@ -155,7 +239,7 @@
           e.stopPropagation();
           const clean = word.replace(/[^a-zA-Z']/g, '');
           if (clean && window.EH.WordPopup) {
-            window.EH.WordPopup.show(clean, enText, nativeText,
+            window.EH.WordPopup.show(clean, fullEnText, nativeText,
               window.EH.adapter?.getCurrentTime() || 0, e.clientX, e.clientY);
           }
         });
@@ -169,16 +253,16 @@
     nativeLine.style.fontSize = s.nativeSize + 'px';
     nativeLine.classList.toggle('hidden', s.mode === 'en' || !nativeText);
 
-    // 스크립트 패널 하이라이트 업데이트
-    if (window.EH.ScriptPanel) window.EH.ScriptPanel.highlight(enText);
+    // 스크립트 패널 하이라이트 업데이트 — 청크가 아니라 원래 문장 전체 기준.
+    if (window.EH.ScriptPanel) window.EH.ScriptPanel.highlight(fullEnText);
   }
 
   function setup(adapter) {
     createDOM();
     adapter.onSubtitleChange((cues) => {
-      const en = cues.find(c => c.lang === 'en')?.text || '';
+      const enCue = cues.find(c => c.lang === 'en');
       const native = cues.find(c => c.lang !== 'en')?.text || '';
-      renderSubtitles(en, native);
+      renderSubtitles(enCue?.text || '', native, enCue?.fullText);
     });
   }
 

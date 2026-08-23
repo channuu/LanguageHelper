@@ -70,6 +70,9 @@
       const player = sessionId ? videoPlayer.getVideoPlayerBySessionId(sessionId) : null;
       if (player && typeof player.seek === 'function') {
         player.seek(Math.round(seconds * 1000)); // Netflix API는 밀리초 단위
+        // 정지 상태에서 스크립트 패널 줄을 클릭했을 때는 이동만 하고
+        // 멈춰있지 않고 바로 재생을 이어가게 한다.
+        if (typeof player.play === 'function' && player.isPaused?.()) player.play();
         return true;
       }
     } catch (e) {
@@ -88,7 +91,10 @@
         // 플레이어 API를 못 찾은 경우에만 폴백 — 일시정지 위험은 있지만
         // 아예 이동 못 하는 것보다는 낫다.
         const video = document.querySelector('video');
-        if (video) video.currentTime = e.data.seconds;
+        if (video) {
+          video.currentTime = e.data.seconds;
+          if (video.paused) video.play().catch(() => {});
+        }
       }
       return;
     }

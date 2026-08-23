@@ -29,6 +29,7 @@
       "matches": ["https://www.youtube.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/cue-utils.js",
         "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",
@@ -53,6 +54,7 @@
       "matches": ["https://www.netflix.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/cue-utils.js",
         "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",
@@ -71,6 +73,7 @@
       "matches": ["https://www.disneyplus.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/cue-utils.js",
         "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",
@@ -95,6 +98,7 @@
       "matches": ["https://*.coupangplay.com/*"],
       "js": [
         "core/adapter-interface.js",
+        "core/cue-utils.js",
         "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",

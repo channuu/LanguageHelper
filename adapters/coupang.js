@@ -158,8 +158,14 @@
           const t = video.currentTime + 0.1;
           const enCue = this._getCueAtTime(this._enCues, t);
           const nativeCue = this._getCueAtTime(this._nativeCues, t);
-          const enText = enCue?.text || '';
-          const nativeText = nativeCue?.text || '';
+          // §1h "한 줄에 표시할 분량" — 스크립트 패널과 반드시 같은 문장을
+          // 보여줘야 하므로 청크 분할도 core/cue-utils.js를 그대로 쓴다.
+          // 번역은 패널과 마찬가지로 문장의 첫 청크에서만 보여준다(문장
+          // 단위 번역이라 청크별로 쪼갤 수 없음).
+          const cueLines = window.EH.settings?.cueLines || 2;
+          const chunk = enCue ? window.EH.CueUtils.getChunkAtTime(enCue, t, cueLines) : null;
+          const enText = chunk?.text || '';
+          const nativeText = (chunk && chunk.isFirst) ? (nativeCue?.text || '') : '';
 
           if (enText !== this._lastEnText || nativeText !== this._lastNativeText) {
             this._lastEnText = enText;
@@ -167,7 +173,7 @@
             const nativeLang = window.EH.settings?.nativeLang || 'ko';
             if (this._subtitleCb) {
               this._subtitleCb([
-                { lang: 'en', text: enText },
+                { lang: 'en', text: enText, fullText: enCue?.text || '' },
                 { lang: nativeLang, text: nativeText }
               ]);
             }

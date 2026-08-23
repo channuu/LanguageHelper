@@ -157,7 +157,13 @@
         if (video && !video.paused && this._enCues.length) {
           const t = video.currentTime + 0.1;
           const enCue = this._getCueAtTime(this._enCues, t);
-          const nativeCue = this._getCueAtTime(this._nativeCues, t);
+          // native(번역) 자막은 자기 cue의 [start,end]로 독립적으로 찾지
+          // 않는다 — 넷플릭스가 언어별로 자막 파일을 따로 만들다 보니 번역
+          // 줄이 원본보다 일찍 끝나는 경우가 흔한데, 그러면 번역이 먼저
+          // 사라지고 영어만 잠깐 혼자 남아 "영어 자막이 계속/다시 표시되는"
+          // 것처럼 보인다. 시작 시각으로 영어 cue와 짝을 맞춰 영어가 떠 있는
+          // 동안은 항상 같이 보여준다.
+          const nativeCue = enCue ? window.EH.CueUtils.findPairedCue(this._nativeCues, enCue) : null;
           // §1h "한 줄에 표시할 분량" — 스크립트 패널과 반드시 같은 문장을
           // 보여줘야 하므로 청크 분할도 core/cue-utils.js를 그대로 쓴다.
           // 번역은 패널과 마찬가지로 문장의 첫 청크에서만 보여준다(문장

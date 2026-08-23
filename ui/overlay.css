@@ -1,3 +1,23 @@
+/* 유튜브에서 영상(/watch)을 보다가 SPA로 홈/검색 등으로 이동하면
+   adapters/youtube.js가 body에 이 클래스를 붙여 우리 UI를 전부 숨긴다 —
+   그대로 두면 영상 페이지를 벗어나도 topbar/패널/오버레이가 남아 새
+   페이지의 레이아웃을 계속 침범한다.
+   패널은 임베드↔밀어내기 모드가 SPA 전환 중에 비동기로 바뀌면서 어느
+   쪽(#eh-panel-wrapper vs #eh-panel)이 실제 화면에 떠 있는 요소인지가
+   레이스 컨디션을 일으킨 적이 있어서(ScriptPanel.toggle()만으로는 모드
+   전환 타이밍에 따라 엉뚱한 쪽에 hidden이 붙어 패널이 안 숨겨짐), 모드와
+   무관하게 항상 확실히 숨도록 두 요소 모두 여기서도 강제로 감춘다.
+   밀어내기 스타일(body margin-right 등) 정리는 그대로 ScriptPanel.toggle()
+   쪽에 맡긴다(adapters/youtube.js 참고). */
+body.eh-hidden-offwatch #eh-topbar,
+body.eh-hidden-offwatch #eh-panel-wrapper,
+body.eh-hidden-offwatch #eh-panel,
+body.eh-hidden-offwatch #eh-overlay,
+body.eh-hidden-offwatch #eh-settings-panel,
+body.eh-hidden-offwatch #eh-library-panel {
+  display: none !important;
+}
+
 /* ── 자막 오버레이 ─────────────────────────────── */
 #eh-overlay {
   position: fixed;

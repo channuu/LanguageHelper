@@ -6,6 +6,53 @@
   let overlayToggleRef = null;
   let panelToggleRef = null;
 
+  const TOPBAR_HEIGHT = 46; // #eh-topbar의 height와 반드시 일치해야 함
+
+  // 상단 바가 position:fixed로 페이지 맨 위에 얹히는데, 유튜브/넷플릭스도
+  // 자기 헤더(유튜브 마스트헤드, 넷플릭스 상단 네비게이션)를 fixed/sticky로
+  // top:0에 고정해 두고 있어서, 우리 바가 그 위를 그대로 덮어버려 로고·검색·
+  // 메뉴 버튼이 안 보이고 클릭도 안 되는 문제가 있었다. 해당 플랫폼 헤더를
+  // 우리 바 높이만큼 아래로 밀고, 그 헤더 뒤를 따르는 본문 콘텐츠도 같은
+  // 만큼 추가로 밀어서 자리를 맞춘다. 높이는 실제 렌더링된 값을 그때그때
+  // 읽어서 계산한다 — 플랫폼이 헤더 높이를 바꿔도 깨지지 않도록.
+  function _pushPageBelowTopbar() {
+    let style = document.getElementById('eh-topbar-push-style');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'eh-topbar-push-style';
+      document.head.appendChild(style);
+    }
+
+    if (location.hostname.includes('youtube.com')) {
+      const masthead = document.querySelector('#masthead-container');
+      const pageManager = document.querySelector('#page-manager');
+      if (!masthead || !pageManager) { setTimeout(_pushPageBelowTopbar, 300); return; }
+      const mastheadHeight = masthead.getBoundingClientRect().height || 56;
+      style.textContent = `
+        #masthead-container { top: ${TOPBAR_HEIGHT}px !important; }
+        #page-manager { margin-top: ${mastheadHeight + TOPBAR_HEIGHT}px !important; }
+      `;
+    } else if (location.hostname.includes('netflix.com')) {
+      // 넷플릭스 상단 네비게이션(홈/찾아보기/검색 등)은 position:sticky라
+      // 스크롤을 내리면 결국 top:0에서 우리 바 밑으로 다시 붙어야 한다.
+      // 영상 재생 페이지의 플레이어(.watch-video--player-view)는 body
+      // padding과 무관한 position:absolute라, 뒤로가기 버튼 등 플레이어
+      // 자체 컨트롤(플레이어 기준 top:0 근처에 배치됨)이 우리 바 바로
+      // 아래에 눌려 붙어 겹쳐 보인다 — 플레이어 자체를 우리 바 높이만큼
+      // 아래로 밀고 그만큼 높이도 줄여서 화면 하단을 벗어나지 않게 한다.
+      style.textContent = `
+        body { padding-top: ${TOPBAR_HEIGHT}px !important; }
+        nav[data-uia="navigation"] { top: ${TOPBAR_HEIGHT}px !important; }
+        .watch-video--player-view {
+          top: ${TOPBAR_HEIGHT}px !important;
+          height: calc(100% - ${TOPBAR_HEIGHT}px) !important;
+        }
+      `;
+    } else {
+      style.textContent = `body { padding-top: ${TOPBAR_HEIGHT}px !important; }`;
+    }
+  }
+
   function createDOM(adapter) {
     if (document.getElementById('eh-topbar')) return;
 
@@ -73,6 +120,7 @@
     bar.appendChild(settingsBtn);
 
     document.body.appendChild(bar);
+    _pushPageBelowTopbar();
 
     // 팝업 등 다른 UI에서 SubtitleEngine/ScriptPanel을 직접 토글한 경우에도
     // 스위치 표시가 어긋나지 않도록 동기화 (여기서는 다시 toggle()을 호출하지 않는다).
@@ -135,5 +183,5 @@
   }
 
   window.EH = window.EH || {};
-  window.EH.TopBar = { setup };
+  window.EH.TopBar = { setup, refreshLayout: _pushPageBelowTopbar };
 })();

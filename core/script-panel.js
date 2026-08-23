@@ -183,15 +183,19 @@ ${rows}
     return !!(panel && panel.classList.contains('fixed-mode'));
   }
 
-  // wrapper(임베드)와 panel(밀어내기) 중 현재 실제로 보여야 하는 대상을 기준으로
-  // 숨김 여부를 판단한다 — toggle()의 detached 판정과 동일한 기준을 재사용.
+  // 임베드↔밀어내기 모드는 SPA 네비게이션 중 비동기로 바뀔 수 있어서, toggle()
+  // 호출 시점에 "지금 활성인 쪽"이라고 판단한 요소와 나중에 실제로 활성화되는
+  // 요소가 달라지는 레이스가 있었다(예: 임베드로 판단해 wrapper에만 hidden을
+  // 걸었는데, 직후 밀어내기로 전환되며 hidden 없는 panel이 body에 재장착되어
+  // 다시 보여버림). wrapper/panel 둘 중 하나라도 hidden이면 숨김으로 본다 —
+  // toggle()도 항상 둘 다에 같은 상태를 건다.
   function _isPanelVisible() {
     const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
     if (!panel) return false;
-    const detached = !!(wrapper && panel.parentElement !== wrapper);
-    const target = detached ? panel : (wrapper || panel);
-    return !target.classList.contains('hidden');
+    if (wrapper && wrapper.classList.contains('hidden')) return false;
+    if (panel.classList.contains('hidden')) return false;
+    return true;
   }
 
   function _setLayoutForPanel(visible) {
@@ -677,22 +681,19 @@ ${rows}
   function toggle(forceVisible) {
     const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
-    // While expanded (or, on YouTube, whenever the panel has been detached
-    // to the fixed-mode floating layout on document.body) the wrapper is
-    // empty/hidden and no longer the visible element — toggling it would be
-    // a no-op. Target the panel itself whenever it isn't currently mounted
-    // inside the wrapper.
-    const detached = !!(panel && wrapper && panel.parentElement !== wrapper);
-    const target = detached ? panel : (wrapper || panel);
-    if (!target) return undefined;
+    if (!panel) return undefined;
     let nowHidden;
     if (forceVisible !== undefined) {
-      target.classList.toggle('hidden', !forceVisible);
       nowHidden = !forceVisible;
     } else {
-      nowHidden = !target.classList.contains('hidden');
-      target.classList.toggle('hidden');
+      nowHidden = _isPanelVisible();
     }
+    // 임베드↔밀어내기 모드가 SPA 네비게이션 중 비동기로 바뀔 수 있어서
+    // "지금 활성인 쪽" 하나만 판단해 거기에만 hidden을 걸면, 그 직후 모드가
+    // 바뀌면서 hidden 없는 요소가 새로 화면에 나타나 다시 보여버리는
+    // 레이스가 있었다 — wrapper/panel 둘 다에 항상 같은 상태를 건다.
+    if (wrapper) wrapper.classList.toggle('hidden', nowHidden);
+    panel.classList.toggle('hidden', nowHidden);
     _setLayoutForPanel(!nowHidden);
     return !nowHidden;
   }

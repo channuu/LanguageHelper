@@ -71,6 +71,24 @@
     return chunks.find(c => t >= c.start && t <= c.end) || chunks[chunks.length - 1];
   }
 
+  // referenceCue(보통 영어 cue)와 같은 문장을 가리키는 cue를 시작 시각
+  // 근접도로 찾는다. 넷플릭스/유튜브 모두 언어별로 자막 파일을 따로 만드는데,
+  // 번역 자막의 끝나는 시각이 원본보다 짧게 잡힌 경우가 흔하다 — en/native를
+  // 각자 자기 cue의 [start,end]로 독립적으로 시간 매칭하면, 번역이 먼저
+  // 사라지고 원본만 잠깐 혼자 남아 있는 것처럼 보인다("영어 자막만 계속/다시
+  // 표시되는 것 같다"는 증상의 실제 원인). 시작 시각으로 짝을 찾은 뒤에는
+  // 그 native cue 자신의 end와 무관하게 referenceCue가 떠 있는 동안 계속
+  // 같이 보여줘서 둘이 항상 함께 나타났다 함께 사라지게 한다.
+  function findPairedCue(cues, referenceCue, toleranceSec) {
+    toleranceSec = toleranceSec == null ? 1.0 : toleranceSec;
+    let best = null, bestDist = Infinity;
+    for (const c of cues) {
+      const dist = Math.abs(c.start - referenceCue.start);
+      if (dist < bestDist) { bestDist = dist; best = c; }
+    }
+    return (best && bestDist <= toleranceSec) ? best : null;
+  }
+
   window.EH = window.EH || {};
-  window.EH.CueUtils = { splitIntoChunks, getChunksWithTiming, getChunkAtTime };
+  window.EH.CueUtils = { splitIntoChunks, getChunksWithTiming, getChunkAtTime, findPairedCue };
 })();

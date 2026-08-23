@@ -227,7 +227,13 @@
         if (video && !video.paused && this._enCues.length) {
           const t = video.currentTime + 0.1;
           const enCue = this._getCueAtTime(this._enCues, t);
-          const nativeCue = this._getCueAtTime(this._nativeCues, t);
+          // native(번역) 자막은 자기 cue의 [start,end]로 독립적으로 찾지
+          // 않는다 — 언어별로 자막 파일을 따로 만들다 보니 번역 줄이
+          // 원본보다 일찍 끝나는 경우가 흔한데, 그러면 번역이 먼저 사라지고
+          // 영어만 잠깐 혼자 남아 "영어 자막이 계속/다시 표시되는" 것처럼
+          // 보인다. 시작 시각으로 영어 cue와 짝을 맞춰 영어가 떠 있는 동안은
+          // 항상 같이 보여준다.
+          const nativeCue = enCue ? window.EH.CueUtils.findPairedCue(this._nativeCues, enCue) : null;
           // §1h "한 줄에 표시할 분량" — 스크립트 패널과 반드시 같은 문장을
           // 보여줘야 하므로 청크 분할도 core/cue-utils.js를 그대로 쓴다.
           // 번역은 패널과 마찬가지로 문장의 첫 청크에서만 보여준다(문장
@@ -253,11 +259,15 @@
       };
       this._rafId = requestAnimationFrame(tick);
 
-      // SPA 라우팅 — 영상 변경 감지
+      // SPA 라우팅 — 영상 변경 감지 (+ /watch를 벗어났는지도 매번 같이 확인)
       let lastUrl = location.href;
       new MutationObserver(() => {
         if (location.href !== lastUrl) {
           lastUrl = location.href;
+          _syncUiVisibilityWithRoute();
+          // /watch를 벗어났으면(홈/검색 등으로 이동) 자막을 다시 불러올
+          // 대상 영상이 없으므로 여기서 끝낸다 — UI는 이미 숨겨졌다.
+          if (!_isWatchPage()) return;
           this._enCues = [];
           this._nativeCues = [];
           this._lastEnText = '';
@@ -288,6 +298,48 @@
   // 잡기 위해 MutationObserver로 경로 변화를 감시한다.
   function _isWatchPage() {
     return location.pathname === '/watch';
+  }
+
+  // 최초 진입만 막는 것으로는 부족했다 — 영상을 보다가 SPA로 홈/검색
+  // 등으로 "나가는" 경우, topbar/패널/오버레이가 계속 화면에 남아있고
+  // 밀어내기 스타일도 그대로 적용된 채라 새 페이지의 레이아웃을 계속
+  // 침범했다. /watch를 벗어나면 우리 UI를 숨기고 밀어내기 스타일도
+  // 비워서, 다시 /watch로 돌아왔을 때 자연스럽게 복구되게 한다.
+  // 패널의 밀어내기 스타일은 window resize 등 다른 계기에도 계속 재계산되는데
+  // (core/script-panel.js의 applyMountStrategy), 그 로직은 패널이 여전히
+  // "보여야 하는" 상태인지를 자기 자신의 .hidden 클래스 기준으로 판단한다.
+  // 우리가 body 클래스만으로 CSS 위에서 숨기면 그 판단 기준과 어긋나서,
+  // 이후 아무 resize/변이 계기에 밀어내기 스타일이 되살아나(패널 DOM은
+  // display:none이라도 body margin-right/ytd-app width는 그대로 남아)
+  // 홈페이지 오른쪽에 빈 검은 여백만 남는 문제가 있었다. 그래서 패널은
+  // body 클래스가 아니라 반드시 ScriptPanel.toggle()로 진짜 숨겨서, 그
+  // 판단 기준 자체를 일치시킨다.
+  let _panelVisibleBeforeRouteHide = null;
+
+  function _syncUiVisibilityWithRoute() {
+    const onWatch = _isWatchPage();
+    document.body.classList.toggle('eh-hidden-offwatch', !onWatch);
+    if (!onWatch) {
+      if (_panelVisibleBeforeRouteHide === null) {
+        const panel = document.getElementById('eh-panel');
+        const wrapper = document.getElementById('eh-panel-wrapper');
+        const target = wrapper || panel;
+        _panelVisibleBeforeRouteHide = !!target && !target.classList.contains('hidden');
+      }
+      window.EH.ScriptPanel?.toggle(false);
+      // topbar는 body 클래스로 숨기지만, topbar가 유튜브 마스트헤드를 아래로
+      // 밀어놓은 스타일(#eh-topbar-push-style)은 별개로 남아있다 — 안 지우면
+      // topbar는 안 보이는데 마스트헤드만 그 자리만큼 아래로 밀린 채 남아
+      // 위쪽에 빈 공백이 생긴다.
+      const topbarPush = document.getElementById('eh-topbar-push-style');
+      if (topbarPush) topbarPush.textContent = '';
+    } else {
+      if (_panelVisibleBeforeRouteHide !== null) {
+        if (_panelVisibleBeforeRouteHide) window.EH.ScriptPanel?.toggle(true);
+        _panelVisibleBeforeRouteHide = null;
+      }
+      window.EH.TopBar?.refreshLayout?.();
+    }
   }
 
   if (_isWatchPage()) {

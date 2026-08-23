@@ -197,14 +197,19 @@ ${rows}
     // width) or from a CSS class like .expanded — parseInt(panel.style.width)
     // would silently fall back to 400 whenever the width is class-driven.
     const w = panel.getBoundingClientRect().width || 400;
-    // YouTube의 ytd-app은 position:absolute라서 margin-right로는 안 밀린다
-    // (Language Reactor의 실제 적용 스타일을 라이브로 확인해 검증됨 —
-    // ytd-app { position:absolute; margin-right:0; width:<줄어든 px> } 형태로
-    // width 자체를 직접 줄이는 방식을 쓰고 있었다).
+    // YouTube의 ytd-app, Netflix의 .watch-video--player-view 둘 다
+    // position:absolute라서 margin-right로는 안 밀린다 (Language Reactor의
+    // 실제 적용 스타일을 두 플랫폼 모두 라이브로 확인해 검증됨 — 각 플랫폼의
+    // 최상위 플레이어 컨테이너 width 자체를 직접 줄이는 방식을 쓰고 있었다).
+    // 두 선택자 모두 다른 플랫폼에서는 매칭되는 요소가 없어 무해하다.
     style.textContent = `
       html { overflow-x: hidden !important; }
       body { margin-right: ${w}px !important; box-sizing: border-box !important; }
-      ytd-app { width: calc(100% - ${w}px) !important; box-sizing: border-box !important; }
+      ytd-app,
+      .watch-video--player-view {
+        width: calc(100% - ${w}px) !important;
+        box-sizing: border-box !important;
+      }
     `;
   }
 

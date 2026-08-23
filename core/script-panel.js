@@ -9,6 +9,7 @@
   let savedSet = new Set();
   let saveFilter = 'all'; // 'all' | 'saved' | 'unsaved'
   let captionConflictSuspected = false;
+  let captionLoadFailed = false;
 
   function formatTime(sec) {
     const m = Math.floor(sec / 60);
@@ -160,6 +161,18 @@ ${rows}
     if (!flexy) return 522;
     const raw = getComputedStyle(flexy).getPropertyValue('--ytd-watch-flexy-panel-max-height').trim();
     return parseFloat(raw) || 522;
+  }
+
+  // 검색결과 → 영상처럼 SPA로 페이지가 바뀔 때, 유튜브가 이전 페이지의
+  // #primary/#secondary(0폭·hidden으로 남아있는 잔재)를 DOM에서 바로 지우지
+  // 않는 경우가 있다 — 같은 id를 가진 진짜(현재 보이는) #secondary보다 이
+  // 잔재가 document 순서상 먼저 나오면 document.querySelector('#secondary')가
+  // 잘못된(0폭) 요소를 잡아서, 실제로는 사이드바 공간이 있는데도 "공간 없음"
+  // 으로 오판해 밀어내기(fixed) 모드로 폴백해버린다. 현재 활성 watch flexy
+  // 안에서만 찾아 이 잔재를 피한다.
+  function _getSecondary() {
+    const flexy = document.querySelector('ytd-watch-flexy');
+    return flexy ? flexy.querySelector('#secondary') : document.querySelector('#secondary');
   }
 
   // 패널이 현재 "밀어내기(fixed)" 상태인지, 아니면 #secondary에 임베드되어
@@ -318,7 +331,7 @@ ${rows}
         // resize listener) would silently re-embed it into #secondary,
         // leaving it invisible and desyncing the expand button's state.
         if (expanded) return;
-        const secondary = document.querySelector('#secondary');
+        const secondary = _getSecondary();
         const secWidth = secondary ? secondary.offsetWidth : 0;
         if (secondary && secWidth > 0) {
           // 넓은 창: #secondary에 임베드 (LR 방식)
@@ -340,13 +353,42 @@ ${rows}
         }
         // 임베드↔밀어내기 전환 때마다 push 스타일을 현재 모드/가시성에 맞춰 재적용.
         _setLayoutForPanel(_isPanelVisible());
+        // #secondary 임베드는 최대 6초까지 재시도하며 늦게 마운트될 수 있는데,
+        // 그사이 자막이 먼저 로드되면 renderList()가 그때 #eh-panel-list를 못
+        // 찾고 조용히 반환해 버려 목록이 "로딩 중"에 멈춘 채로 남는다 — 실제
+        // 재생 중 자막이 하나라도 매칭되기 전까지(highlight() 호출 전까지)
+        // 다시 그려지지 않는다. 마운트가 끝날 때마다 최신 데이터로 다시 그려
+        // 이 경쟁 상태를 없앤다.
+        renderList();
+      };
+
+      // #secondary 요소 자체는 존재해도, 유튜브가 그 안의 실제 레이아웃(사이드바
+      // vs 가로 추천 선반)을 나중에 비동기로 계산해 폭이 0 → 실제 값으로 늦게
+      // 바뀌는 경우가 있다 — 이때는 window 'resize' 이벤트가 안 뜨기 때문에
+      // 처음 판단(고정 모드 폴백)에 갇혀서, 나중에 생긴 진짜 사이드바 영역과
+      // 우리 고정 패널이 서로 겹쳐 보이는 버그가 있었다. ResizeObserver로
+      // #secondary 자체의 크기 변화를 직접 감시해 그때그때 재평가한다.
+      let observedSecondary = null;
+      let secondaryResizeTimer = null;
+      const secondaryResizeObserver = new ResizeObserver(() => {
+        clearTimeout(secondaryResizeTimer);
+        secondaryResizeTimer = setTimeout(applyMountStrategy, 200);
+      });
+      const watchSecondary = () => {
+        const secondary = _getSecondary();
+        if (secondary && secondary !== observedSecondary) {
+          if (observedSecondary) secondaryResizeObserver.disconnect();
+          observedSecondary = secondary;
+          secondaryResizeObserver.observe(secondary);
+        }
       };
 
       // 레이아웃이 준비될 때까지 재시도 후 전략 적용
       let tries = 0;
       const tryMount = () => {
-        if (document.querySelector('#secondary') || tries++ > 20) {
+        if (_getSecondary() || tries++ > 20) {
           applyMountStrategy();
+          watchSecondary();
         } else {
           setTimeout(tryMount, 300);
         }
@@ -357,7 +399,7 @@ ${rows}
       let resizeTimer = null;
       window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(applyMountStrategy, 200);
+        resizeTimer = setTimeout(() => { applyMountStrategy(); watchSecondary(); }, 200);
       });
     } else {
       // 기타 플랫폼: body에 fixed 모드
@@ -459,9 +501,13 @@ ${rows}
     const list = document.getElementById('eh-panel-list');
     if (!list) return;
     if (!enCues.length) {
-      list.innerHTML = captionConflictSuspected
-        ? '<div class="eh-panel-empty eh-panel-empty-conflict">다른 자막 확장 프로그램(예: Language Reactor)과 충돌해<br>자막을 불러오지 못했어요.<br><br>해당 확장 프로그램을 잠시 꺼보시거나,<br>새로고침 후 다시 시도해 주세요.</div>'
-        : '<div class="eh-panel-empty">자막 없음</div>';
+      if (captionConflictSuspected) {
+        list.innerHTML = '<div class="eh-panel-empty eh-panel-empty-conflict">다른 자막 확장 프로그램(예: Language Reactor)과 충돌해<br>자막을 불러오지 못했어요.<br><br>해당 확장 프로그램을 잠시 꺼보시거나,<br>새로고침 후 다시 시도해 주세요.</div>';
+      } else if (captionLoadFailed) {
+        list.innerHTML = '<div class="eh-panel-empty eh-panel-empty-conflict">자막을 아직 불러오지 못했어요.<br>자동으로 다시 시도하고 있어요 — 계속되면<br>새로고침 후 다시 시도해 주세요.</div>';
+      } else {
+        list.innerHTML = '<div class="eh-panel-empty">자막 없음</div>';
+      }
       return;
     }
     const s = window.EH.settings;
@@ -650,6 +696,7 @@ ${rows}
     // 보여준다 — 성공적으로 자막을 받으면 다시 false로 돌아와 일반 상태로 복귀.
     document.addEventListener('eh-caption-conflict', (e) => {
       captionConflictSuspected = !!e.detail?.suspected;
+      captionLoadFailed = !!e.detail?.loadFailed;
       renderList();
     });
 

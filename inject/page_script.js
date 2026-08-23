@@ -7,10 +7,19 @@
   const DEBUG = false;
   const dlog = DEBUG ? console.log.bind(console) : () => {};
 
-  // 가장 최근 player 응답에서 추출한 트랙 캐시 + pot 캐시
-  let _cachedTracks = null;
+  // videoId별 player 응답 트랙 캐시 + pot 캐시.
+  // 예전엔 "가장 최근 응답 하나"만 저장했는데, 유튜브가 사이드바 추천/자동재생
+  // 다음 영상의 썸네일을 미리 로드하면서 그 영상의 /youtubei/v1/player도 같이
+  // fetch되는 경우가 있다 — 그러면 이 캐시가 현재 보고 있는 영상이 아니라
+  // 엉뚱한(미리보기용) 영상의 캡션 트랙으로 덮어써져서, 존재하지도 않는 자막을
+  // "충돌"로 오인하게 만드는 원인이 됐다. videoId로 스코프를 나눠 이 누수를 막는다.
+  let _cachedTracksByVideo = {};
   let _potCache = {};         // {videoId: pot}
   let _timedtextBase = {};    // {"videoId:langCode": clean baseUrl (no pot/fmt/tlang)}
+  // "충돌 의심" 문구는 실제로 변조된 URL을 목격했을 때만 띄워야 한다 — 단순히
+  // pot을 제때 못 받았거나 baseUrl을 못 구한 경우(다른 확장 없이도 벌어짐)까지
+  // 전부 "다른 확장과 충돌"로 오인 안내하면 사용자가 엉뚱한 곳(LR)을 의심하게 된다.
+  let _sawMutatedTimedtextUrl = false;
 
   // ── XHR 인터셉터 — timedtext URL에서 pot 토큰 캡처 ──────────────
   const _origXHROpen = XMLHttpRequest.prototype.open;
@@ -31,10 +40,16 @@
     // 실제 YouTube 언어 코드는 소문자(+옵션 점/하이픈) 조합만 쓴다
     // (en, ko, a.en, en-US 등). 숫자가 섞인 짧은 토큰은 다른 확장이 채워
     // 넣은 난독화 값일 가능성이 높다.
-    if (lang && !/^[a-zA-Z]{1,3}(\.[a-zA-Z]{1,3})?(-[A-Za-z0-9]+)?$/.test(lang)) return false;
+    if (lang && !/^[a-zA-Z]{1,3}(\.[a-zA-Z]{1,3})?(-[A-Za-z0-9]+)?$/.test(lang)) {
+      dlog('[EH] reject reason: lang format', JSON.stringify(lang));
+      return false;
+    }
     // signature가 ip와 완전히 같은 값이면 정상적인 서명이 아니다 — 다른
     // 확장이 익명화용으로 같은 자리표시자를 여러 필드에 채워 넣은 흔적.
-    if (sig && ip && sig === ip) return false;
+    if (sig && ip && sig === ip) {
+      dlog('[EH] reject reason: signature === ip', sig.length, ip.length);
+      return false;
+    }
     return true;
   }
 
@@ -45,12 +60,17 @@
     try {
       const [path, qs] = url.split('?');
       const params = new URLSearchParams(qs || '');
+      const videoId = params.get('v');
       if (!_looksLikeRealTimedtextParams(params)) {
         dlog('[EH] ignoring timedtext URL — looks mutated by another extension');
+        // 사이드바 추천/미리보기 등 "지금 보고 있지 않은 다른 영상"에 대한
+        // 요청이 이 휴리스틱에 우연히 걸리는 경우까지 현재 영상의 충돌 근거로
+        // 채택하면 안 된다 — 반드시 현재 재생 중인 videoId와 일치할 때만 채택.
+        const currentVideoId = new URLSearchParams(location.search).get('v') || '';
+        if (videoId && videoId === currentVideoId) _sawMutatedTimedtextUrl = true;
         return;
       }
       const pot = params.get('pot');
-      const videoId = params.get('v');
       const lang = params.get('lang');
       if (!videoId) return;
       if (pot) {
@@ -81,18 +101,20 @@
       const clone = res.clone();
       clone.json().then(data => {
         const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-        if (tracks?.length) {
-          _cachedTracks = tracks;
-          dlog('[EH] player response intercepted, tracks:', tracks.length);
+        const respVideoId = data?.videoDetails?.videoId;
+        if (tracks?.length && respVideoId) {
+          _cachedTracksByVideo[respVideoId] = tracks;
+          dlog('[EH] player response intercepted for', respVideoId, 'tracks:', tracks.length);
         }
       }).catch(() => {});
     }
     return res;
   };
 
-  // ── pot 대기 (LR과 동일: 최대 3초) ─────────────────────────────
+  // ── pot 대기 (최대 5초 — 백그라운드 탭 타이머 스로틀링 등으로 3초로는
+  //    간헐적으로 타임아웃되는 경우가 있어 LR의 3초보다 여유를 뒀다) ───
   async function waitForPot(videoId) {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       if (_potCache[videoId]) return _potCache[videoId];
       await new Promise(r => setTimeout(r, 500));
     }
@@ -157,8 +179,13 @@
         const nativeLang = e.data.nativeLang || 'ko';
         const player = document.querySelector("#movie_player");
 
-        // 캐시된 트랙 우선, 없으면 getPlayerResponse() fallback
-        let captionTracks = _cachedTracks;
+        // videoId를 먼저 구해서, 캐시된 트랙도 반드시 "현재 보고 있는 영상"
+        // 것만 쓴다 — 사이드바 미리보기 등으로 캐시된 다른 영상의 트랙이
+        // 섞여 들어오지 않게 한다.
+        const videoId = new URLSearchParams(location.search).get('v') || '';
+
+        // 캐시된 트랙(현재 영상 한정) 우선, 없으면 getPlayerResponse() fallback
+        let captionTracks = _cachedTracksByVideo[videoId];
         if (!captionTracks?.length) {
           captionTracks = player?.getPlayerResponse()
             ?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
@@ -178,8 +205,6 @@
         // YouTube 내부 XHR 유발 → pot 수집 (LR 방식)
         if (enTrack) triggerYouTubeCaptionLoad(player, enTrack);
 
-        // videoId 추출
-        const videoId = new URLSearchParams(location.search).get('v') || '';
         dlog('[EH] waiting for pot, videoId=', videoId);
         const pot = videoId ? await waitForPot(videoId) : null;
         dlog('[EH] pot=', pot ? pot.slice(0, 20) + '...' : null);
@@ -191,14 +216,17 @@
         // 두면 이 경로도 오염된 값을 돌려줄 수 있다.
         const timedtextKey = videoId + ':' + (enTrack?.languageCode || '');
         const capturedBase = _timedtextBase[timedtextKey] || null;
-        const fallbackBase = _baseUrlLooksReal(enTrack?.baseUrl) ? enTrack.baseUrl : null;
+        const rawBaseLooksReal = _baseUrlLooksReal(enTrack?.baseUrl);
+        if (enTrack?.baseUrl && !rawBaseLooksReal) _sawMutatedTimedtextUrl = true;
+        const fallbackBase = rawBaseLooksReal ? enTrack.baseUrl : null;
         const resolvedBase = capturedBase || fallbackBase || null;
         dlog('[EH] resolvedBase:', resolvedBase?.slice(0, 80) || 'NULL');
 
-        // 트랙은 있는데(captionTracks.length > 0) 쓸 수 있는 URL이 하나도 없다면,
-        // 자막이 정말 없는 게 아니라 다른 확장(예: Language Reactor)이 페이지의
-        // 자막 데이터 경로를 오염시켰을 가능성이 높다 — 침묵하는 대신 명확히 알린다.
-        const conflictSuspected = !resolvedBase && !!enTrack?.baseUrl;
+        // 실제로 변조된(다른 확장이 손댄) URL을 목격한 경우에만 "충돌 의심"으로
+        // 안내한다. 트랙은 있는데 pot 타임아웃 등 다른 이유로 URL을 못 구한
+        // 경우는 별개의 "일시적 실패"로 구분해 엉뚱하게 LR을 의심하지 않게 한다.
+        const conflictSuspected = !resolvedBase && _sawMutatedTimedtextUrl;
+        const loadFailed = !resolvedBase && !conflictSuspected && !!enTrack;
 
         const [enXml, nativeXml] = resolvedBase
           ? await Promise.all([
@@ -214,7 +242,8 @@
           enXml: enXml || '',
           nativeXml: nativeXml || '',
           nativeLang,
-          conflictSuspected
+          conflictSuspected,
+          loadFailed: loadFailed || (!!enTrack && !enXml)
         }, '*');
       } catch (err) { console.error('[EH] TRIGGER error', err); }
     }

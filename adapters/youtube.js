@@ -16,7 +16,19 @@
 
       this._onMessage = this._handleMessage.bind(this);
       window.addEventListener('message', this._onMessage);
+      this._hideNativeCaptions();
       this._initVideoTracking();
+    }
+
+    // pot 토큰을 얻으려고 page_script.js가 player.setOption('captions','track',...)을
+    // 호출하는데, 이 호출 자체가 부작용으로 유튜브 자체 자막 표시를 켜버린다 —
+    // 그러면 저희 오버레이 위에 유튜브 기본 자막 박스가 겹쳐서 두 겹으로 보인다.
+    // Netflix 어댑터의 _hideNativeSubtitles()와 동일한 방식으로 CSS로 숨긴다.
+    _hideNativeCaptions() {
+      if (this._hiddenCaptionStyle) return;
+      this._hiddenCaptionStyle = document.createElement('style');
+      this._hiddenCaptionStyle.textContent = '.ytp-caption-window-container { display: none !important; }';
+      document.head.appendChild(this._hiddenCaptionStyle);
     }
 
     // ── 인터페이스 구현 ──────────────────────────────────────────────
@@ -70,6 +82,7 @@
     destroy() {
       window.removeEventListener('message', this._onMessage);
       if (this._rafId) cancelAnimationFrame(this._rafId);
+      this._hiddenCaptionStyle?.remove();
     }
 
     // ── YouTube 전용 ─────────────────────────────────────────────────
@@ -89,12 +102,22 @@
         // 자막 URL이 다른 확장(예: Language Reactor)에 의해 오염된 것으로 보이면
         // 조용히 빈 자막을 보여주는 대신 원인을 알린다 — 토스트(1회)와, 스크립트
         // 패널이 "자막 없음" 대신 안내 문구를 보여줄 수 있도록 이벤트로도 전달.
+        // loadFailed: 변조 증거는 없지만(=다른 확장 탓이 아님) pot 타임아웃 등으로
+        // 이번 시도에서 자막을 못 가져온 경우 — 최대 1회 자동 재시도한다.
+        const loadFailed = !!e.data.loadFailed && !e.data.conflictSuspected;
         document.dispatchEvent(new CustomEvent('eh-caption-conflict', {
-          detail: { suspected: !!e.data.conflictSuspected }
+          detail: { suspected: !!e.data.conflictSuspected, loadFailed }
         }));
         if (e.data.conflictSuspected && !this._conflictWarned) {
           this._conflictWarned = true;
           window.EH.showToast?.('다른 자막 확장 프로그램(예: Language Reactor)과 충돌해 자막을 불러오지 못했어요');
+        }
+        if (loadFailed && !this._captionRetried && !this._enCues.length) {
+          this._captionRetried = true;
+          setTimeout(() => {
+            const nativeLang = window.EH.settings?.nativeLang || 'ko';
+            window.postMessage({ type: 'EH_TRIGGER_CAPTION_LOAD', nativeLang }, '*');
+          }, 2000);
         }
         this._triggerTracksReady();
       }
@@ -235,6 +258,7 @@
           this._lastNativeText = '';
           this._currentVideoId = '';
           this._conflictWarned = false;
+          this._captionRetried = false;
           // 영상 변경 시 새 자막 로드
           setTimeout(() => {
             const nativeLang = window.EH.settings?.nativeLang || 'ko';
@@ -251,6 +275,24 @@
     }
   }
 
-  // 코어가 로드된 후 어댑터 등록
-  window.EH.init(new YouTubeAdapter());
+  // content_scripts는 youtube.com 전체(홈, 검색결과, 채널 페이지 등)에 매칭되므로,
+  // 영상이 없는 페이지에서도 topbar/패널이 그대로 마운트돼 레이아웃을 불필요하게
+  // 줄여버리는 문제가 있었다 — 실제로 /watch 페이지에 들어갈 때까지 초기화를
+  // 미룬다. 홈에서 SPA 방식으로(새로고침 없이) 영상을 눌러 들어가는 경우를
+  // 잡기 위해 MutationObserver로 경로 변화를 감시한다.
+  function _isWatchPage() {
+    return location.pathname === '/watch';
+  }
+
+  if (_isWatchPage()) {
+    window.EH.init(new YouTubeAdapter());
+  } else {
+    const waitForWatch = new MutationObserver(() => {
+      if (_isWatchPage()) {
+        waitForWatch.disconnect();
+        window.EH.init(new YouTubeAdapter());
+      }
+    });
+    waitForWatch.observe(document, { subtree: true, childList: true });
+  }
 })();

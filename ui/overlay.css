@@ -146,6 +146,19 @@
   z-index: 2147483002 !important;
 }
 
+/* 팝업 자체의 z-index를 아무리 올려도 소용없었던 이유: 조상인 .watch-video가
+ * position:absolute면서 z-index:auto라서, 이 팝업을 포함한 그 서브트리
+ * 전체가 하나의 암묵적(자동) 순서로만 취급된다 — body에 직접 붙어있는 우리
+ * 패널(z-index:2000)과는 별개의 "그룹"이라, 그룹 대표(.watch-video) 자체가
+ * 명시적 z-index를 갖지 않으면 그 안의 무엇도 우리 패널을 앞지를 수 없다
+ * (라이브로 ancestor 체인 확인해 검증됨). .watch-video 자체를 패널보다
+ * 살짝 높여 이 서브트리 전체가 경쟁에 참여할 수 있게 한다 — 평소엔 영상과
+ * 패널이 화면상 겹치지 않으므로 시각적 차이가 없고, 팝업처럼 영역을
+ * 벗어나는 요소에만 영향을 준다. */
+.watch-video {
+  z-index: 2001 !important;
+}
+
 .eh-panel-header {
   padding: 12px 12px 12px 14px;
   border-bottom: 1px solid rgba(var(--eh-gold-rgb), 0.12);

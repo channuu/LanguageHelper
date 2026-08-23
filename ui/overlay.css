@@ -134,11 +134,15 @@
 #eh-panel.hidden { display: none !important; }
 
 /* Netflix 자막/음성 설정 팝업 — z-index만 패널보다 높여 겹칠 때 항상
- * 위에 뜨도록 한다. position/width는 건드리지 않는다 — position:fixed로
- * 바꿔봤더니 Netflix가 absolute 기준으로 계산해둔 좌표가 깨져 위치가
- * 어긋났다 (실사용 확인됨). 폭이 약간 좁아지는(730px→627px, LR 대비)
- * 건 남아있지만, 위치가 깨지는 것보다는 낫다. */
+ * 위에 뜨도록 한다. position:fixed로 바꿔봤더니 Netflix가 absolute
+ * 기준으로 계산해둔 좌표가 깨져 위치가 어긋났다 (실사용 확인됨). 이 팝업은
+ * 원래 position:static이라 z-index가 아예 적용되지 않았던 것도 확인됨 —
+ * static이 아닌 요소에만 z-index가 작동한다. position:relative는
+ * top/right/bottom/left를 안 건드리는 한 static과 똑같이 렌더링되므로
+ * (좌표 변경 없이) z-index만 활성화하는 안전한 방법이다. 폭이 약간
+ * 좁아지는(730px→627px, LR 대비) 건 남아있지만, 위치가 깨지는 것보다는 낫다. */
 [data-uia="selector-audio-subtitle"] {
+  position: relative !important;
   z-index: 2147483002 !important;
 }
 

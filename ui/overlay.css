@@ -106,7 +106,11 @@
   background: rgba(var(--eh-panel-rgb), 0.97);
   border-left: 1px solid rgba(var(--eh-gold-rgb), 0.15);
   border-radius: 14px;
-  z-index: 9999998;
+  /* 도킹된 사이드 패널은 (자막 오버레이와 달리) 영상 위에 항상 떠 있을
+   * 필요가 없다 — 너무 높으면 Netflix 자막 설정 팝업 같은 사이트 자체
+   * 모달/팝업까지 덮어버린다(LR은 그런 팝업이 패널 위에 뜬다). 일반
+   * 페이지 콘텐츠보다는 충분히 높지만, 사이트 자체 모달류보다는 낮게. */
+  z-index: 2000;
   display: flex;
   flex-direction: column;
   font-family: var(--eh-font-body);

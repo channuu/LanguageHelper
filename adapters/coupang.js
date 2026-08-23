@@ -166,12 +166,15 @@
           const nativeCue = enCue ? window.EH.CueUtils.findPairedCue(this._nativeCues, enCue) : null;
           // §1h "한 줄에 표시할 분량" — 스크립트 패널과 반드시 같은 문장을
           // 보여줘야 하므로 청크 분할도 core/cue-utils.js를 그대로 쓴다.
-          // 번역은 패널과 마찬가지로 문장의 첫 청크에서만 보여준다(문장
-          // 단위 번역이라 청크별로 쪼갤 수 없음).
+          // 번역도 (원문과 어순이 정확히 안 맞더라도) 영어 청크 개수에 맞춰
+          // 같은 비율로 나눠서, 지금 보이는 영어 청크에 해당하는 분량만
+          // 보여준다 — 스크립트 패널과 동일한 방식.
           const cueLines = window.EH.settings?.cueLines || 2;
           const chunk = enCue ? window.EH.CueUtils.getChunkAtTime(enCue, t, cueLines) : null;
           const enText = chunk?.text || '';
-          const nativeText = (chunk && chunk.isFirst) ? (nativeCue?.text || '') : '';
+          const nativeText = (chunk && nativeCue)
+            ? (window.EH.CueUtils.splitIntoNChunks(nativeCue.text, chunk.total)[chunk.index] || '')
+            : '';
 
           if (enText !== this._lastEnText || nativeText !== this._lastNativeText) {
             this._lastEnText = enText;
@@ -179,7 +182,7 @@
             const nativeLang = window.EH.settings?.nativeLang || 'ko';
             if (this._subtitleCb) {
               this._subtitleCb([
-                { lang: 'en', text: enText, fullText: enCue?.text || '' },
+                { lang: 'en', text: enText, fullText: enCue?.text || '', cueStart: enCue?.start },
                 { lang: nativeLang, text: nativeText }
               ]);
             }

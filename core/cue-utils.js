@@ -65,10 +65,13 @@
   }
 
   // 시각 t(이미 cue.start~cue.end 범위 안이라고 가정)에 해당하는 청크를
-  // 돌려준다. 오버레이의 RAF 틱에서 매 프레임 호출된다.
+  // 돌려준다. 오버레이의 RAF 틱에서 매 프레임 호출된다. index/total은
+  // 호출부가 번역 문장도 같은 개수로 나눠(splitIntoNChunks) 같은 위치의
+  // 조각을 골라 쓸 수 있게 하기 위함이다.
   function getChunkAtTime(cue, t, cueLines) {
     const chunks = getChunksWithTiming(cue, cueLines);
-    return chunks.find(c => t >= c.start && t <= c.end) || chunks[chunks.length - 1];
+    const found = chunks.find(c => t >= c.start && t <= c.end) || chunks[chunks.length - 1];
+    return { ...found, index: chunks.indexOf(found), total: chunks.length };
   }
 
   // referenceCue(보통 영어 cue)와 같은 문장을 가리키는 cue를 시작 시각
@@ -81,6 +84,17 @@
   // 같이 보여줘서 둘이 항상 함께 나타났다 함께 사라지게 한다.
   function findPairedCue(cues, referenceCue, toleranceSec) {
     toleranceSec = toleranceSec == null ? 1.0 : toleranceSec;
+    // 넷플릭스는 언어별로 줄을 나누는 기준(세그멘테이션) 자체가 달라서,
+    // 번역 cue 하나가 영어 cue 여러 개를 한꺼번에 담당하는 경우가 흔하다
+    // (예: 영어는 "He said..."/"on him"/"when they..." 세 줄인데 번역은
+    // 그걸 합친 한 문장 하나). 이때 뒤쪽 영어 조각들의 시작 시각은 그
+    // 번역 cue "자신의" 시작 시각과는 멀어도, 그 cue의 [start,end] 구간
+    // 안에는 들어간다 — start 근접도보다 먼저, "지금 이 영어 cue가 시작한
+    // 시점에 이미 재생 중이던" 번역 cue가 있는지부터 확인해야 이런 경우도
+    // 놓치지 않는다.
+    for (const c of cues) {
+      if (referenceCue.start >= c.start && referenceCue.start <= c.end) return c;
+    }
     let best = null, bestDist = Infinity;
     for (const c of cues) {
       const dist = Math.abs(c.start - referenceCue.start);
@@ -89,6 +103,28 @@
     return (best && bestDist <= toleranceSec) ? best : null;
   }
 
+  // 영어 문장이 청크 n개로 나뉘면, 번역 문장도 그 n개에 맞춰 대략 균등하게
+  // 나눈다. 원문과 번역은 어순이 달라 단어 단위로 정확히 대응되진 않지만,
+  // 청크마다 번역 전체를 통째로 반복하는 것보다는 "그 청크만큼의 분량"을
+  // 보여주는 쪽이 스크립트 패널/오버레이가 청크 수준으로 정말 맞물려
+  // 움직인다는 느낌을 준다. 항상 정확히 n개를 반환한다(문서량 문장이
+  // n보다 짧으면 뒤쪽 일부는 빈 문자열).
+  function splitIntoNChunks(text, n) {
+    if (n <= 1) return [text];
+    const words = text.split(/\s+/).filter(Boolean);
+    const chunks = [];
+    const base = Math.floor(words.length / n);
+    let extra = words.length % n;
+    let idx = 0;
+    for (let i = 0; i < n; i++) {
+      const size = base + (extra > 0 ? 1 : 0);
+      if (extra > 0) extra--;
+      chunks.push(words.slice(idx, idx + size).join(' '));
+      idx += size;
+    }
+    return chunks;
+  }
+
   window.EH = window.EH || {};
-  window.EH.CueUtils = { splitIntoChunks, getChunksWithTiming, getChunkAtTime, findPairedCue };
+  window.EH.CueUtils = { splitIntoChunks, getChunksWithTiming, getChunkAtTime, findPairedCue, splitIntoNChunks };
 })();

@@ -4,6 +4,7 @@
   let enCues = [];
   let nativeCues = [];
   let lastActiveIdx = -1;
+  let lastActiveChunkText = '';
   let searchQuery = '';
   let autoScrollEnabled = true;
   let savedSet = new Set();
@@ -15,8 +16,13 @@
   // 오버레이(adapters/*.js)도 같은 유틸을 써야 스크립트 패널과 자막 오버레이가
   // 항상 같은 문장을 보여준다 — 로직이 두 곳에 따로 있으면 반드시 갈라진다.
   function _buildChunkRows(cue, idx, native, isSaved, cueLines) {
-    return window.EH.CueUtils.getChunksWithTiming(cue, cueLines).map((chunk) => {
-      return { cue, idx, native, isSaved, chunkText: chunk.text, chunkStart: chunk.start, isFirst: chunk.isFirst };
+    const chunks = window.EH.CueUtils.getChunksWithTiming(cue, cueLines);
+    const nativeChunks = native ? window.EH.CueUtils.splitIntoNChunks(native, chunks.length) : [];
+    return chunks.map((chunk, ci) => {
+      return {
+        cue, idx, native, isSaved, chunkText: chunk.text, chunkStart: chunk.start,
+        isFirst: chunk.isFirst, chunkIndex: ci, nativeChunkText: nativeChunks[ci] || ''
+      };
     });
   }
 
@@ -26,8 +32,11 @@
     return m + ':' + String(s).padStart(2, '0');
   }
 
+  // 오버레이(adapters/*.js)와 반드시 같은 매칭 로직을 써야 한다 — 각자
+  // 다르게 구현돼 있으면 패널과 오버레이가 서로 다른 번역을 보여주는
+  // 어긋남이 생긴다.
   function findNativeText(enCue) {
-    return nativeCues.find(c => Math.abs(c.start - enCue.start) < 1.0)?.text || '';
+    return window.EH.CueUtils.findPairedCue(nativeCues, enCue)?.text || '';
   }
 
   /**
@@ -543,20 +552,25 @@ ${rows}
 
     list.innerHTML = '';
     visibleCues.forEach(({ cue, idx, native, isSaved }) => {
-      const isActive = idx === lastActiveIdx;
       const rows = _buildChunkRows(cue, idx, native, isSaved, s.cueLines);
 
       rows.forEach((row) => {
+        // "짧게" 등으로 문장 하나가 여러 청크로 나뉘어도, 각 청크는 다른
+        // 자막 줄과 똑같은 "독립된 스크립트 항목"으로 보여준다 — 자기만의
+        // 실제 타임스탬프(chunkStart)를 갖고, 지금 재생 중인 청크에만 NOW가
+        // 붙는다(문장 전체가 아니라 청크 단위로 활성 판정).
+        const isRowActive = idx === lastActiveIdx && row.chunkText === lastActiveChunkText;
         const item = document.createElement('div');
-        item.className = 'eh-panel-item' + (row.isFirst ? '' : ' continuation');
-        item.classList.toggle('active', isActive);
+        item.className = 'eh-panel-item';
+        item.classList.toggle('active', isRowActive);
         item.dataset.idx = idx;
+        item.dataset.chunk = row.chunkIndex;
 
         const timeCol = document.createElement('div');
         timeCol.className = 'eh-panel-time-col';
-        timeCol.innerHTML = row.isFirst
-          ? `<span class="eh-panel-time">${formatTime(cue.start)}</span>` + (isActive ? '<span class="eh-panel-now">NOW</span>' : '')
-          : '<span class="eh-panel-time eh-panel-time-continuation">↳</span>';
+        timeCol.innerHTML =
+          `<span class="eh-panel-time">${formatTime(row.chunkStart)}</span>` +
+          (isRowActive ? '<span class="eh-panel-now">NOW</span>' : '');
         timeCol.addEventListener('click', (e) => {
           e.stopPropagation();
           window.EH.adapter.seekTo(row.chunkStart + 0.1);
@@ -570,12 +584,14 @@ ${rows}
         enSpan.textContent = row.chunkText;
         textWrap.appendChild(enSpan);
 
-        // 번역/복사/저장은 문장 전체(cue) 기준이라 청크마다 반복하지 않고
-        // 첫 청크에만 붙인다.
-        if (row.isFirst && native) {
+        // 각 청크가 이제 독립된 항목으로 보이므로(자기 타임스탬프 보유),
+        // 번역도 전체를 반복하지 않고 그 청크에 해당하는 분량만 보여준다
+        // (window.EH.CueUtils.splitIntoNChunks로 영어 청크 개수에 맞춰 나눔).
+        // 복사/저장 버튼만 문장 전체를 대표하는 첫 청크에 남긴다.
+        if (row.nativeChunkText) {
           const nativeSpan = document.createElement('span');
           nativeSpan.className = 'eh-panel-native';
-          nativeSpan.textContent = native;
+          nativeSpan.textContent = row.nativeChunkText;
           if (s.mode === 'en') nativeSpan.style.display = 'none';
           textWrap.appendChild(nativeSpan);
         }
@@ -640,24 +656,61 @@ ${rows}
     if (countEl) countEl.textContent = `저장 ${savedSet.size} / ${enCues.length}줄`;
   }
 
-  function highlight(enText) {
-    if (!enText) return;
-    const idx = enCues.findIndex(c => c.text === enText);
-    if (idx === -1 || idx === lastActiveIdx) return;
+  // element.scrollIntoView()는 가장 가까운 스크롤 가능한 조상 하나가
+  // 아니라, 필요하다고 판단되는 모든 조상(유튜브 임베드 모드에서는 패널을
+  // 감싸는 유튜브 페이지 자체까지)을 스크롤해버릴 수 있다 — 그래서 패널
+  // 안에서 줄을 클릭했을 뿐인데 유튜브 페이지 전체가 갑자기 아래로
+  // 스크롤되는 원인이었다. #eh-panel-list의 scrollTop만 직접 계산해서
+  // 조정하면 다른 조상(문서 전체)은 절대 건드리지 않는다.
+  function _scrollActiveToTop(active) {
+    const list = document.getElementById('eh-panel-list');
+    if (!list || !active) return;
+    const listRect = list.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const target = list.scrollTop + (activeRect.top - listRect.top);
+    list.scrollTo({ top: target, behavior: 'smooth' });
+  }
+
+  // 같은 대사("Hi" 등)가 자막 안에서 여러 번 반복되는 경우, 텍스트만으로
+  // 찾으면 항상 처음 일치하는 위치가 선택돼버려서 실제 재생 위치와 다른
+  // 곳이 NOW로 표시된다 — refTime(실제 재생 중인 cue의 시작 시각)이 있으면
+  // 텍스트가 같은 후보들 중 시작 시각이 가장 가까운 것을 고른다.
+  function _findActiveIdx(fullEnText, refTime) {
+    if (refTime == null) return enCues.findIndex(c => c.text === fullEnText);
+    let bestIdx = -1, bestDist = Infinity;
+    for (let i = 0; i < enCues.length; i++) {
+      if (enCues[i].text !== fullEnText) continue;
+      const dist = Math.abs(enCues[i].start - refTime);
+      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+    }
+    return bestIdx;
+  }
+
+  // fullEnText: 그 청크가 속한 원래 문장 전체(줄 번호를 찾는 데 씀).
+  // chunkText: 지금 실제로 화면에 보이는 청크(오버레이와 동일) — 청크
+  // 단위로 NOW 배지/스크롤 대상을 정확히 짚기 위해 별도로 받는다.
+  // refTime: 실제 재생 중인 cue의 시작 시각 — 동일 텍스트 반복을 구분한다.
+  function highlight(fullEnText, chunkText, refTime) {
+    if (!fullEnText) return;
+    const idx = _findActiveIdx(fullEnText, refTime);
+    if (idx === -1) return;
+    const resolvedChunk = chunkText || fullEnText;
+    if (idx === lastActiveIdx && resolvedChunk === lastActiveChunkText) return;
     // idx가 한 번에 여러 칸 뛰면(순차 재생이 아니라) 사용자가 타임라인을
     // 직접 옮긴 것으로 본다 — 이 경우 새 위치를 패널 맨 위로 올려 그 뒤로
     // 이어지는 스크립트를 최대한 많이 보여준다.
     const seeked = lastActiveIdx !== -1 && Math.abs(idx - lastActiveIdx) > 1;
     lastActiveIdx = idx;
-    // NOW 배지는 렌더링 시점(active/NOW 클래스)에 결정되므로, 활성 줄이 바뀔 때마다
-    // 검색/필터로 새 활성 줄이 현재 DOM에 없더라도(=active가 null이어도) 무조건
-    // 다시 그려서 이전 줄에 붙은 NOW 배지가 남지 않도록 한다.
+    lastActiveChunkText = resolvedChunk;
+    // NOW 배지는 렌더링 시점(active 클래스)에 결정되므로, 활성 청크가 바뀔
+    // 때마다 검색/필터로 새 활성 줄이 현재 DOM에 없더라도(=active가
+    // null이어도) 무조건 다시 그려서 이전 청크에 붙은 NOW가 안 남게 한다.
     renderList();
-    const active = document.querySelector(`.eh-panel-item[data-idx="${idx}"]`);
+    const active = document.querySelector('.eh-panel-item.active');
     if (!active || !autoScrollEnabled) return;
 
     if (seeked) {
-      active.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      _scrollActiveToTop(active);
       return;
     }
 
@@ -669,7 +722,7 @@ ${rows}
     const listRect = list?.getBoundingClientRect();
     const activeRect = active.getBoundingClientRect();
     const isVisible = listRect && activeRect.top >= listRect.top && activeRect.bottom <= listRect.bottom;
-    if (!isVisible) active.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (!isVisible) _scrollActiveToTop(active);
   }
 
   function applySettings(s) {

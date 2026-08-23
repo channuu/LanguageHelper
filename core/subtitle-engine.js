@@ -216,7 +216,7 @@
   // 일부일 수 있다). fullText: 그 청크가 속한 원래 문장 전체 — 스크립트
   // 패널 하이라이트와 단어 팝업의 문맥은 항상 "원래 문장 전체" 기준이어야
   // 스크립트 패널이 보여주는 것과 어긋나지 않는다.
-  function renderSubtitles(enText, nativeText, fullEnText) {
+  function renderSubtitles(enText, nativeText, fullEnText, cueStart) {
     const enLine = document.getElementById('eh-en-line');
     const nativeLine = document.getElementById('eh-native-line');
     if (!enLine || !visible) return;
@@ -254,7 +254,10 @@
     nativeLine.classList.toggle('hidden', s.mode === 'en' || !nativeText);
 
     // 스크립트 패널 하이라이트 업데이트 — 청크가 아니라 원래 문장 전체 기준.
-    if (window.EH.ScriptPanel) window.EH.ScriptPanel.highlight(fullEnText);
+    // cueStart를 같이 넘겨서, 같은 문장("Hi" 등)이 자막 여러 곳에 반복돼도
+    // 패널이 실제 재생 중인 그 자리를 정확히 짚을 수 있게 한다(텍스트만으로
+    // 찾으면 항상 첫 번째로 일치하는 곳이 선택돼버린다).
+    if (window.EH.ScriptPanel) window.EH.ScriptPanel.highlight(fullEnText, enText, cueStart);
   }
 
   function setup(adapter) {
@@ -262,7 +265,7 @@
     adapter.onSubtitleChange((cues) => {
       const enCue = cues.find(c => c.lang === 'en');
       const native = cues.find(c => c.lang !== 'en')?.text || '';
-      renderSubtitles(enCue?.text || '', native, enCue?.fullText);
+      renderSubtitles(enCue?.text || '', native, enCue?.fullText, enCue?.cueStart);
     });
   }
 

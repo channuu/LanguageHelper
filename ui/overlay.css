@@ -224,13 +224,6 @@ body.eh-hidden-offwatch #eh-library-panel {
 .eh-panel-item.active {
   border-left-color: var(--eh-gold);
 }
-/* §1h 분량 설정으로 한 문장이 여러 항목으로 나뉠 때, 이어지는 항목은 원래
-   문장의 일부라는 걸 보여주기 위해 앞 항목과 붙여서(위쪽 padding 축소) */
-.eh-panel-item.continuation { padding-top: 0; }
-.eh-panel-time-continuation {
-  color: rgba(var(--eh-text-rgb), 0.25);
-  font-size: 12px;
-}
 .eh-panel-item-save {
   background: none; border: none;
   color: rgba(var(--eh-gold-rgb), 0.4);

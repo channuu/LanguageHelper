@@ -33,6 +33,17 @@
     }
 
     seekTo(seconds) {
+      // #movie_player의 자체 seekTo API를 우선 사용한다 — video.currentTime을
+      // 직접 바꾸면 YouTube 플레이어 내부의 버퍼링/스트리밍 상태 관리자가
+      // 이 변경을 인지하지 못해 "재동기화"를 위해 재생을 멈춰버릴 수 있다
+      // (실제로 스크립트 패널에서 줄 클릭 시 영상이 일시정지되는 버그로 확인됨).
+      const player = document.querySelector('#movie_player');
+      if (player && typeof player.seekTo === 'function') {
+        const wasPlaying = typeof player.getPlayerState === 'function' && player.getPlayerState() === 1;
+        player.seekTo(seconds, true);
+        if (wasPlaying && typeof player.playVideo === 'function') player.playVideo();
+        return;
+      }
       const video = document.querySelector('video');
       if (video) video.currentTime = seconds;
     }

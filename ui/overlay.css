@@ -415,6 +415,20 @@
 .eh-settings-tick { width: 100%; border-radius: 2px; background: rgba(var(--eh-text-rgb), 0.14); }
 .eh-settings-tick.active { background: var(--eh-gold); }
 
+.eh-settings-line-row { display: flex; gap: 7px; margin-top: 9px; }
+.eh-settings-line-btn {
+  flex: 1; height: 56px; box-sizing: border-box; border-radius: 9px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  cursor: pointer;
+  background: rgba(var(--eh-text-rgb), 0.04); color: rgba(var(--eh-text-rgb), 0.6);
+  border: 1px solid rgba(var(--eh-text-rgb), 0.1);
+}
+.eh-settings-line-btn.active { background: rgba(var(--eh-gold-rgb), 0.16); color: var(--eh-gold-strong); border-color: rgba(var(--eh-gold-rgb), 0.42); }
+.eh-settings-line-bars { display: flex; flex-direction: column; gap: 2.5px; align-items: center; }
+.eh-settings-line-bar { display: block; height: 2.5px; border-radius: 2px; background: currentColor; opacity: 0.85; }
+.eh-settings-line-label { font: 600 10.5px var(--eh-font-display); }
+.eh-settings-line-note { font-size: 11px; line-height: 1.55; color: rgba(var(--eh-text-rgb), 0.55); margin-top: 8px; }
+
 .eh-settings-preview {
   margin-top: 9px; border-radius: 10px; background: #000;
   padding: 14px 12px; text-align: center;

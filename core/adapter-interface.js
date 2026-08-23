@@ -33,7 +33,7 @@
     destroy() {}
   }
 
-  const DEFAULT_SETTINGS = { enSize: 22, nativeSize: 18, mode: 'both', nativeLang: 'ko' };
+  const DEFAULT_SETTINGS = { enSize: 22, nativeSize: 18, mode: 'both', nativeLang: 'ko', cueLines: 2 };
 
   /**
    * 어댑터가 준비되면 호출. 코어 모듈들을 순서대로 초기화한다.

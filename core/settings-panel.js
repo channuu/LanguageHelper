@@ -5,9 +5,35 @@
   // 2026-08-22 목업 재확인 값 그대로 사용 (§1h/1i DCLogic enTicks/koTicks).
   const EN_TICKS = [12, 17, 22, 26, 31, 36, 41, 46, 52];
   const KO_TICKS = [10, 14, 18, 22, 26, 32, 38, 44, 48];
+  // §1h DCLogic lineOpts/lineNote 값 그대로 사용.
+  const LINE_OPTS = [
+    { n: 1, label: '짧게', bars: ['26px'] },
+    { n: 2, label: '보통', bars: ['34px', '22px'] },
+    { n: 3, label: '길게', bars: ['38px', '38px', '20px'] }
+  ];
+  const LINE_NOTES = {
+    1: '한 화면에 한 줄만 담고, 문장이 길면 넘치는 부분은 줄입니다. 화면을 가장 적게 가립니다.',
+    2: '두 줄까지 채워 표시합니다. 대부분의 문장이 한 번에 들어옵니다.',
+    3: '세 줄까지 채워 긴 문장도 끊지 않고 한 번에 보여줍니다.'
+  };
+  // 줄 수 설정에 따라 실제로 얼마나 잘리는지 보여주기 위해 일부러 긴 문장을 사용.
+  const PREVIEW_EN = {
+    1: "She said it like it was obvious, and I don't even care anymore.",
+    2: "She said it like it was obvious, and I don't even care anymore.",
+    3: "She said it like it was obvious, and I kept turning it over all night — I don't even care anymore, everything leaves a mark somewhere."
+  };
+  const PREVIEW_KO = {
+    1: '그녀는 당연한 일처럼 말했고, 나는 이제 신경도 안 써.',
+    2: '그녀는 당연한 일처럼 말했고, 나는 이제 신경도 안 써.',
+    3: '그녀는 당연한 일처럼 말했고, 나는 밤새 그 말을 되짚었다 — 나는 이제 신경도 안 써, 모든 것은 어딘가에 흔적을 남긴다.'
+  };
 
   let panelEl = null;
   let open = false;
+
+  function clampStyle(lines) {
+    return `display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:${lines};overflow:hidden`;
+  }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -35,13 +61,26 @@
           <div class="eh-settings-mode-btn${s.mode === 'both' ? ' active' : ''}" data-mode="both">영어 + 모국어</div>
         </div>
 
+        <div class="eh-settings-label" style="margin-top:18px">한 줄에 표시할 분량</div>
+        <div class="eh-settings-line-row" id="eh-settings-line-row">
+          ${LINE_OPTS.map(opt => `
+            <div class="eh-settings-line-btn${s.cueLines === opt.n ? ' active' : ''}" data-lines="${opt.n}">
+              <div class="eh-settings-line-bars">
+                ${opt.bars.map(w => `<span class="eh-settings-line-bar" style="width:${w}"></span>`).join('')}
+              </div>
+              <span class="eh-settings-line-label">${opt.label}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="eh-settings-line-note">${LINE_NOTES[s.cueLines]}</div>
+
         ${sliderBlock('영어 자막 크기', 'en', s.enSize, EN_TICKS)}
         ${sliderBlock('모국어 자막 크기', 'ko', s.nativeSize, KO_TICKS)}
 
         <div class="eh-settings-label" style="margin-top:18px">미리보기</div>
         <div class="eh-settings-preview">
-          <div style="font-size:${s.enSize}px">I don't even care anymore.</div>
-          ${s.mode !== 'en' ? `<div class="eh-settings-preview-ko" style="font-size:${s.nativeSize}px">나는 이제 신경도 안 써.</div>` : ''}
+          <div class="eh-settings-preview-en" style="font-size:${s.enSize}px;${clampStyle(s.cueLines)}">${esc(PREVIEW_EN[s.cueLines])}</div>
+          ${s.mode !== 'en' ? `<div class="eh-settings-preview-ko" style="font-size:${s.nativeSize}px;${clampStyle(s.cueLines)}">${esc(PREVIEW_KO[s.cueLines])}</div>` : ''}
         </div>
 
         <div class="eh-settings-divider"></div>
@@ -65,6 +104,13 @@
     panelEl.querySelectorAll('.eh-settings-mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         window.EH.applySettings({ mode: btn.dataset.mode });
+        render();
+      });
+    });
+
+    panelEl.querySelectorAll('.eh-settings-line-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        window.EH.applySettings({ cueLines: Number(btn.dataset.lines) });
         render();
       });
     });

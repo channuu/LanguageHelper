@@ -6,6 +6,19 @@
   let currentNativeText = '';
   let rafId = null;
 
+  // §1h "한 줄에 표시할 분량" — 줄 수가 적을수록 박스도 좁혀서 실제로 더 자주 줄바꿈되게 한다.
+  const CUE_MAX_WIDTH = { 1: '46vw', 2: '62vw', 3: '80vw' };
+
+  function applyCueLines(overlay, enLine, nativeLine, cueLines) {
+    overlay.style.maxWidth = CUE_MAX_WIDTH[cueLines] || CUE_MAX_WIDTH[2];
+    [enLine, nativeLine].forEach(el => {
+      el.style.display = '-webkit-box';
+      el.style.webkitBoxOrient = 'vertical';
+      el.style.webkitLineClamp = String(cueLines);
+      el.style.overflow = 'hidden';
+    });
+  }
+
   function createDOM() {
     if (document.getElementById('eh-overlay')) return;
 
@@ -33,6 +46,7 @@
     restorePosition(overlay, enLine, nativeLine);
     attachDrag(overlay, enLine, nativeLine);
     attachResize(overlay, enLine, nativeLine, handle);
+    applyCueLines(overlay, enLine, nativeLine, window.EH.settings?.cueLines || 2);
   }
 
   // 위치는 "중심 x(px) + 하단 거리(px)"로 저장한다.
@@ -169,6 +183,7 @@
   }
 
   function applySettings(s) {
+    const overlay = document.getElementById('eh-overlay');
     const enLine = document.getElementById('eh-en-line');
     const nativeLine = document.getElementById('eh-native-line');
     if (enLine) enLine.style.fontSize = s.enSize + 'px';
@@ -176,6 +191,7 @@
       nativeLine.style.fontSize = s.nativeSize + 'px';
       nativeLine.classList.toggle('hidden', s.mode === 'en' || !currentNativeText);
     }
+    if (overlay && enLine && nativeLine) applyCueLines(overlay, enLine, nativeLine, s.cueLines);
     currentEnText = ''; // 다음 틱에서 강제 재렌더
   }
 

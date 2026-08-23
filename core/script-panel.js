@@ -60,6 +60,15 @@
     return true;
   }
 
+  // §1h "한 줄에 표시할 분량" — 영상 위 오버레이와 동일한 줄 수만큼만 보여주고
+  // 나머지는 말줄임 처리해, 패널에서 미리 보는 문장 길이가 오버레이와 어긋나지 않게 한다.
+  function _applyCueClamp(el, lines) {
+    el.style.display = '-webkit-box';
+    el.style.webkitBoxOrient = 'vertical';
+    el.style.webkitLineClamp = String(lines);
+    el.style.overflow = 'hidden';
+  }
+
   function _escapeHtml(str) {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -497,13 +506,17 @@ ${rows}
       const enSpan = document.createElement('span');
       enSpan.className = 'eh-panel-en';
       enSpan.textContent = cue.text;
+      _applyCueClamp(enSpan, s.cueLines);
       textWrap.appendChild(enSpan);
 
       if (native) {
         const nativeSpan = document.createElement('span');
         nativeSpan.className = 'eh-panel-native';
         nativeSpan.textContent = native;
-        nativeSpan.style.display = s.mode === 'en' ? 'none' : 'block';
+        // display:none일 때도 clamp를 걸어두면 모드 전환(applySettings) 시
+        // display만 'block'으로 되돌려도 clamp가 이미 적용된 채로 남는다.
+        _applyCueClamp(nativeSpan, s.cueLines);
+        if (s.mode === 'en') nativeSpan.style.display = 'none';
         textWrap.appendChild(nativeSpan);
       }
 
@@ -578,8 +591,10 @@ ${rows}
   }
 
   function applySettings(s) {
+    document.querySelectorAll('.eh-panel-en').forEach(el => _applyCueClamp(el, s.cueLines));
     document.querySelectorAll('.eh-panel-native').forEach(el => {
-      el.style.display = s.mode === 'en' ? 'none' : 'block';
+      _applyCueClamp(el, s.cueLines);
+      if (s.mode === 'en') el.style.display = 'none';
     });
   }
 

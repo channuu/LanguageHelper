@@ -150,20 +150,55 @@ ${rows}
 </html>`;
   }
 
-  function exportScript() {
+  /**
+   * HTML/PDF 두 경로가 공유하는 준비 단계 — 빈 자막 가드, 플랫폼 메타 조회,
+   * HTML 생성. 내보낼 자막이 없으면 토스트를 띄우고 null을 돌려준다.
+   * @returns {{html: string, filename: string}|null}
+   */
+  function _prepareExport() {
     if (!enCues.length) {
       window.EH.showToast?.('내보낼 자막이 없어요');
-      return;
+      return null;
     }
     const meta = window.EH.adapter?.getPlatformMeta?.() || { platform: '', title: '' };
     const html = _buildExportHtml(enCues, nativeCues, meta);
-    const blob = new Blob([html], { type: 'text/html' });
+    const filename = `${(meta.title || 'script').replace(/[\\/:*?"<>|]/g, '_')}`;
+    return { html, filename };
+  }
+
+  function exportScriptHtml() {
+    const prepared = _prepareExport();
+    if (!prepared) return;
+    const blob = new Blob([prepared.html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${(meta.title || 'script').replace(/[\\/:*?"<>|]/g, '_')}.html`;
+    a.download = `${prepared.filename}.html`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * PDF는 라이브러리로 직접 만들지 않고 브라우저 인쇄 엔진에 맡긴다 —
+   * 한글 폰트를 임베드할 필요가 없고 레이아웃 코드를 이중으로 두지 않아도 된다.
+   * 인쇄는 확장 페이지에서 해야 한다: 콘텐츠 스크립트가 만든 blob: URL을 새 탭
+   * 최상위로 여는 것은 호스트 페이지 CSP의 영향을 받아 Netflix/Disney+에서
+   * 막힐 수 있다.
+   */
+  async function exportScriptPdf() {
+    const prepared = _prepareExport();
+    if (!prepared) return;
+    try {
+      const res = await chrome.runtime.sendMessage({
+        type: 'EH_EXPORT_PRINT',
+        payload: { html: prepared.html }
+      });
+      if (!res || !res.success) throw new Error(res?.error || 'no response');
+    } catch (err) {
+      // 확장이 방금 리로드되어 컨텍스트가 무효화된 경우에도 여기로 온다.
+      console.error('[EH ScriptPanel] pdf export failed', err);
+      window.EH.showToast?.('PDF 내보내기에 실패했어요');
+    }
   }
 
   function _isYouTube() {
@@ -438,7 +473,7 @@ ${rows}
     const exportBtn   = header.querySelector('#eh-panel-export');
     const expandBtn   = header.querySelector('#eh-panel-expand');
 
-    exportBtn.addEventListener('click', exportScript);
+    exportBtn.addEventListener('click', exportScriptHtml);
 
     expandBtn.addEventListener('click', () => {
       expanded = !expanded;
@@ -819,5 +854,9 @@ ${rows}
   }
 
   window.EH = window.EH || {};
-  window.EH.ScriptPanel = { setup, highlight, toggle, applySettings, exportScript };
+  // exportScript는 core/settings-panel.js가 아직 부르고 있어 별칭으로 남긴다.
+  window.EH.ScriptPanel = {
+    setup, highlight, toggle, applySettings,
+    exportScriptHtml, exportScriptPdf, exportScript: exportScriptHtml
+  };
 })();

@@ -124,6 +124,18 @@
   .text { flex: 1; }
   .en { font-size: 15px; }
   .native { font-size: 13px; color: #666; margin-top: 2px; }
+
+  /* 인쇄(= PDF로 저장) 조판. 다운로드한 HTML을 사용자가 직접 인쇄할 때와
+     확장의 PDF 내보내기가 같은 결과를 내야 하므로 두 경로 모두에 넣는다. */
+  @page { margin: 18mm 14mm; }
+  @media print {
+    body { max-width: none; margin: 0; padding: 0; }
+    /* 한 자막 줄이 페이지 경계에서 반으로 갈리지 않게 한다 */
+    .row { break-inside: avoid; }
+    /* 제목만 페이지 끝에 홀로 남는 것을 막는다 */
+    header { break-after: avoid; }
+    .no-print { display: none !important; }
+  }
 </style>
 </head>
 <body>

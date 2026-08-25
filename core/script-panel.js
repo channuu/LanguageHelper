@@ -318,7 +318,13 @@ ${rows}
     header.innerHTML =
       '<span class="eh-panel-title">Script</span>' +
       '<button class="eh-panel-btn" id="eh-panel-expand" title="실제 크기로 확장">⤢</button>' +
-      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>';
+      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>' +
+      '<div class="eh-panel-export-menu hidden" id="eh-panel-export-menu">' +
+        '<div class="eh-panel-export-item" data-format="html">HTML로 저장<span class="eh-panel-export-ext">.html</span></div>' +
+        '<div class="eh-panel-export-item" data-format="pdf">PDF로 저장<span class="eh-panel-export-ext">.pdf</span></div>' +
+      '</div>';
+    // 메뉴를 헤더 기준으로 절대 배치하기 위한 컨테이닝 블록.
+    header.style.position = 'relative';
     panel.appendChild(header);
 
     const titleRow = document.createElement('div');
@@ -472,10 +478,37 @@ ${rows}
 
     const exportBtn   = header.querySelector('#eh-panel-export');
     const expandBtn   = header.querySelector('#eh-panel-expand');
+    const exportMenu  = header.querySelector('#eh-panel-export-menu');
 
-    exportBtn.addEventListener('click', exportScriptHtml);
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // 자막이 없으면 메뉴를 열 이유가 없다 — 포맷을 고르게 한 뒤 실패
+      // 토스트를 띄우는 것보다, 지금 바로 알려주는 편이 낫다.
+      if (!enCues.length) {
+        window.EH.showToast?.('내보낼 자막이 없어요');
+        return;
+      }
+      exportMenu.classList.toggle('hidden');
+      exportBtn.classList.toggle('active', !exportMenu.classList.contains('hidden'));
+    });
+
+    exportMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.eh-panel-export-item');
+      if (!item) return;
+      _closeExportMenu();
+      if (item.dataset.format === 'pdf') exportScriptPdf();
+      else exportScriptHtml();
+    });
+
+    // 메뉴 바깥 클릭 / Esc로 닫는다. 패널이 body와 #secondary 사이를 오가므로
+    // 리스너는 패널이 아니라 document에 건다.
+    document.addEventListener('click', _closeExportMenu);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') _closeExportMenu();
+    });
 
     expandBtn.addEventListener('click', () => {
+      _closeExportMenu();
       expanded = !expanded;
       expandBtn.classList.toggle('active', expanded);
       if (_isYouTube()) {
@@ -778,6 +811,16 @@ ${rows}
     renderList();
   }
 
+  // 메뉴는 헤더에 절대 배치되므로, 패널이 숨겨지거나 임베드↔고정 모드가
+  // 전환되는 동안 열린 채로 두면 엉뚱한 위치에 떠 있게 된다. 상태가 바뀌는
+  // 모든 지점에서 닫는다.
+  function _closeExportMenu() {
+    const menu = document.getElementById('eh-panel-export-menu');
+    const btn = document.getElementById('eh-panel-export');
+    if (menu) menu.classList.add('hidden');
+    if (btn) btn.classList.remove('active');
+  }
+
   function toggle(forceVisible) {
     const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
@@ -792,6 +835,7 @@ ${rows}
     // "지금 활성인 쪽" 하나만 판단해 거기에만 hidden을 걸면, 그 직후 모드가
     // 바뀌면서 hidden 없는 요소가 새로 화면에 나타나 다시 보여버리는
     // 레이스가 있었다 — wrapper/panel 둘 다에 항상 같은 상태를 건다.
+    _closeExportMenu();
     if (wrapper) wrapper.classList.toggle('hidden', nowHidden);
     panel.classList.toggle('hidden', nowHidden);
     _setLayoutForPanel(!nowHidden);

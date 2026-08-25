@@ -11,6 +11,7 @@
   let saveFilter = 'all'; // 'all' | 'saved' | 'unsaved'
   let captionConflictSuspected = false;
   let captionLoadFailed = false;
+  let pdfExportInFlight = false; // PDF 내보내기 중 중복 클릭 방지 — 탭/세션 키가 중복 생성되는 것을 막는다
 
   // §1h "한 줄에 표시할 분량" — 청크 분할 자체는 core/cue-utils.js가 담당한다.
   // 오버레이(adapters/*.js)도 같은 유틸을 써야 스크립트 패널과 자막 오버레이가
@@ -133,7 +134,7 @@
     /* 한 자막 줄이 페이지 경계에서 반으로 갈리지 않게 한다 */
     .row { break-inside: avoid; }
     /* 제목만 페이지 끝에 홀로 남는 것을 막는다 */
-    header { break-after: avoid; }
+    header { break-after: avoid-page; }
     .no-print { display: none !important; }
   }
 </style>
@@ -186,8 +187,12 @@ ${rows}
    * 막힐 수 있다.
    */
   async function exportScriptPdf() {
+    // HTML 생성 → 서비스워커 메시지 → 새 탭 열기까지 시간이 걸려서, 그 사이
+    // 다시 클릭하면 탭과 세션 키가 두 배로 생긴다. 진행 중이면 조용히 무시한다.
+    if (pdfExportInFlight) return;
     const prepared = _prepareExport();
     if (!prepared) return;
+    pdfExportInFlight = true;
     try {
       const res = await chrome.runtime.sendMessage({
         type: 'EH_EXPORT_PRINT',
@@ -198,6 +203,8 @@ ${rows}
       // 확장이 방금 리로드되어 컨텍스트가 무효화된 경우에도 여기로 온다.
       console.error('[EH ScriptPanel] pdf export failed', err);
       window.EH.showToast?.('PDF 내보내기에 실패했어요');
+    } finally {
+      pdfExportInFlight = false;
     }
   }
 
@@ -900,9 +907,8 @@ ${rows}
   }
 
   window.EH = window.EH || {};
-  // exportScript는 core/settings-panel.js가 아직 부르고 있어 별칭으로 남긴다.
   window.EH.ScriptPanel = {
     setup, highlight, toggle, applySettings,
-    exportScriptHtml, exportScriptPdf, exportScript: exportScriptHtml
+    exportScriptHtml, exportScriptPdf
   };
 })();

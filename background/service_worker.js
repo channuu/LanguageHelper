@@ -76,7 +76,7 @@ async function handleMessage(message) {
         return { success: false, error: err.message };
       }
       await chrome.tabs.create({
-        url: chrome.runtime.getURL('export/print.html?id=' + id)
+        url: chrome.runtime.getURL('export/print.html#id=' + id)
       });
       return { success: true, id };
     }

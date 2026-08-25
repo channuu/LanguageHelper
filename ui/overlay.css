@@ -204,7 +204,7 @@ body.eh-hidden-offwatch #eh-library-panel {
   border-radius: 9px;
   background: var(--eh-bg);
   border: 1px solid rgba(var(--eh-gold-rgb), 0.18);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 8px 22px rgba(var(--eh-black-rgb), 0.42);
 }
 .eh-panel-export-menu.hidden { display: none !important; }
 .eh-panel-export-item {

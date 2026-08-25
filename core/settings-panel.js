@@ -77,7 +77,8 @@
         <div class="eh-settings-divider"></div>
         <div class="eh-settings-label">내보내기</div>
         <div class="eh-settings-export-row">
-          <div class="eh-settings-export-btn primary" id="eh-export-script">스크립트 내보내기</div>
+          <div class="eh-settings-export-btn primary" id="eh-export-script-html">스크립트 내보내기<span class="eh-settings-export-ext">.html</span></div>
+          <div class="eh-settings-export-btn" id="eh-export-script-pdf">스크립트 내보내기<span class="eh-settings-export-ext">.pdf</span></div>
           <div class="eh-settings-export-btn" id="eh-export-sqlite">저장 항목 내보내기<span class="eh-settings-export-ext">.sqlite</span></div>
         </div>
       </div>
@@ -109,8 +110,12 @@
     attachSlider('en', EN_TICKS);
     attachSlider('ko', KO_TICKS);
 
-    panelEl.querySelector('#eh-export-script').addEventListener('click', () => {
-      window.EH.ScriptPanel?.exportScript();
+    panelEl.querySelector('#eh-export-script-html').addEventListener('click', () => {
+      window.EH.ScriptPanel?.exportScriptHtml();
+    });
+
+    panelEl.querySelector('#eh-export-script-pdf').addEventListener('click', () => {
+      window.EH.ScriptPanel?.exportScriptPdf();
     });
 
     panelEl.querySelector('#eh-export-sqlite').addEventListener('click', async (e) => {

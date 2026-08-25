@@ -397,6 +397,8 @@ ${rows}
         // resize listener) would silently re-embed it into #secondary,
         // leaving it invisible and desyncing the expand button's state.
         if (expanded) return;
+        // 임베드↔밀어내기 모드 전환 시 열려 있는 export 메뉴를 닫는다.
+        _closeExportMenu();
         const secondary = _getSecondary();
         const secWidth = secondary ? secondary.offsetWidth : 0;
         if (secondary && secWidth > 0) {

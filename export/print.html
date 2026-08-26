@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>스크립트 인쇄</title>
+<style>
+  /* 스크립트 본문 스타일은 주입되는 HTML이 자체 <style>로 들고 온다.
+     여기 있는 것은 오류 안내 화면 전용이라 인쇄 시 숨긴다. */
+  .eh-print-error {
+    font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    max-width: 480px; margin: 80px auto; padding: 0 20px;
+    color: #444; font-size: 14px; line-height: 1.6; text-align: center;
+  }
+  @media print { .eh-print-error { display: none !important; } }
+</style>
+</head>
+<body>
+<div id="eh-print-root"></div>
+<script src="print.js"></script>
+</body>
+</html>

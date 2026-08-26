@@ -11,6 +11,7 @@
   let saveFilter = 'all'; // 'all' | 'saved' | 'unsaved'
   let captionConflictSuspected = false;
   let captionLoadFailed = false;
+  let pdfExportInFlight = false; // PDF 내보내기 중 중복 클릭 방지 — 탭/세션 키가 중복 생성되는 것을 막는다
 
   // §1h "한 줄에 표시할 분량" — 청크 분할 자체는 core/cue-utils.js가 담당한다.
   // 오버레이(adapters/*.js)도 같은 유틸을 써야 스크립트 패널과 자막 오버레이가
@@ -124,6 +125,18 @@
   .text { flex: 1; }
   .en { font-size: 15px; }
   .native { font-size: 13px; color: #666; margin-top: 2px; }
+
+  /* 인쇄(= PDF로 저장) 조판. 다운로드한 HTML을 사용자가 직접 인쇄할 때와
+     확장의 PDF 내보내기가 같은 결과를 내야 하므로 두 경로 모두에 넣는다. */
+  @page { margin: 18mm 14mm; }
+  @media print {
+    body { max-width: none; margin: 0; padding: 0; }
+    /* 한 자막 줄이 페이지 경계에서 반으로 갈리지 않게 한다 */
+    .row { break-inside: avoid; }
+    /* 제목만 페이지 끝에 홀로 남는 것을 막는다 */
+    header { break-after: avoid-page; }
+    .no-print { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -138,20 +151,61 @@ ${rows}
 </html>`;
   }
 
-  function exportScript() {
+  /**
+   * HTML/PDF 두 경로가 공유하는 준비 단계 — 빈 자막 가드, 플랫폼 메타 조회,
+   * HTML 생성. 내보낼 자막이 없으면 토스트를 띄우고 null을 돌려준다.
+   * @returns {{html: string, filename: string}|null}
+   */
+  function _prepareExport() {
     if (!enCues.length) {
       window.EH.showToast?.('내보낼 자막이 없어요');
-      return;
+      return null;
     }
     const meta = window.EH.adapter?.getPlatformMeta?.() || { platform: '', title: '' };
     const html = _buildExportHtml(enCues, nativeCues, meta);
-    const blob = new Blob([html], { type: 'text/html' });
+    const filename = `${(meta.title || 'script').replace(/[\\/:*?"<>|]/g, '_')}`;
+    return { html, filename };
+  }
+
+  function exportScriptHtml() {
+    const prepared = _prepareExport();
+    if (!prepared) return;
+    const blob = new Blob([prepared.html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${(meta.title || 'script').replace(/[\\/:*?"<>|]/g, '_')}.html`;
+    a.download = `${prepared.filename}.html`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * PDF는 라이브러리로 직접 만들지 않고 브라우저 인쇄 엔진에 맡긴다 —
+   * 한글 폰트를 임베드할 필요가 없고 레이아웃 코드를 이중으로 두지 않아도 된다.
+   * 인쇄는 확장 페이지에서 해야 한다: 콘텐츠 스크립트가 만든 blob: URL을 새 탭
+   * 최상위로 여는 것은 호스트 페이지 CSP의 영향을 받아 Netflix/Disney+에서
+   * 막힐 수 있다.
+   */
+  async function exportScriptPdf() {
+    // HTML 생성 → 서비스워커 메시지 → 새 탭 열기까지 시간이 걸려서, 그 사이
+    // 다시 클릭하면 탭과 세션 키가 두 배로 생긴다. 진행 중이면 조용히 무시한다.
+    if (pdfExportInFlight) return;
+    const prepared = _prepareExport();
+    if (!prepared) return;
+    pdfExportInFlight = true;
+    try {
+      const res = await chrome.runtime.sendMessage({
+        type: 'EH_EXPORT_PRINT',
+        payload: { html: prepared.html }
+      });
+      if (!res || !res.success) throw new Error(res?.error || 'no response');
+    } catch (err) {
+      // 확장이 방금 리로드되어 컨텍스트가 무효화된 경우에도 여기로 온다.
+      console.error('[EH ScriptPanel] pdf export failed', err);
+      window.EH.showToast?.('PDF 내보내기에 실패했어요');
+    } finally {
+      pdfExportInFlight = false;
+    }
   }
 
   function _isYouTube() {
@@ -271,7 +325,13 @@ ${rows}
     header.innerHTML =
       '<span class="eh-panel-title">Script</span>' +
       '<button class="eh-panel-btn" id="eh-panel-expand" title="실제 크기로 확장">⤢</button>' +
-      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>';
+      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>' +
+      '<div class="eh-panel-export-menu hidden" id="eh-panel-export-menu">' +
+        '<div class="eh-panel-export-item" data-format="html">HTML로 저장<span class="eh-panel-export-ext">.html</span></div>' +
+        '<div class="eh-panel-export-item" data-format="pdf">PDF로 저장<span class="eh-panel-export-ext">.pdf</span></div>' +
+      '</div>';
+    // 메뉴를 헤더 기준으로 절대 배치하기 위한 컨테이닝 블록.
+    header.style.position = 'relative';
     panel.appendChild(header);
 
     const titleRow = document.createElement('div');
@@ -344,6 +404,8 @@ ${rows}
         // resize listener) would silently re-embed it into #secondary,
         // leaving it invisible and desyncing the expand button's state.
         if (expanded) return;
+        // 임베드↔밀어내기 모드 전환 시 열려 있는 export 메뉴를 닫는다.
+        _closeExportMenu();
         const secondary = _getSecondary();
         const secWidth = secondary ? secondary.offsetWidth : 0;
         if (secondary && secWidth > 0) {
@@ -425,10 +487,37 @@ ${rows}
 
     const exportBtn   = header.querySelector('#eh-panel-export');
     const expandBtn   = header.querySelector('#eh-panel-expand');
+    const exportMenu  = header.querySelector('#eh-panel-export-menu');
 
-    exportBtn.addEventListener('click', exportScript);
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // 자막이 없으면 메뉴를 열 이유가 없다 — 포맷을 고르게 한 뒤 실패
+      // 토스트를 띄우는 것보다, 지금 바로 알려주는 편이 낫다.
+      if (!enCues.length) {
+        window.EH.showToast?.('내보낼 자막이 없어요');
+        return;
+      }
+      exportMenu.classList.toggle('hidden');
+      exportBtn.classList.toggle('active', !exportMenu.classList.contains('hidden'));
+    });
+
+    exportMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.eh-panel-export-item');
+      if (!item) return;
+      _closeExportMenu();
+      if (item.dataset.format === 'pdf') exportScriptPdf();
+      else exportScriptHtml();
+    });
+
+    // 메뉴 바깥 클릭 / Esc로 닫는다. 패널이 body와 #secondary 사이를 오가므로
+    // 리스너는 패널이 아니라 document에 건다.
+    document.addEventListener('click', _closeExportMenu);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') _closeExportMenu();
+    });
 
     expandBtn.addEventListener('click', () => {
+      _closeExportMenu();
       expanded = !expanded;
       expandBtn.classList.toggle('active', expanded);
       if (_isYouTube()) {
@@ -731,6 +820,16 @@ ${rows}
     renderList();
   }
 
+  // 메뉴는 헤더에 절대 배치되므로, 패널이 숨겨지거나 임베드↔고정 모드가
+  // 전환되는 동안 열린 채로 두면 엉뚱한 위치에 떠 있게 된다. 상태가 바뀌는
+  // 모든 지점에서 닫는다.
+  function _closeExportMenu() {
+    const menu = document.getElementById('eh-panel-export-menu');
+    const btn = document.getElementById('eh-panel-export');
+    if (menu) menu.classList.add('hidden');
+    if (btn) btn.classList.remove('active');
+  }
+
   function toggle(forceVisible) {
     const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
@@ -745,6 +844,7 @@ ${rows}
     // "지금 활성인 쪽" 하나만 판단해 거기에만 hidden을 걸면, 그 직후 모드가
     // 바뀌면서 hidden 없는 요소가 새로 화면에 나타나 다시 보여버리는
     // 레이스가 있었다 — wrapper/panel 둘 다에 항상 같은 상태를 건다.
+    _closeExportMenu();
     if (wrapper) wrapper.classList.toggle('hidden', nowHidden);
     panel.classList.toggle('hidden', nowHidden);
     _setLayoutForPanel(!nowHidden);
@@ -807,5 +907,8 @@ ${rows}
   }
 
   window.EH = window.EH || {};
-  window.EH.ScriptPanel = { setup, highlight, toggle, applySettings, exportScript };
+  window.EH.ScriptPanel = {
+    setup, highlight, toggle, applySettings,
+    exportScriptHtml, exportScriptPdf
+  };
 })();

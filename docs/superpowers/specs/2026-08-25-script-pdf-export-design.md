@@ -1,7 +1,7 @@
 # 스크립트 PDF Export 기능 설계
 
 **날짜:** 2026-08-25
-**상태:** 승인됨
+**상태:** 구현 완료 (2026-08-27)
 **상위 문서:** `docs/superpowers/specs/2026-08-14-script-html-export-design.md`
 
 ---

@@ -14,7 +14,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/repository.dart';
 import 'package:english_helper_app/data/study_timer_repository.dart';
+import 'package:english_helper_app/data/sync/auth_service.dart';
 import 'package:english_helper_app/app.dart';
+
+// AuthGate가 인증 스트림을 보므로, EnglishHelperApp을 직접 띄우는 테스트는
+// 이미 로그인된 상태를 흉내 낸 가짜 AuthService가 필요하다.
+class _FakeAuthService implements AuthService {
+  @override
+  final AuthUser? currentUser = const AuthUser(uid: 'test-uid', email: 'test@example.com');
+
+  @override
+  Stream<AuthUser?> authStateChanges() => Stream.value(currentUser);
+
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+}
 
 void main() {
   setUpAll(() {
@@ -45,6 +65,7 @@ void main() {
         providers: [
           ChangeNotifierProvider<LearningRepository>.value(value: learningRepo),
           ChangeNotifierProvider<StudyTimerRepository>.value(value: timerRepo),
+          Provider<AuthService>.value(value: _FakeAuthService()),
         ],
         child: const EnglishHelperApp(),
       ),

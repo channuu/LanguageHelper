@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'data/sync/auth_service.dart';
+import 'features/auth/auth_gate.dart';
 import 'features/flashcard/flashcard_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/import/import_screen.dart';
@@ -16,7 +19,12 @@ class EnglishHelperApp extends StatelessWidget {
     return MaterialApp(
       title: 'English Helper',
       theme: AppTheme.light,
-      home: const _RootShell(),
+      home: Builder(
+        builder: (context) => AuthGate(
+          authService: context.read<AuthService>(),
+          child: const _RootShell(),
+        ),
+      ),
     );
   }
 }

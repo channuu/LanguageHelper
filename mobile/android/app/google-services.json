@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "246660740470",
+    "project_id": "language-helper-d1de6",
+    "storage_bucket": "language-helper-d1de6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:246660740470:android:d1d4cb66408471a750f657",
+        "android_client_info": {
+          "package_name": "com.englishhelper.english_helper_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCWqybTfCqRNBo3gwUu_kQxsxAJ8wbbaE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -82,7 +82,7 @@ test('listDocuments requests ordered documents and decodes them', async () => {
   assert.deepEqual(docs, [{ id: 'w1', word: 'hi' }]);
   assert.match(calls[0].url, /\/users\/u1\/words\?/);
   assert.match(calls[0].url, /pageSize=500/);
-  assert.match(calls[0].url, /orderBy=updated_at\+desc/);
+  assert.match(calls[0].url, /orderBy=updated_at%20desc/);
   assert.equal(calls[0].opts.headers.Authorization, 'Bearer TOKEN');
 });
 

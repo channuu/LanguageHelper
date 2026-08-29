@@ -76,7 +76,7 @@ async function request(url, opts, idToken) {
 
 export async function listDocuments(uid, collection, idToken, { pageSize = 500 } = {}) {
   const url = `${FIRESTORE_BASE}/users/${uid}/${collection}`
-    + `?pageSize=${pageSize}&orderBy=updated_at+desc`;
+    + `?pageSize=${pageSize}&orderBy=${encodeURIComponent('updated_at desc')}`;
   const body = await request(url, { method: 'GET' }, idToken);
   return (body.documents || []).map(d => fromFirestoreFields(d.fields));
 }

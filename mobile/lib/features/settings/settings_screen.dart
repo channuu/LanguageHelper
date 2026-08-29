@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/repository.dart';
 import '../../data/study_timer_repository.dart';
+import '../../data/sync/auth_service.dart';
+import '../../data/sync/sync_service.dart';
 import '../../theme/app_theme.dart';
 import '../timer/weekly_goal_card.dart';
 
@@ -144,6 +146,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _confirmSignOut(
+      BuildContext context, AuthService auth, SyncService sync) async {
+    final uid = auth.currentUser?.uid;
+    if (uid == null) return;
+
+    // 로그아웃은 로컬 캐시를 비운다 — 강제(force) 없이 먼저 시도해서,
+    // 아직 서버에 닿지 않은 항목이 있으면 signOut이 거부하게 둔다.
+    var result = await sync.signOut(uid);
+    if (!result.ok) {
+      if (!context.mounted) return;
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          content: Text(
+            '${result.pending}개 항목이 아직 저장되지 않았어요. '
+            '로그아웃하면 사라집니다. 계속할까요?',
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('취소')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('로그아웃')),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+      result = await sync.signOut(uid, force: true);
+    }
+    // sync.signOut까지 끝난 뒤에 auth.signOut을 불러야 한다 — 순서가
+    // 바뀌면 인증 상태 스트림이 먼저 화면을 걷어내 위 로컬 정리가
+    // 끝나기 전에 위젯이 dispose된다.
+    await auth.signOut();
+  }
+
+  static String _formatSyncTime(String? iso) {
+    if (iso == null) return '아직 동기화 안 됨';
+    final d = DateTime.parse(iso);
+    return '${d.hour}:${d.minute.toString().padLeft(2, '0')} 동기화됨';
+  }
+
+  Widget _accountSection(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final sync = context.watch<SyncService>();
+    final email = auth.currentUser?.email ?? '';
+
+    return _SettingsCard(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(email, style: const TextStyle(fontSize: 14)),
+                  ),
+                  Text(
+                    sync.pending > 0
+                        ? '${sync.pending}개 대기 중'
+                        : _formatSyncTime(sync.lastSyncAt),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: sync.pending > 0
+                          ? AppColors.accent
+                          : AppColors.inkTertiary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      final uid = auth.currentUser?.uid;
+                      if (uid != null) sync.syncNow(uid);
+                    },
+                    child: const Text('지금 동기화'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => _confirmSignOut(context, auth, sync),
+                    child: const Text('로그아웃'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final timerRepo = context.watch<StudyTimerRepository>();
@@ -155,6 +253,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text('설정', style: Theme.of(context).textTheme.headlineLarge),
             const SizedBox(height: 20),
+            _SectionLabel('계정'),
+            _accountSection(context),
+            const SizedBox(height: 22),
             _SectionLabel('학습'),
             _SettingsCard(
               children: [

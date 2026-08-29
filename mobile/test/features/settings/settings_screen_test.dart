@@ -8,7 +8,93 @@ import 'package:english_helper_app/data/repository.dart';
 import 'package:english_helper_app/data/study_timer_repository.dart';
 import 'package:english_helper_app/data/models/sentence.dart';
 import 'package:english_helper_app/data/models/word.dart';
+import 'package:english_helper_app/data/sync/auth_service.dart';
+import 'package:english_helper_app/data/sync/sync_service.dart';
 import 'package:english_helper_app/features/settings/settings_screen.dart';
+
+class _FakeAuthService implements AuthService {
+  @override
+  AuthUser? currentUser;
+  _FakeAuthService(String email)
+      : currentUser = AuthUser(uid: 'u1', email: email);
+
+  @override
+  Stream<AuthUser?> authStateChanges() => Stream.value(currentUser);
+  @override
+  Future<void> signIn(String email, String password) async {}
+  @override
+  Future<void> signUp(String email, String password) async {}
+  @override
+  Future<void> signOut() async {
+    currentUser = null;
+  }
+}
+
+/// SyncService는 ChangeNotifier라 상속해서 동작만 갈아끼우는 편이 짧다.
+class _FakeSyncService extends SyncService {
+  int syncNowCalls = 0;
+  final String? _lastSync;
+  final int _pending;
+
+  _FakeSyncService({String? lastSyncAt, int pending = 0})
+      : _lastSync = lastSyncAt,
+        _pending = pending,
+        super(
+          repository: LocalSQLiteRepository(
+              openDb: () => openAppDatabase(inMemoryDatabasePath)),
+          timerRepository: LocalStudyTimerRepository(
+              openDb: () => openAppDatabase(inMemoryDatabasePath)),
+          remote: _NullRemoteStore(),
+        );
+
+  @override
+  String? get lastSyncAt => _lastSync;
+  @override
+  int get pending => _pending;
+
+  @override
+  Future<SyncResult> syncNow(String uid) async {
+    syncNowCalls++;
+    return SyncResult(ok: true, pending: _pending);
+  }
+}
+
+class _NullRemoteStore implements RemoteStore {
+  @override
+  Future<List<Map<String, Object?>>> list(String uid, String collection) async => [];
+  @override
+  Future<void> write(String uid, String c, String id, Map<String, Object?> d) async {}
+  @override
+  Future<void> delete(String uid, String c, String id) async {}
+}
+
+Future<_FakeSyncService> pumpSettings(
+  WidgetTester tester, {
+  required String email,
+  String? lastSyncAt,
+  int pending = 0,
+}) async {
+  final sync = _FakeSyncService(lastSyncAt: lastSyncAt, pending: pending);
+  await tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<LearningRepository>(
+          create: (_) => LocalSQLiteRepository(
+              openDb: () => openAppDatabase(inMemoryDatabasePath)),
+        ),
+        ChangeNotifierProvider<StudyTimerRepository>(
+          create: (_) => LocalStudyTimerRepository(
+              openDb: () => openAppDatabase(inMemoryDatabasePath)),
+        ),
+        Provider<AuthService>.value(value: _FakeAuthService(email)),
+        ChangeNotifierProvider<SyncService>.value(value: sync),
+      ],
+      child: const MaterialApp(home: SettingsScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return sync;
+}
 
 void main() {
   setUpAll(() {
@@ -25,6 +111,8 @@ void main() {
       providers: [
         ChangeNotifierProvider<LearningRepository>.value(value: repo),
         ChangeNotifierProvider<StudyTimerRepository>.value(value: timerRepo),
+        Provider<AuthService>.value(value: _FakeAuthService('a@b.c')),
+        ChangeNotifierProvider<SyncService>.value(value: _FakeSyncService()),
       ],
       child: const MaterialApp(home: SettingsScreen()),
     );
@@ -162,5 +250,27 @@ void main() {
 
     expect(await timerRepo.getWeeklyGoalMinutes(mondayOf(DateTime.now())), 360);
     expect(find.text('6시간'), findsOneWidget);
+  });
+
+  testWidgets('계정 섹션에 로그인한 이메일을 보여준다', (tester) async {
+    await pumpSettings(tester, email: 'a@b.c');
+    expect(find.text('a@b.c'), findsOneWidget);
+  });
+
+  testWidgets('마지막 동기화 시각이 없으면 안내를 보여준다', (tester) async {
+    await pumpSettings(tester, email: 'a@b.c', lastSyncAt: null);
+    expect(find.text('아직 동기화 안 됨'), findsOneWidget);
+  });
+
+  testWidgets('미동기 항목 개수를 보여준다', (tester) async {
+    await pumpSettings(tester, email: 'a@b.c', pending: 3);
+    expect(find.text('3개 대기 중'), findsOneWidget);
+  });
+
+  testWidgets('지금 동기화를 누르면 syncNow를 호출한다', (tester) async {
+    final sync = await pumpSettings(tester, email: 'a@b.c');
+    await tester.tap(find.text('지금 동기화'));
+    await tester.pumpAndSettle();
+    expect(sync.syncNowCalls, 1);
   });
 }

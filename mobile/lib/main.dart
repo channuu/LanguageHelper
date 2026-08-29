@@ -6,6 +6,7 @@ import 'app.dart';
 import 'data/repository.dart';
 import 'data/study_timer_repository.dart';
 import 'data/sync/auth_service.dart';
+import 'data/sync/sync_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -24,6 +25,13 @@ Future<void> main() async {
           create: (_) => LocalStudyTimerRepository(),
         ),
         Provider<AuthService>(create: (_) => FirebaseAuthService()),
+        ChangeNotifierProvider<SyncService>(
+          create: (context) => SyncService(
+            repository: context.read<LearningRepository>(),
+            timerRepository: context.read<StudyTimerRepository>(),
+            remote: FirestoreRemoteStore(),
+          ),
+        ),
       ],
       child: const EnglishHelperApp(),
     ),

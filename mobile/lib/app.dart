@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'data/sync/auth_service.dart';
+import 'data/sync/sync_service.dart';
 import 'features/auth/auth_gate.dart';
 import 'features/flashcard/flashcard_screen.dart';
 import 'features/home/home_screen.dart';

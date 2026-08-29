@@ -827,6 +827,8 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           translation: ko,
           sentence: _exController.text.trim(),
           reviewLevel: _level,
+          updatedAt: DateTime.now().toIso8601String(),
+          syncedAt: null, // mark for cloud re-upload
         ));
       } else {
         await repo.saveWord(Word(
@@ -864,6 +866,8 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           original: en,
           translation: ko,
           reviewLevel: _level,
+          updatedAt: DateTime.now().toIso8601String(),
+          syncedAt: null, // mark for cloud re-upload
         ));
       } else {
         await repo.saveSentence(Sentence(

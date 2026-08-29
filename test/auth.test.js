@@ -131,3 +131,34 @@ test('signOutLocal removes the stored auth', async () => {
   assert.equal(store['eh-auth'], undefined);
   assert.equal(await getAuth(), null);
 });
+
+test('getValidToken clears auth on refresh failure but preserves saved data', async () => {
+  store['eh-auth'] = {
+    uid: 'u1', email: 'a@b.c', idToken: 'OLD',
+    refreshToken: 'R', expiresAt: Date.now() - 1000
+  };
+  store['eh-words'] = ['word1', 'word2'];
+  store['eh-sentences'] = ['sentence1', 'sentence2'];
+
+  globalThis.fetch = async () => jsonResponse({ error: { message: 'TOKEN_EXPIRED' } }, 400);
+
+  assert.equal(await getValidToken(), null);
+  assert.equal(store['eh-auth'], undefined);
+  assert.deepEqual(store['eh-words'], ['word1', 'word2']);
+  assert.deepEqual(store['eh-sentences'], ['sentence1', 'sentence2']);
+});
+
+test('getValidToken refreshes a token expiring within 60s margin', async () => {
+  store['eh-auth'] = {
+    uid: 'u1', email: 'a@b.c', idToken: 'OLD',
+    refreshToken: 'R', expiresAt: Date.now() + 30000
+  };
+
+  globalThis.fetch = async () => jsonResponse({
+    id_token: 'NEW', refresh_token: 'R2', expires_in: '3600', user_id: 'u1'
+  });
+
+  assert.equal(await getValidToken(), 'NEW');
+  assert.equal(store['eh-auth'].idToken, 'NEW');
+  assert.equal(store['eh-auth'].refreshToken, 'R2');
+});

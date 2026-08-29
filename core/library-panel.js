@@ -32,8 +32,8 @@
   function currentVideoCount() {
     const contentId = window.EH.adapter?.getPlatformMeta?.()?.contentId;
     if (!contentId) return 0;
-    return words.filter(w => w.contentId === contentId).length +
-           sentences.filter(s => s.contentId === contentId).length;
+    return words.filter(w => w.content_id === contentId).length +
+           sentences.filter(s => s.content_id === contentId).length;
   }
 
   function render() {

@@ -43,16 +43,16 @@
     const wordStmt = db.prepare('INSERT INTO words VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
     words.forEach(w => wordStmt.run([
       w.id, w.word, w.definition || '', w.sentence || '', w.translation || '',
-      w.platform || '', w.contentTitle || '', w.contentId || '',
-      w.timestamp || 0, w.savedAt || '', w.reviewCount || 0, w.nextReviewAt || null
+      w.platform || '', w.content_title || '', w.content_id || '',
+      w.timestamp || 0, w.saved_at || '', w.review_count || 0, w.next_review_at || null
     ]));
     wordStmt.free();
 
     const sentStmt = db.prepare('INSERT INTO sentences VALUES (?,?,?,?,?,?,?,?,?,?)');
     sentences.forEach(s => sentStmt.run([
       s.id, s.original, s.translation || '', s.platform || '',
-      s.contentTitle || '', s.contentId || '', s.timestamp || 0,
-      s.savedAt || '', s.reviewCount || 0, s.nextReviewAt || null
+      s.content_title || '', s.content_id || '', s.timestamp || 0,
+      s.saved_at || '', s.review_count || 0, s.next_review_at || null
     ]));
     sentStmt.free();
 

@@ -13,27 +13,37 @@
   const Storage = {
     async saveWord({ word, definition, sentence, translation, timestamp }) {
       const meta = window.EH.adapter?.getPlatformMeta() || { platform: 'unknown', title: '', contentId: '' };
+      const now = new Date().toISOString();
       const item = {
         id: generateId(),
         word, definition: definition || '', sentence: sentence || '',
         translation: translation || '',
-        platform: meta.platform, contentTitle: meta.title, contentId: meta.contentId,
+        platform: meta.platform,
+        content_title: meta.title,
+        content_id: meta.contentId,
         timestamp: timestamp || 0,
-        savedAt: new Date().toISOString(),
-        reviewCount: 0, nextReviewAt: null
+        saved_at: now,
+        review_count: 0, next_review_at: null,
+        review_level: 0, last_reviewed_at: null,
+        updated_at: now, synced_at: null
       };
       return chrome.runtime.sendMessage({ type: 'SAVE_WORD', payload: item });
     },
 
     async saveSentence({ original, translation, timestamp }) {
       const meta = window.EH.adapter?.getPlatformMeta() || { platform: 'unknown', title: '', contentId: '' };
+      const now = new Date().toISOString();
       const item = {
         id: generateId(),
         original, translation: translation || '',
-        platform: meta.platform, contentTitle: meta.title, contentId: meta.contentId,
+        platform: meta.platform,
+        content_title: meta.title,
+        content_id: meta.contentId,
         timestamp: timestamp || 0,
-        savedAt: new Date().toISOString(),
-        reviewCount: 0, nextReviewAt: null
+        saved_at: now,
+        review_count: 0, next_review_at: null,
+        review_level: 0, last_reviewed_at: null,
+        updated_at: now, synced_at: null
       };
       return chrome.runtime.sendMessage({ type: 'SAVE_SENTENCE', payload: item });
     },

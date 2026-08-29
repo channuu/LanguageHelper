@@ -860,7 +860,7 @@ ${rows}
       // 개수와 체크마크 표시가 서로 어긋나지 않는다.
       const contentId = window.EH.adapter?.getPlatformMeta?.()?.contentId;
       const scoped = contentId
-        ? sentences.filter(s => s.contentId === contentId)
+        ? sentences.filter(s => s.content_id === contentId)
         : sentences;
       savedSet = savedTextSet(scoped);
     } catch (_) {

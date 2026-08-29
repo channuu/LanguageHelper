@@ -22,6 +22,15 @@ test('rule 1 holds even when the server has an older copy', () => {
   assert.deepEqual(r.toWriteLocal, []);
 });
 
+test('rule 1 takes precedence over rule 2: unsynced local older than remote must still push', () => {
+  // Rule 1 says unsynced items must be pushed and never overwritten.
+  // Rule 2 says newer timestamp wins. When they conflict, rule 1 wins.
+  const r = planMerge([local('a', T1, null)], [remote('a', T2)]);
+  assert.deepEqual(r.toPush.map(i => i.id), ['a']);
+  assert.deepEqual(r.toWriteLocal, []);
+  assert.deepEqual(r.toDeleteLocal, []);
+});
+
 test('rule 2: the newer updated_at wins — local newer means push', () => {
   const r = planMerge([local('a', T2, T1)], [remote('a', T1)]);
   assert.deepEqual(r.toPush.map(i => i.id), ['a']);

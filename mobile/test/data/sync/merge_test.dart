@@ -24,6 +24,15 @@ void main() {
     expect(r.toWriteLocal, isEmpty);
   });
 
+  test('규칙 1이 규칙 2보다 우선한다: 미동기이고 더 오래된 항목도 푸시해야 한다', () {
+    // 규칙 1: 미동기 항목은 반드시 푸시하고 덮어쓰면 안 된다.
+    // 규칙 2: 최신 타임스탬프가 이긴다. 충돌하면 규칙 1이 우선한다.
+    final r = planMerge(local: [local('a', t1, null)], remote: [remote('a', t2)]);
+    expect(r.toPush.map((e) => e.id), ['a']);
+    expect(r.toWriteLocal, isEmpty);
+    expect(r.toDeleteLocal, isEmpty);
+  });
+
   test('규칙 2: 로컬이 더 최신이면 푸시', () {
     final r = planMerge(local: [local('a', t2, t1)], remote: [remote('a', t1)]);
     expect(r.toPush.map((e) => e.id), ['a']);

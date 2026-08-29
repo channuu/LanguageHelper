@@ -17,6 +17,7 @@ Word _word(String id, {int reviewCount = 0}) => Word(
       timestamp: 1,
       savedAt: '2026-08-02T00:00:00.000Z',
       reviewCount: reviewCount,
+      updatedAt: '2026-08-02T00:00:00.000Z',
     );
 
 Sentence _sentence(String id) => Sentence(
@@ -27,6 +28,7 @@ Sentence _sentence(String id) => Sentence(
       contentId: 'c1',
       timestamp: 1,
       savedAt: '2026-08-02T00:00:00.000Z',
+      updatedAt: '2026-08-02T00:00:00.000Z',
     );
 
 void main() {
@@ -216,13 +218,19 @@ void main() {
       // extension backup file (which doesn't know about those columns).
       final w1Map = _word('w1', reviewCount: 0).toMap()
         ..remove('review_level')
-        ..remove('last_reviewed_at');
+        ..remove('last_reviewed_at')
+        ..remove('updated_at')
+        ..remove('synced_at');
       final w2Map = _word('w2').toMap()
         ..remove('review_level')
-        ..remove('last_reviewed_at');
+        ..remove('last_reviewed_at')
+        ..remove('updated_at')
+        ..remove('synced_at');
       final s1Map = _sentence('s1').toMap()
         ..remove('review_level')
-        ..remove('last_reviewed_at');
+        ..remove('last_reviewed_at')
+        ..remove('updated_at')
+        ..remove('synced_at');
 
       await importDb.insert('words', w1Map);
       await importDb.insert('words', w2Map);
@@ -318,10 +326,14 @@ void main() {
       );
       final w1Map = _word('w1').toMap()
         ..remove('review_level')
-        ..remove('last_reviewed_at');
+        ..remove('last_reviewed_at')
+        ..remove('updated_at')
+        ..remove('synced_at');
       final s1Map = _sentence('s1').toMap()
         ..remove('review_level')
-        ..remove('last_reviewed_at');
+        ..remove('last_reviewed_at')
+        ..remove('updated_at')
+        ..remove('synced_at');
       await importDb.insert('words', w1Map);
       await importDb.insert('sentences', s1Map);
       await importDb.close();
@@ -354,5 +366,75 @@ void main() {
       final summary = await repo.getLastImportSummary();
       expect(summary, isNull);
     });
+  });
+
+  test('saveWord는 updatedAt을 채우고 syncedAt을 비운다', () async {
+    await repo.saveWord(Word(
+      id: 'w1', word: 'hi', platform: 'youtube', contentTitle: 'T',
+      contentId: 'v1', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    ));
+
+    final saved = (await repo.getWords()).single;
+    expect(saved.updatedAt, '2026-08-01T00:00:00.000Z');
+    expect(saved.syncedAt, isNull);
+  });
+
+  test('markWordReviewed는 updatedAt을 밀고 syncedAt을 되돌린다', () async {
+    await repo.saveWord(Word(
+      id: 'w1', word: 'hi', platform: 'youtube', contentTitle: 'T',
+      contentId: 'v1', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      syncedAt: '2026-08-01T00:00:00.000Z',
+    ));
+
+    await repo.markWordReviewed('w1');
+
+    final reviewed = (await repo.getWords()).single;
+    expect(reviewed.syncedAt, isNull, reason: '복습은 다시 올려야 할 변경이다');
+    expect(
+      DateTime.parse(reviewed.updatedAt).isAfter(DateTime.parse('2026-08-01T00:00:00.000Z')),
+      isTrue,
+    );
+  });
+
+  test('deleteWord는 sync_queue에 삭제를 남긴다', () async {
+    await repo.saveWord(Word(
+      id: 'w1', word: 'hi', platform: 'youtube', contentTitle: 'T',
+      contentId: 'v1', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    ));
+
+    await repo.deleteWord('w1');
+
+    final queue = await repo.getSyncQueue();
+    expect(queue.length, 1);
+    expect(queue.single.entity, 'words');
+    expect(queue.single.docId, 'w1');
+  });
+
+  test('clearSyncQueueEntry는 해당 항목만 지운다', () async {
+    await repo.queueDelete('words', 'w1');
+    await repo.queueDelete('sentences', 's1');
+
+    await repo.clearSyncQueueEntry('words', 'w1');
+
+    final queue = await repo.getSyncQueue();
+    expect(queue.length, 1);
+    expect(queue.single.entity, 'sentences');
+  });
+
+  test('clearAllLocalData는 학습 데이터와 큐를 모두 비운다', () async {
+    await repo.saveWord(Word(
+      id: 'w1', word: 'hi', platform: 'youtube', contentTitle: 'T',
+      contentId: 'v1', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    ));
+    await repo.queueDelete('sentences', 's1');
+
+    await repo.clearAllLocalData();
+
+    expect(await repo.getWords(), isEmpty);
+    expect(await repo.getSyncQueue(), isEmpty);
   });
 }

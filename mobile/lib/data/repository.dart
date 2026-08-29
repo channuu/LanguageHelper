@@ -32,6 +32,12 @@ class InvalidBackupFileException implements Exception {
   String toString() => 'InvalidBackupFileException: $message';
 }
 
+class SyncQueueEntry {
+  final String entity;
+  final String docId;
+  const SyncQueueEntry({required this.entity, required this.docId});
+}
+
 abstract class LearningRepository extends ChangeNotifier {
   Future<List<Word>> getWords();
   Future<List<Sentence>> getSentences();
@@ -46,6 +52,10 @@ abstract class LearningRepository extends ChangeNotifier {
   Future<MergeResult> mergeFromFile(String filePath);
   Future<String> getDatabasePath();
   Future<LastImportSummary?> getLastImportSummary();
+  Future<List<SyncQueueEntry>> getSyncQueue();
+  Future<void> queueDelete(String entity, String docId);
+  Future<void> clearSyncQueueEntry(String entity, String docId);
+  Future<void> clearAllLocalData();
   Future<void> close();
 }
 
@@ -103,6 +113,7 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
   Future<void> deleteWord(String id) async {
     final db = await _database;
     await db.delete('words', where: 'id = ?', whereArgs: [id]);
+    await queueDelete('words', id);
     notifyListeners();
   }
 
@@ -110,6 +121,7 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
   Future<void> deleteSentence(String id) async {
     final db = await _database;
     await db.delete('sentences', where: 'id = ?', whereArgs: [id]);
+    await queueDelete('sentences', id);
     notifyListeners();
   }
 
@@ -126,6 +138,8 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: newLevel,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(newLevel, now),
+      updatedAt: now.toIso8601String(),
+      syncedAt: null,
     );
     await db.insert('words', updated.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -145,6 +159,8 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: newLevel,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(newLevel, now),
+      updatedAt: now.toIso8601String(),
+      syncedAt: null,
     );
     await db.insert('sentences', updated.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -162,6 +178,8 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: level,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(level, now),
+      updatedAt: now.toIso8601String(),
+      syncedAt: null,
     );
     await db.insert('words', updated.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -179,6 +197,8 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: level,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(level, now),
+      updatedAt: now.toIso8601String(),
+      syncedAt: null,
     );
     await db.insert('sentences', updated.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -262,6 +282,46 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
     final raw = prefs.getString(_lastImportKey);
     if (raw == null) return null;
     return LastImportSummary.fromJson(jsonDecode(raw) as Map<String, Object?>);
+  }
+
+  @override
+  Future<List<SyncQueueEntry>> getSyncQueue() async {
+    final db = await _database;
+    final rows = await db.query('sync_queue');
+    return rows
+        .map((r) => SyncQueueEntry(
+              entity: r['entity'] as String,
+              docId: r['doc_id'] as String,
+            ))
+        .toList();
+  }
+
+  @override
+  Future<void> queueDelete(String entity, String docId) async {
+    final db = await _database;
+    await db.insert(
+      'sync_queue',
+      {'entity': entity, 'doc_id': docId},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  @override
+  Future<void> clearSyncQueueEntry(String entity, String docId) async {
+    final db = await _database;
+    await db.delete('sync_queue',
+        where: 'entity = ? AND doc_id = ?', whereArgs: [entity, docId]);
+  }
+
+  @override
+  Future<void> clearAllLocalData() async {
+    final db = await _database;
+    await db.delete('words');
+    await db.delete('sentences');
+    await db.delete('study_sessions');
+    await db.delete('weekly_goals');
+    await db.delete('sync_queue');
+    notifyListeners();
   }
 
   @override

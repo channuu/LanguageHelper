@@ -17,6 +17,7 @@ void main() {
         contentId: 'dQw4w9WgXcQ',
         timestamp: 142.5,
         savedAt: '2026-08-14T00:00:00.000Z',
+        updatedAt: '2026-08-14T00:00:00.000Z',
       );
 
       final item = DetailItem.fromWord(word);
@@ -39,6 +40,7 @@ void main() {
         contentId: 'abc',
         timestamp: 10,
         savedAt: '2026-08-14T00:00:00.000Z',
+        updatedAt: '2026-08-14T00:00:00.000Z',
       );
 
       final item = DetailItem.fromWord(word);
@@ -58,6 +60,7 @@ void main() {
         contentId: 'dQw4w9WgXcQ',
         timestamp: 142.5,
         savedAt: '2026-08-14T00:00:00.000Z',
+        updatedAt: '2026-08-14T00:00:00.000Z',
       );
 
       final item = DetailItem.fromSentence(sentence);

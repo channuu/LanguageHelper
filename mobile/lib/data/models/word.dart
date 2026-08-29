@@ -15,6 +15,8 @@ class Word {
   final String? nextReviewAt;
   final int reviewLevel;
   final String? lastReviewedAt;
+  final String updatedAt;
+  final String? syncedAt;
 
   const Word({
     required this.id,
@@ -31,6 +33,8 @@ class Word {
     this.nextReviewAt,
     this.reviewLevel = 0,
     this.lastReviewedAt,
+    required this.updatedAt,
+    this.syncedAt,
   });
 
   Map<String, Object?> toMap() => {
@@ -48,6 +52,8 @@ class Word {
         'next_review_at': nextReviewAt,
         'review_level': reviewLevel,
         'last_reviewed_at': lastReviewedAt,
+        'updated_at': updatedAt,
+        'synced_at': syncedAt,
       };
 
   factory Word.fromMap(Map<String, Object?> map) => Word(
@@ -65,6 +71,11 @@ class Word {
         nextReviewAt: map['next_review_at'] as String?,
         reviewLevel: (map['review_level'] as int?) ?? 0,
         lastReviewedAt: map['last_reviewed_at'] as String?,
+        // Migration backfills updated_at, but fall back to saved_at for
+        // rows that somehow arrive without it (e.g. imported backups).
+        updatedAt: (map['updated_at'] as String?) ??
+            (map['saved_at'] as String?) ?? '',
+        syncedAt: map['synced_at'] as String?,
       );
 
   Word copyWith({
@@ -75,6 +86,8 @@ class Word {
     Object? nextReviewAt = _unset,
     int? reviewLevel,
     Object? lastReviewedAt = _unset,
+    String? updatedAt,
+    Object? syncedAt = _unset,
   }) =>
       Word(
         id: id,
@@ -95,5 +108,9 @@ class Word {
         lastReviewedAt: identical(lastReviewedAt, _unset)
             ? this.lastReviewedAt
             : lastReviewedAt as String?,
+        updatedAt: updatedAt ?? this.updatedAt,
+        syncedAt: identical(syncedAt, _unset)
+            ? this.syncedAt
+            : syncedAt as String?,
       );
 }

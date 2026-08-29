@@ -14,6 +14,7 @@ Word _dueWord({String id = 'w1', int reviewLevel = 0, String? lastReviewedAt}) =
       translation: '덧없는', platform: 'netflix', contentTitle: 'Title',
       contentId: 'c1', timestamp: 1, savedAt: '2026-08-02T00:00:00.000Z',
       reviewLevel: reviewLevel, lastReviewedAt: lastReviewedAt,
+      updatedAt: '2026-08-02T00:00:00.000Z',
     );
 
 void main() {
@@ -172,6 +173,7 @@ void main() {
       contentTitle: 'Title', contentId: 'c1', timestamp: 1,
       savedAt: '2026-08-02T00:00:00.000Z',
       reviewLevel: 2, nextReviewAt: future,
+      updatedAt: '2026-08-02T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -205,6 +207,7 @@ void main() {
       id: 'w2', word: 'brief', translation: '짧은', platform: 'netflix',
       contentTitle: 'Title', contentId: 'c1', timestamp: 1,
       savedAt: '2026-08-02T00:00:00.000Z', reviewLevel: 2, nextReviewAt: future,
+      updatedAt: '2026-08-02T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -225,6 +228,7 @@ void main() {
       id: 'w2', word: 'brief', translation: '짧은', platform: 'netflix',
       contentTitle: 'Title', contentId: 'c1', timestamp: 1,
       savedAt: '2026-08-02T00:00:00.000Z', reviewLevel: 2,
+      updatedAt: '2026-08-02T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -253,6 +257,7 @@ void main() {
       id: 's1', original: 'Nothing in life is ephemeral.', translation: '인생에서 덧없지 않은 것은 없다.',
       platform: 'youtube', contentTitle: 'Video', contentId: 'c2',
       timestamp: 1, savedAt: '2026-08-02T00:00:00.000Z',
+      updatedAt: '2026-08-02T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -330,6 +335,7 @@ void main() {
       reviewLevel: 3, reviewCount: 5,
       nextReviewAt: '2099-01-01T00:00:00.000Z',
       lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      updatedAt: '2026-08-02T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));

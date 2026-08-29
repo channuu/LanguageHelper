@@ -841,6 +841,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           timestamp: 0,
           savedAt: DateTime.now().toIso8601String(),
           reviewLevel: _level,
+          updatedAt: DateTime.now().toIso8601String(),
         ));
       }
     } else {
@@ -875,6 +876,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           timestamp: 0,
           savedAt: DateTime.now().toIso8601String(),
           reviewLevel: _level,
+          updatedAt: DateTime.now().toIso8601String(),
         ));
       }
     }

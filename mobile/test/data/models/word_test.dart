@@ -15,6 +15,7 @@ void main() {
         contentId: '70301898',
         timestamp: 142.5,
         savedAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
         reviewCount: 2,
         nextReviewAt: '2026-08-03T00:00:00.000Z',
       );
@@ -58,6 +59,7 @@ void main() {
         id: 'w1', word: 'ephemeral', platform: 'netflix',
         contentTitle: 'x', contentId: 'y', timestamp: 1,
         savedAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
       );
       final updated = word.copyWith(reviewCount: 1, nextReviewAt: '2026-08-03T00:00:00.000Z');
 
@@ -72,6 +74,7 @@ void main() {
         id: 'w1', word: 'ephemeral', platform: 'netflix',
         contentTitle: 'x', contentId: 'y', timestamp: 1,
         savedAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
         reviewLevel: 3,
         lastReviewedAt: '2026-08-10T00:00:00.000Z',
       );
@@ -94,6 +97,7 @@ void main() {
         id: 'w1', word: 'ephemeral', platform: 'netflix',
         contentTitle: 'x', contentId: 'y', timestamp: 1,
         savedAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
       );
       final updated = word.copyWith(reviewLevel: 2, lastReviewedAt: '2026-08-10T00:00:00.000Z');
       expect(updated.reviewLevel, 2);
@@ -106,6 +110,7 @@ void main() {
         id: 'w1', word: 'ephemeral', platform: 'netflix',
         contentTitle: 'x', contentId: 'y', timestamp: 1,
         savedAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
         nextReviewAt: '2026-08-08T00:00:00.000Z',
         lastReviewedAt: '2026-08-01T00:00:00.000Z',
       );
@@ -120,6 +125,7 @@ void main() {
         sentence: 'Nothing in life is ephemeral.', translation: '덧없는',
         platform: 'netflix', contentTitle: 'x', contentId: 'y', timestamp: 1,
         savedAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
         reviewCount: 5, reviewLevel: 3,
         nextReviewAt: '2099-01-01T00:00:00.000Z',
         lastReviewedAt: '2026-08-10T00:00:00.000Z',

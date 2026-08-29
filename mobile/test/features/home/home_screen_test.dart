@@ -60,6 +60,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 142.5,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -81,6 +82,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
     await repo.saveSentence(Sentence(
       id: 's1',
@@ -90,6 +92,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
     await repo.saveSentence(Sentence(
       id: 's2',
@@ -99,6 +102,7 @@ void main() {
       contentId: '81234567',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -118,6 +122,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
     await repo.saveWord(Word(
       id: 'w2',
@@ -127,6 +132,7 @@ void main() {
       contentId: '81234567',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -152,6 +158,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
     await repo.saveWord(Word(
       id: 'w2',
@@ -161,6 +168,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -185,6 +193,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -208,6 +217,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildApp(repo));
@@ -239,6 +249,7 @@ void main() {
       contentId: 'dQw4w9WgXcQ',
       timestamp: 0,
       savedAt: '2026-08-14T00:00:00.000Z',
+      updatedAt: '2026-08-14T00:00:00.000Z',
     ));
     await tester.pumpAndSettle();
 

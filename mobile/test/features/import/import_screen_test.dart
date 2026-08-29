@@ -110,9 +110,12 @@ void main() {
         contentId: 'c',
         timestamp: 0,
         savedAt: '2026-08-11T21:24:00.000Z',
+        updatedAt: '2026-08-11T21:24:00.000Z',
       ).toMap()
         ..remove('review_level')
-        ..remove('last_reviewed_at');
+        ..remove('last_reviewed_at')
+        ..remove('updated_at')
+        ..remove('synced_at');
       await importDb.insert('words', w1Map);
       await importDb.close();
 

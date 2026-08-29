@@ -20,6 +20,7 @@ Word _word(String savedAt) => Word(
       contentId: 'c',
       timestamp: 0,
       savedAt: savedAt,
+      updatedAt: savedAt,
     );
 
 Sentence _sentence(String savedAt) => Sentence(
@@ -30,6 +31,7 @@ Sentence _sentence(String savedAt) => Sentence(
       contentId: 'c',
       timestamp: 0,
       savedAt: savedAt,
+      updatedAt: savedAt,
     );
 
 void main() {

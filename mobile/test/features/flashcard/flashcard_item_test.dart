@@ -9,12 +9,14 @@ Word _word() => Word(
       platform: 'netflix', contentTitle: 'Title', contentId: 'c1',
       timestamp: 1, savedAt: '2026-08-02T00:00:00.000Z',
       reviewLevel: 2, lastReviewedAt: '2026-08-10T00:00:00.000Z',
+      updatedAt: '2026-08-02T00:00:00.000Z',
     );
 
 Sentence _sentence() => Sentence(
       id: 's1', original: 'Nothing in life is ephemeral.', translation: '인생에서 덧없지 않은 것은 없다.',
       platform: 'youtube', contentTitle: 'Video', contentId: 'c2',
       timestamp: 1, savedAt: '2026-08-02T00:00:00.000Z',
+      updatedAt: '2026-08-02T00:00:00.000Z',
     );
 
 void main() {
@@ -39,6 +41,7 @@ void main() {
         sentence: word.sentence, translation: '', platform: word.platform,
         contentTitle: word.contentTitle, contentId: word.contentId,
         timestamp: word.timestamp, savedAt: word.savedAt,
+        updatedAt: word.updatedAt,
       );
       final item = FlashcardItem.fromWord(noTranslation);
       expect(item.prompt, 'lasting for a very short time');

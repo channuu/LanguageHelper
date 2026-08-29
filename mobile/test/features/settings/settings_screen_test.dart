@@ -70,9 +70,11 @@ void main() {
 
     await repo.saveWord(const Word(
       id: 'w1', word: 'x', platform: 'youtube', contentTitle: 't', contentId: 'c', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
     ));
     await repo.saveSentence(const Sentence(
       id: 's1', original: 'x', platform: 'youtube', contentTitle: 't', contentId: 'c', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
     ));
 
     await tester.pumpWidget(buildScreen(repo, timerRepo));

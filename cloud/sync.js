@@ -73,15 +73,25 @@ function forRemote(item) {
 async function pushEntity(uid, entity, token) {
   const items = await read(KEYS[entity], []);
   const now = new Date().toISOString();
-  let changed = false;
+  const pushedIds = [];
 
   for (const item of items) {
     if (item.synced_at != null) continue;
     await writeDocument(uid, entity, item.id, forRemote(item), token);
-    item.synced_at = now;
-    changed = true;
+    pushedIds.push(item.id);
   }
-  if (changed) await write(KEYS[entity], items);
+  if (pushedIds.length === 0) return;
+
+  // Re-read right before writing: SAVE_WORD (or a concurrent sync run) can
+  // have changed this key while we were awaiting the network above. Stamp
+  // synced_at onto the CURRENT array by id instead of writing back the stale
+  // `items` snapshot — that would silently erase anything saved meanwhile.
+  const current = await read(KEYS[entity], []);
+  const pushedSet = new Set(pushedIds);
+  const stamped = current.map(i => (
+    pushedSet.has(i.id) ? { ...i, synced_at: now } : i
+  ));
+  await write(KEYS[entity], stamped);
 }
 
 async function pushDeletes(uid, token) {
@@ -93,6 +103,9 @@ async function pushDeletes(uid, token) {
     try {
       await deleteDocument(uid, entry.entity, entry.docId, token);
     } catch (err) {
+      // A genuine bug (not a Firestore/network failure) must surface instead
+      // of being retried forever in silence — same principle as syncNow.
+      if (!(err instanceof FirestoreError)) throw err;
       remaining.push(entry);
     }
   }
@@ -104,7 +117,15 @@ async function pullEntity(uid, entity, token) {
   const local = await read(KEYS[entity], []);
   const { toWriteLocal, toDeleteLocal } = planMerge(local, remote);
 
-  const byId = new Map(local.map(i => [i.id, i]));
+  // Re-read right before writing and apply the merge decision (computed from
+  // the `local` snapshot above) onto the CURRENT array by id. Items added to
+  // storage after `local` was read (e.g. SAVE_WORD) have synced_at == null
+  // and were never part of the merge input — basing the map on `current`
+  // means they're simply untouched entries in it, so they survive. Deletes
+  // still apply by id against `current`, so nothing the merge decided to
+  // remove gets resurrected.
+  const current = await read(KEYS[entity], []);
+  const byId = new Map(current.map(i => [i.id, i]));
   for (const id of toDeleteLocal) byId.delete(id);
 
   const now = new Date().toISOString();
@@ -120,11 +141,23 @@ async function pullEntity(uid, entity, token) {
   await write(KEYS[entity], merged);
 }
 
+// syncNow can genuinely run concurrently — a save triggers one while the
+// 15-minute alarm fires another. Chain every call through this so a second
+// caller awaits the in-flight run instead of racing it. `.catch(() => {})`
+// keeps a rejected run from poisoning the chain and blocking future syncs.
+let syncChain = Promise.resolve();
+
+export function syncNow() {
+  const run = syncChain.then(() => runSyncNow());
+  syncChain = run.catch(() => {});
+  return run;
+}
+
 /**
  * 밀린 것을 먼저 올리고, 그다음 내려받는다.
  * 401은 getValidToken이 이미 갱신을 시도한 뒤이므로 재시도하지 않는다.
  */
-export async function syncNow() {
+async function runSyncNow() {
   await ensureMigrated();
 
   const auth = await getAuth();

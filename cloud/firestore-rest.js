@@ -55,14 +55,23 @@ function docUrl(uid, collection, docId) {
 }
 
 async function request(url, opts, idToken) {
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      ...(opts.headers || {}),
-      'Authorization': 'Bearer ' + idToken,
-      'Content-Type': 'application/json'
-    }
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      ...opts,
+      headers: {
+        ...(opts.headers || {}),
+        'Authorization': 'Bearer ' + idToken,
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch (err) {
+    // fetch() rejects (offline, DNS failure, ...) instead of returning a
+    // response. Fold that into FirestoreError too — status 0 means "no HTTP
+    // response was received" — so callers only ever see FirestoreError for
+    // network-shaped failures and syncNow's `{ ok: false }` contract holds.
+    throw new FirestoreError(0, err.message);
+  }
   if (!res.ok) {
     let message = res.status + '';
     try {

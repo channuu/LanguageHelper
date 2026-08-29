@@ -3,8 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/sentence.dart';
+import '../models/study_session.dart';
+import '../models/weekly_goal.dart';
 import '../models/word.dart';
 import '../repository.dart';
+import '../study_timer_repository.dart';
 import 'merge.dart';
 
 /// Firestore 접근을 인터페이스 뒤에 둔다 — cloud_firestore는 위젯 테스트에서
@@ -51,6 +54,7 @@ class SyncService extends ChangeNotifier {
   static const _lastUidKey = 'sync_last_uid';
 
   final LearningRepository repository;
+  final StudyTimerRepository timerRepository;
   final RemoteStore remote;
 
   String? _lastSyncAt;
@@ -58,6 +62,7 @@ class SyncService extends ChangeNotifier {
 
   SyncService({
     required this.repository,
+    required this.timerRepository,
     required this.remote,
   });
 
@@ -84,9 +89,13 @@ class SyncService extends ChangeNotifier {
   Future<int> _countPending() async {
     final words = await repository.getWords();
     final sentences = await repository.getSentences();
+    final sessions = await timerRepository.getAllSessions();
+    final goals = await timerRepository.getAllGoals();
     final queue = await repository.getSyncQueue();
     return words.where((w) => w.syncedAt == null).length +
         sentences.where((s) => s.syncedAt == null).length +
+        sessions.where((s) => s.syncedAt == null).length +
+        goals.where((g) => g.syncedAt == null).length +
         queue.length;
   }
 
@@ -99,6 +108,7 @@ class SyncService extends ChangeNotifier {
     final lastUid = prefs.getString(_lastUidKey);
     if (lastUid != null && lastUid != uid) {
       await repository.clearAllLocalData();
+      await timerRepository.clearAllLocalData();
       await prefs.remove(_lastSyncKey);
       _lastSyncAt = null;
     }
@@ -112,6 +122,8 @@ class SyncService extends ChangeNotifier {
       await _pushDeletes(uid);
       await _syncWords(uid);
       await _syncSentences(uid);
+      await _syncSessions(uid);
+      await _syncGoals(uid);
 
       final prefs = await SharedPreferences.getInstance();
       _lastSyncAt = DateTime.now().toIso8601String();
@@ -192,6 +204,52 @@ class SyncService extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncSessions(String uid) async {
+    final local = (await timerRepository.getAllSessions())
+        .map((s) => s.toMap())
+        .toList();
+    final remoteDocs = await remote.list(uid, 'study_sessions');
+    final plan = planMerge(
+      local: local.map(_recordOf).toList(),
+      remote: remoteDocs.map(_recordOf).toList(),
+    );
+
+    final now = DateTime.now().toIso8601String();
+    for (final rec in plan.toPush) {
+      await remote.write(uid, 'study_sessions', rec.id, _forRemote(rec.data));
+      await timerRepository
+          .upsertSession(StudySession.fromMap({...rec.data, 'synced_at': now}));
+    }
+    for (final rec in plan.toWriteLocal) {
+      await timerRepository
+          .upsertSession(StudySession.fromMap({...rec.data, 'synced_at': now}));
+    }
+    // 세션은 append-only다 — 앱에는 삭제 경로가 없어(확장과 달리 이 데이터는
+    // 기기 전용) toDeleteLocal을 다룰 필요가 없다.
+  }
+
+  Future<void> _syncGoals(String uid) async {
+    final local =
+        (await timerRepository.getAllGoals()).map((g) => g.toMap()).toList();
+    final remoteDocs = await remote.list(uid, 'weekly_goals');
+    final plan = planMerge(
+      local: local.map(_recordOf).toList(),
+      remote: remoteDocs.map(_recordOf).toList(),
+    );
+
+    final now = DateTime.now().toIso8601String();
+    for (final rec in plan.toPush) {
+      await remote.write(uid, 'weekly_goals', rec.id, _forRemote(rec.data));
+      await timerRepository
+          .upsertGoal(WeeklyGoal.fromMap({...rec.data, 'synced_at': now}));
+    }
+    for (final rec in plan.toWriteLocal) {
+      await timerRepository
+          .upsertGoal(WeeklyGoal.fromMap({...rec.data, 'synced_at': now}));
+    }
+    // 목표도 append-only — 삭제 경로가 없다.
+  }
+
   /// 로그아웃 전에 밀린 것을 먼저 밀어낸다. 남으면 거부한다 — 로그아웃은
   /// 로컬 캐시를 비우므로 미동기 항목이 유실된다.
   Future<SyncResult> signOut(String uid, {bool force = false}) async {
@@ -200,6 +258,7 @@ class SyncService extends ChangeNotifier {
       return SyncResult(ok: false, pending: result.pending);
     }
     await repository.clearAllLocalData();
+    await timerRepository.clearAllLocalData();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_lastSyncKey);
     await prefs.remove(_lastUidKey);

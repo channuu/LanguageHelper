@@ -2,8 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:english_helper_app/data/database.dart';
+import 'package:english_helper_app/data/models/study_session.dart';
 import 'package:english_helper_app/data/models/word.dart';
 import 'package:english_helper_app/data/repository.dart';
+import 'package:english_helper_app/data/study_timer_repository.dart';
 import 'package:english_helper_app/data/sync/sync_service.dart';
 
 class InMemoryRemoteStore implements RemoteStore {
@@ -42,6 +44,7 @@ void main() {
   const t2 = '2026-08-02T00:00:00.000Z';
 
   late LocalSQLiteRepository repo;
+  late LocalStudyTimerRepository timerRepo;
   late InMemoryRemoteStore remote;
   late SyncService sync;
 
@@ -53,12 +56,14 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
+    timerRepo = LocalStudyTimerRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
     remote = InMemoryRemoteStore();
-    sync = SyncService(repository: repo, remote: remote);
+    sync = SyncService(repository: repo, timerRepository: timerRepo, remote: remote);
   });
 
   tearDown(() async {
     await repo.close();
+    await timerRepo.close();
   });
 
   test('미동기 항목을 업로드하고 syncedAt을 채운다', () async {
@@ -165,5 +170,64 @@ void main() {
 
     expect(result.ok, isTrue);
     expect(await repo.getWords(), isEmpty);
+  });
+
+  test('타이머 세션을 업로드하고 syncedAt을 채운다', () async {
+    await timerRepo.upsertSession(StudySession(
+      id: 'ss1',
+      startedAt: DateTime.parse(t1),
+      endedAt: DateTime.parse(t1).add(const Duration(minutes: 30)),
+      durationSeconds: 1800,
+      savedAt: t1,
+      updatedAt: t1,
+    ));
+
+    await sync.syncNow('u1');
+
+    expect(remote.docs['u1/study_sessions']!.containsKey('ss1'), isTrue);
+    expect((await timerRepo.getAllSessions()).single.syncedAt, isNotNull);
+  });
+
+  test('서버에만 있는 주간 목표를 내려받는다', () async {
+    remote.docs['u1/weekly_goals'] = {
+      'g1': {'id': 'g1', 'target_minutes': 300,
+             'effective_from': t1, 'created_at': t1, 'updated_at': t1},
+    };
+
+    await sync.syncNow('u1');
+
+    expect((await timerRepo.getAllGoals()).map((g) => g.id), ['g1']);
+  });
+
+  test('타이머 문서에도 synced_at을 올리지 않는다', () async {
+    await timerRepo.upsertSession(StudySession(
+      id: 'ss1',
+      startedAt: DateTime.parse(t1),
+      endedAt: DateTime.parse(t1).add(const Duration(minutes: 30)),
+      durationSeconds: 1800,
+      savedAt: t1,
+      updatedAt: t1,
+    ));
+
+    await sync.syncNow('u1');
+
+    expect(remote.docs['u1/study_sessions']!['ss1']!.containsKey('synced_at'),
+        isFalse);
+  });
+
+  test('계정 전환 시 타이머 데이터도 비운다', () async {
+    await timerRepo.upsertSession(StudySession(
+      id: 'ss1',
+      startedAt: DateTime.parse(t1),
+      endedAt: DateTime.parse(t1).add(const Duration(minutes: 30)),
+      durationSeconds: 1800,
+      savedAt: t1,
+      updatedAt: t1,
+    ));
+    await sync.onSignedIn('u1');
+
+    await sync.onSignedIn('u2');
+
+    expect(await timerRepo.getAllSessions(), isEmpty);
   });
 }

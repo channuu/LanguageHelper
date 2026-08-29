@@ -9,6 +9,8 @@ void main() {
       endedAt: DateTime.parse('2026-08-10T09:30:00.000Z'),
       durationSeconds: 1500,
       savedAt: '2026-08-10T09:30:00.000Z',
+      updatedAt: '2026-08-10T09:30:00.000Z',
+      syncedAt: '2026-08-10T09:31:00.000Z',
     );
 
     final restored = StudySession.fromMap(session.toMap());
@@ -18,6 +20,8 @@ void main() {
     expect(restored.endedAt, DateTime.parse('2026-08-10T09:30:00.000Z'));
     expect(restored.durationSeconds, 1500);
     expect(restored.savedAt, '2026-08-10T09:30:00.000Z');
+    expect(restored.updatedAt, '2026-08-10T09:30:00.000Z');
+    expect(restored.syncedAt, '2026-08-10T09:31:00.000Z');
   });
 
   test('toMap uses snake_case keys matching the SQL schema', () {
@@ -27,12 +31,14 @@ void main() {
       endedAt: DateTime.parse('2026-08-10T09:30:00.000Z'),
       durationSeconds: 1500,
       savedAt: '2026-08-10T09:30:00.000Z',
+      updatedAt: '2026-08-10T09:30:00.000Z',
     );
 
     final map = session.toMap();
 
     expect(map.keys.toSet(), {
       'id', 'started_at', 'ended_at', 'duration_seconds', 'saved_at',
+      'updated_at', 'synced_at',
     });
   });
 }

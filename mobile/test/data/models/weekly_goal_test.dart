@@ -8,6 +8,8 @@ void main() {
       targetMinutes: 300,
       effectiveFrom: DateTime.parse('2026-08-10T00:00:00.000Z'),
       createdAt: '2026-08-10T00:00:00.000Z',
+      updatedAt: '2026-08-10T00:00:00.000Z',
+      syncedAt: '2026-08-10T00:01:00.000Z',
     );
 
     final restored = WeeklyGoal.fromMap(goal.toMap());
@@ -16,6 +18,8 @@ void main() {
     expect(restored.targetMinutes, 300);
     expect(restored.effectiveFrom, DateTime.parse('2026-08-10T00:00:00.000Z'));
     expect(restored.createdAt, '2026-08-10T00:00:00.000Z');
+    expect(restored.updatedAt, '2026-08-10T00:00:00.000Z');
+    expect(restored.syncedAt, '2026-08-10T00:01:00.000Z');
   });
 
   test('toMap uses snake_case keys matching the SQL schema', () {
@@ -24,10 +28,12 @@ void main() {
       targetMinutes: 300,
       effectiveFrom: DateTime.parse('2026-08-10T00:00:00.000Z'),
       createdAt: '2026-08-10T00:00:00.000Z',
+      updatedAt: '2026-08-10T00:00:00.000Z',
     );
 
     expect(goal.toMap().keys.toSet(), {
       'id', 'target_minutes', 'effective_from', 'created_at',
+      'updated_at', 'synced_at',
     });
   });
 }

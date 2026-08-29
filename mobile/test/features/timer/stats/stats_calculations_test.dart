@@ -10,6 +10,7 @@ StudySession _session(DateTime startedAt, {int durationSeconds = 1800}) => Study
       endedAt: startedAt.add(Duration(seconds: durationSeconds)),
       durationSeconds: durationSeconds,
       savedAt: startedAt.toIso8601String(),
+      updatedAt: startedAt.toIso8601String(),
     );
 
 Word _word(String savedAt) => Word(

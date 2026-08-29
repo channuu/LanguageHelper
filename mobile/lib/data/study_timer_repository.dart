@@ -38,6 +38,11 @@ abstract class StudyTimerRepository extends ChangeNotifier {
   Future<List<StudySession>> getSessionsBetween(DateTime start, DateTime end);
   Future<int?> getWeeklyGoalMinutes(DateTime forWeekStart);
   Future<void> setWeeklyGoal(int targetMinutes);
+  Future<List<StudySession>> getAllSessions();
+  Future<List<WeeklyGoal>> getAllGoals();
+  Future<void> upsertSession(StudySession session);
+  Future<void> upsertGoal(WeeklyGoal goal);
+  Future<void> clearAllLocalData();
   Future<void> close();
 }
 
@@ -140,6 +145,7 @@ class LocalStudyTimerRepository extends ChangeNotifier implements StudyTimerRepo
       endedAt: now,
       durationSeconds: rawDuration < 0 ? 0 : rawDuration,
       savedAt: now.toIso8601String(),
+      updatedAt: now.toIso8601String(),
     );
 
     final db = await _database;
@@ -192,8 +198,47 @@ class LocalStudyTimerRepository extends ChangeNotifier implements StudyTimerRepo
       targetMinutes: targetMinutes,
       effectiveFrom: mondayOf(now),
       createdAt: now.toIso8601String(),
+      updatedAt: now.toIso8601String(),
     );
     await db.insert('weekly_goals', goal.toMap());
+    notifyListeners();
+  }
+
+  @override
+  Future<List<StudySession>> getAllSessions() async {
+    final db = await _database;
+    final rows = await db.query('study_sessions', orderBy: 'started_at DESC');
+    return rows.map(StudySession.fromMap).toList();
+  }
+
+  @override
+  Future<List<WeeklyGoal>> getAllGoals() async {
+    final db = await _database;
+    final rows = await db.query('weekly_goals', orderBy: 'effective_from DESC');
+    return rows.map(WeeklyGoal.fromMap).toList();
+  }
+
+  @override
+  Future<void> upsertSession(StudySession session) async {
+    final db = await _database;
+    await db.insert('study_sessions', session.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> upsertGoal(WeeklyGoal goal) async {
+    final db = await _database;
+    await db.insert('weekly_goals', goal.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> clearAllLocalData() async {
+    final db = await _database;
+    await db.delete('study_sessions');
+    await db.delete('weekly_goals');
     notifyListeners();
   }
 

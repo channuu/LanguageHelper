@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>English Helper 로그인</title>
+  <link rel="stylesheet" href="../ui/tokens.css">
+  <style>
+    body {
+      margin: 0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--eh-bg, #14110f);
+      color: var(--eh-ink, #f5f0e8);
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .card { width: 320px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { font-size: 13px; opacity: .7; margin: 0 0 20px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .tab {
+      flex: 1; padding: 8px; text-align: center; font-size: 13px;
+      cursor: pointer; border-radius: 6px; opacity: .5;
+    }
+    .tab.active { background: rgba(255,255,255,.1); opacity: 1; }
+    label { display: block; font-size: 12px; opacity: .7; margin-bottom: 4px; }
+    input {
+      width: 100%; box-sizing: border-box; padding: 10px;
+      margin-bottom: 12px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(0,0,0,.25); color: inherit; font-size: 14px;
+    }
+    button {
+      width: 100%; padding: 11px; border: 0; border-radius: 6px;
+      background: var(--eh-accent, #e5a663); color: #14110f;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    button[disabled] { opacity: .5; cursor: default; }
+    .error { color: #ff8f7a; font-size: 13px; min-height: 18px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>English Helper</h1>
+    <p class="sub">저장한 단어를 모든 기기에서 보려면 로그인하세요.</p>
+    <div class="tabs">
+      <div class="tab active" id="tab-signin" data-mode="signin">로그인</div>
+      <div class="tab" id="tab-signup" data-mode="signup">회원가입</div>
+    </div>
+    <label for="email">이메일</label>
+    <input id="email" type="email" autocomplete="username">
+    <label for="password">비밀번호</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <button id="submit">로그인</button>
+    <div class="error" id="error"></div>
+  </div>
+  <script type="module" src="login.js"></script>
+</body>
+</html>

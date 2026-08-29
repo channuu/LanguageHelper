@@ -716,7 +716,8 @@ ${rows}
               original: cue.text,
               translation: native,
               timestamp: cue.start
-            }).then(() => {
+            }).then((res) => {
+              if (window.EH.handleAuthRequired(res)) return;
               savedSet.add(cue.text);
               window.EH.showToast?.('✓ 문장 저장됨');
               document.dispatchEvent(new CustomEvent('eh-item-saved'));

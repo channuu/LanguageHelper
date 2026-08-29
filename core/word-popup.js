@@ -83,7 +83,8 @@
       window.EH.Storage.saveWord({
         word, definition: dict?.definition || '',
         sentence, translation, timestamp
-      }).then(() => {
+      }).then((res) => {
+        if (window.EH.handleAuthRequired(res)) return;
         window.EH.showToast?.(`✓ "${word}" 저장됨`);
         document.dispatchEvent(new CustomEvent('eh-item-saved'));
         hide();
@@ -92,7 +93,8 @@
 
     document.getElementById('eh-save-sent').addEventListener('click', () => {
       window.EH.Storage.saveSentence({ original: sentence, translation, timestamp })
-        .then(() => {
+        .then((res) => {
+          if (window.EH.handleAuthRequired(res)) return;
           window.EH.showToast?.('✓ 문장 저장됨');
           document.dispatchEvent(new CustomEvent('eh-item-saved'));
           hide();

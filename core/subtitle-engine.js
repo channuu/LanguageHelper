@@ -297,4 +297,23 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
   };
+
+  /**
+   * 저장류 메시지의 응답이 auth_required이면 안내를 띄우고 true를 돌려준다.
+   * 로그인 폼 자체는 확장 페이지에서만 띄운다 — 콘텐츠 스크립트는 호스트
+   * 페이지와 DOM을 공유하므로 여기서 비밀번호를 받으면 안 된다.
+   */
+  window.EH.handleAuthRequired = function (res) {
+    if (!res || res.error !== 'auth_required') return false;
+    window.EH.showToast?.('로그인이 필요해요 · 클릭해서 로그인');
+    const toast = document.getElementById('eh-toast');
+    if (toast) {
+      toast.style.cursor = 'pointer';
+      toast.onclick = () => {
+        chrome.runtime.sendMessage({ type: 'EH_OPEN_LOGIN' });
+        toast.onclick = null;
+      };
+    }
+    return true;
+  };
 })();

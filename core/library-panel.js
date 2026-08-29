@@ -6,6 +6,9 @@
   let tab = 'w'; // 'w' | 's'
   let words = [];
   let sentences = [];
+  let signedIn = false;
+  let email = null;
+  let syncStatus = { lastSyncAt: null, pending: 0 };
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -18,11 +21,28 @@
     return m + ':' + String(s).padStart(2, '0');
   }
 
+  function formatSyncTime(iso) {
+    if (!iso) return '아직 동기화 안 됨';
+    const d = new Date(iso);
+    return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')} 동기화됨`;
+  }
+
   async function loadData() {
     try {
+      const auth = await chrome.runtime.sendMessage({ type: 'EH_AUTH_STATE' });
+      signedIn = !!(auth && auth.signedIn);
+      email = auth ? auth.email : null;
+
+      if (!signedIn) {
+        words = [];
+        sentences = [];
+        return;
+      }
+
       const res = await chrome.runtime.sendMessage({ type: 'GET_ALL' });
       words = (res && res.words) || [];
       sentences = (res && res.sentences) || [];
+      syncStatus = await chrome.runtime.sendMessage({ type: 'EH_SYNC_STATUS' });
     } catch (_) {
       words = [];
       sentences = [];
@@ -37,11 +57,37 @@
   }
 
   function render() {
+    if (!signedIn) {
+      panelEl.innerHTML = `
+        <div class="eh-library-header">
+          <span class="eh-library-title">SAVED LIBRARY</span>
+          <span class="eh-library-close" id="eh-library-close">✕</span>
+        </div>
+        <div class="eh-library-signin">
+          <div class="eh-library-signin-msg">저장한 단어를 보려면 로그인하세요.</div>
+          <div class="eh-library-signin-btn" id="eh-library-signin">로그인</div>
+        </div>
+      `;
+      panelEl.querySelector('#eh-library-close').addEventListener('click', hide);
+      panelEl.querySelector('#eh-library-signin').addEventListener('click', () => {
+        chrome.runtime.sendMessage({ type: 'EH_OPEN_LOGIN' });
+      });
+      return;
+    }
+
     const items = tab === 'w' ? words : sentences;
     panelEl.innerHTML = `
       <div class="eh-library-header">
         <span class="eh-library-title">SAVED LIBRARY</span>
         <span class="eh-library-close" id="eh-library-close">✕</span>
+      </div>
+      <div class="eh-library-sync">
+        <span class="eh-library-sync-time">${esc(formatSyncTime(syncStatus.lastSyncAt))}</span>
+        ${syncStatus.pending > 0
+          ? `<span class="eh-library-sync-pending">${syncStatus.pending}개 대기 중</span>`
+          : ''}
+        <span style="flex:1"></span>
+        <span class="eh-library-signout" id="eh-library-signout">${esc(email || '')} · 로그아웃</span>
       </div>
       <div class="eh-library-tabs">
         <div class="eh-library-tab${tab === 'w' ? ' active' : ''}" data-tab="w">단어 ${words.length}</div>
@@ -61,6 +107,21 @@
     `;
 
     panelEl.querySelector('#eh-library-close').addEventListener('click', hide);
+
+    panelEl.querySelector('#eh-library-signout').addEventListener('click', async () => {
+      let res = await chrome.runtime.sendMessage({ type: 'EH_SIGN_OUT' });
+      if (!res.success && res.error === 'pending') {
+        const ok = confirm(
+          `${res.pending}개 항목이 아직 저장되지 않았어요. 로그아웃하면 사라집니다. 계속할까요?`
+        );
+        if (!ok) return;
+        res = await chrome.runtime.sendMessage({
+          type: 'EH_SIGN_OUT', payload: { force: true }
+        });
+      }
+      await loadData();
+      render();
+    });
 
     panelEl.querySelectorAll('.eh-library-tab').forEach(t => {
       t.addEventListener('click', () => { tab = t.dataset.tab; render(); });
@@ -147,4 +208,10 @@
 
   window.EH = window.EH || {};
   window.EH.LibraryPanel = { setup };
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type !== 'EH_AUTH_CHANGED') return;
+    if (!panelEl || !open) return;
+    loadData().then(render);
+  });
 })();

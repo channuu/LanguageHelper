@@ -647,3 +647,21 @@ body.eh-hidden-offwatch #eh-library-panel {
   width: 480px;
 }
 .eh-panel-btn.active { color: var(--eh-gold); background: rgba(var(--eh-gold-rgb), 0.14); }
+
+/* 라이브러리 패널 — 로그인 유도와 동기화 상태 */
+.eh-library-signin {
+  padding: 32px 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.eh-library-signin-msg { font-size: 13px; opacity: .75; text-align: center; }
+.eh-library-signin-btn {
+  padding: 8px 20px; border-radius: 6px; cursor: pointer;
+  background: var(--eh-accent); color: #14110f;
+  font-size: 13px; font-weight: 600;
+}
+.eh-library-sync {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; font-size: 11px; opacity: .65;
+}
+.eh-library-sync-pending { color: var(--eh-accent); opacity: 1; }
+.eh-library-signout { cursor: pointer; text-decoration: underline; }

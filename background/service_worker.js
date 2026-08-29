@@ -162,6 +162,15 @@ async function handleMessage(message) {
       if (result.pending > 0 && !(message.payload && message.payload.force)) {
         return { success: false, error: 'pending', pending: result.pending };
       }
+      // syncNow()와 clearLocalData() 사이에는 await 지점이 여러 번 있다.
+      // 그 틈에 다른 탭의 SAVE_WORD가 끝나면 미동기 항목이 새로 생길 수
+      // 있으므로, 지우기 직전에 다시 한 번 확인한다 (force가 아니라면).
+      if (!(message.payload && message.payload.force)) {
+        const recheck = await getSyncStatus();
+        if (recheck.pending > 0) {
+          return { success: false, error: 'pending', pending: recheck.pending };
+        }
+      }
       await signOutLocal();
       await clearLocalData();
       await chrome.storage.local.remove('eh-last-uid');

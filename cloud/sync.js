@@ -1,0 +1,149 @@
+// cloud/sync.js
+// 로컬(chrome.storage.local)이 진실이고 Firestore는 미러다.
+// 푸시 실패는 조용히 삼킨다 — 로컬 저장은 이미 성공했고, 매번 토스트를
+// 띄우면 지하철에서 단어를 저장할 때마다 경고가 뜬다. 대신 미동기 개수로
+// 드러낸다 (설계 §10.2).
+import { getAuth, getValidToken } from './auth.js';
+import {
+  listDocuments, writeDocument, deleteDocument, FirestoreError
+} from './firestore-rest.js';
+import { migrateWord, migrateSentence, SCHEMA_VERSION } from './migrate.js';
+import { planMerge } from './merge.js';
+
+const KEYS = { words: 'eh-words', sentences: 'eh-sentences' };
+const QUEUE_KEY = 'eh-sync-queue';
+const LAST_SYNC_KEY = 'eh-last-sync';
+const VERSION_KEY = 'eh-schema-version';
+const MAX_ITEMS = 500;
+
+async function read(key, fallback) {
+  const res = await chrome.storage.local.get(key);
+  return res[key] === undefined ? fallback : res[key];
+}
+
+async function write(key, value) {
+  await chrome.storage.local.set({ [key]: value });
+}
+
+export async function ensureMigrated() {
+  const version = await read(VERSION_KEY, 0);
+  if (version >= SCHEMA_VERSION) return;
+
+  await write(KEYS.words, (await read(KEYS.words, [])).map(migrateWord));
+  await write(KEYS.sentences, (await read(KEYS.sentences, [])).map(migrateSentence));
+  await write(VERSION_KEY, SCHEMA_VERSION);
+}
+
+export async function queueDelete(entity, docId) {
+  const queue = await read(QUEUE_KEY, []);
+  if (!queue.some(q => q.entity === entity && q.docId === docId)) {
+    queue.push({ entity, docId });
+    await write(QUEUE_KEY, queue);
+  }
+}
+
+async function countPending() {
+  const words = await read(KEYS.words, []);
+  const sentences = await read(KEYS.sentences, []);
+  const queue = await read(QUEUE_KEY, []);
+  return words.filter(w => w.synced_at == null).length
+    + sentences.filter(s => s.synced_at == null).length
+    + queue.length;
+}
+
+export async function getSyncStatus() {
+  return {
+    lastSyncAt: await read(LAST_SYNC_KEY, null),
+    pending: await countPending()
+  };
+}
+
+export async function clearLocalData() {
+  await chrome.storage.local.remove([
+    KEYS.words, KEYS.sentences, QUEUE_KEY, LAST_SYNC_KEY
+  ]);
+}
+
+/** Firestore에 올릴 형태 — synced_at은 기기별 사실이라 서버에 두지 않는다. */
+function forRemote(item) {
+  const { synced_at, ...rest } = item;
+  return rest;
+}
+
+async function pushEntity(uid, entity, token) {
+  const items = await read(KEYS[entity], []);
+  const now = new Date().toISOString();
+  let changed = false;
+
+  for (const item of items) {
+    if (item.synced_at != null) continue;
+    await writeDocument(uid, entity, item.id, forRemote(item), token);
+    item.synced_at = now;
+    changed = true;
+  }
+  if (changed) await write(KEYS[entity], items);
+}
+
+async function pushDeletes(uid, token) {
+  const queue = await read(QUEUE_KEY, []);
+  if (queue.length === 0) return;
+
+  const remaining = [];
+  for (const entry of queue) {
+    try {
+      await deleteDocument(uid, entry.entity, entry.docId, token);
+    } catch (err) {
+      remaining.push(entry);
+    }
+  }
+  await write(QUEUE_KEY, remaining);
+}
+
+async function pullEntity(uid, entity, token) {
+  const remote = await listDocuments(uid, entity, token, { pageSize: MAX_ITEMS });
+  const local = await read(KEYS[entity], []);
+  const { toWriteLocal, toDeleteLocal } = planMerge(local, remote);
+
+  const byId = new Map(local.map(i => [i.id, i]));
+  for (const id of toDeleteLocal) byId.delete(id);
+
+  const now = new Date().toISOString();
+  for (const doc of toWriteLocal) {
+    // 서버에서 온 문서는 정의상 동기화된 상태다.
+    byId.set(doc.id, { ...doc, synced_at: now });
+  }
+
+  const merged = [...byId.values()]
+    .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
+    .slice(0, MAX_ITEMS);
+
+  await write(KEYS[entity], merged);
+}
+
+/**
+ * 밀린 것을 먼저 올리고, 그다음 내려받는다.
+ * 401은 getValidToken이 이미 갱신을 시도한 뒤이므로 재시도하지 않는다.
+ */
+export async function syncNow() {
+  await ensureMigrated();
+
+  const auth = await getAuth();
+  if (!auth) return { ok: false, pending: 0 };
+
+  const token = await getValidToken();
+  if (!token) return { ok: false, pending: await countPending() };
+
+  try {
+    await pushDeletes(auth.uid, token);
+    for (const entity of ['words', 'sentences']) {
+      await pushEntity(auth.uid, entity, token);
+      await pullEntity(auth.uid, entity, token);
+    }
+    await write(LAST_SYNC_KEY, new Date().toISOString());
+    return { ok: true, pending: await countPending() };
+  } catch (err) {
+    if (!(err instanceof FirestoreError)) throw err;
+    console.warn('[EH Sync] failed', err.status, err.message);
+    return { ok: false, pending: await countPending() };
+  }
+}

@@ -19,7 +19,9 @@ Future<void> _createTimerTables(Database db) async {
       started_at TEXT NOT NULL,
       ended_at TEXT NOT NULL,
       duration_seconds INTEGER NOT NULL,
-      saved_at TEXT NOT NULL
+      saved_at TEXT NOT NULL,
+      updated_at TEXT,
+      synced_at TEXT
     )
   ''');
   await db.execute('''
@@ -27,7 +29,9 @@ Future<void> _createTimerTables(Database db) async {
       id TEXT PRIMARY KEY,
       target_minutes INTEGER NOT NULL,
       effective_from TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      updated_at TEXT,
+      synced_at TEXT
     )
   ''');
 }
@@ -39,11 +43,34 @@ Future<void> _addReviewLevelColumns(Database db) async {
   await db.execute('ALTER TABLE sentences ADD COLUMN last_reviewed_at TEXT');
 }
 
+const List<String> _syncedTables = [
+  'words', 'sentences', 'study_sessions', 'weekly_goals',
+];
+
+/// 각 테이블에서 "이 행이 생긴 시각"으로 볼 컬럼. 기존 행의 updated_at을
+/// 여기서 채운다 — 그 결과 마이그레이션 자체가 전량 업로드 대상 표시가 된다.
+const Map<String, String> _createdAtColumn = {
+  'words': 'saved_at',
+  'sentences': 'saved_at',
+  'study_sessions': 'saved_at',
+  'weekly_goals': 'created_at',
+};
+
+Future<void> _createSyncQueueTable(Database db) async {
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      entity TEXT NOT NULL,
+      doc_id TEXT NOT NULL,
+      PRIMARY KEY (entity, doc_id)
+    )
+  ''');
+}
+
 Future<Database> openAppDatabase(String path) {
   return databaseFactory.openDatabase(
     path,
     options: OpenDatabaseOptions(
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS words (
@@ -60,7 +87,9 @@ Future<Database> openAppDatabase(String path) {
             review_count INTEGER DEFAULT 0,
             next_review_at TEXT,
             review_level INTEGER NOT NULL DEFAULT 0,
-            last_reviewed_at TEXT
+            last_reviewed_at TEXT,
+            updated_at TEXT,
+            synced_at TEXT
           )
         ''');
         await db.execute('''
@@ -76,10 +105,13 @@ Future<Database> openAppDatabase(String path) {
             review_count INTEGER DEFAULT 0,
             next_review_at TEXT,
             review_level INTEGER NOT NULL DEFAULT 0,
-            last_reviewed_at TEXT
+            last_reviewed_at TEXT,
+            updated_at TEXT,
+            synced_at TEXT
           )
         ''');
         await _createTimerTables(db);
+        await _createSyncQueueTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -87,6 +119,21 @@ Future<Database> openAppDatabase(String path) {
         }
         if (oldVersion < 3) {
           await _addReviewLevelColumns(db);
+        }
+        if (oldVersion < 4) {
+          // v2 미만에서 올라온 경우 타이머 테이블은 방금 새 스키마로
+          // 만들어졌으니 words/sentences에만 컬럼을 붙인다.
+          final tables = oldVersion < 2
+              ? ['words', 'sentences']
+              : _syncedTables;
+          for (final table in tables) {
+            await db.execute('ALTER TABLE $table ADD COLUMN updated_at TEXT');
+            await db.execute('ALTER TABLE $table ADD COLUMN synced_at TEXT');
+            await db.execute(
+              'UPDATE $table SET updated_at = ${_createdAtColumn[table]}',
+            );
+          }
+          await _createSyncQueueTable(db);
         }
       },
     ),

@@ -25,6 +25,7 @@ void main() {
           'id', 'word', 'definition', 'sentence', 'translation', 'platform',
           'content_title', 'content_id', 'timestamp', 'saved_at',
           'review_count', 'next_review_at', 'review_level', 'last_reviewed_at',
+          'updated_at', 'synced_at',
         },
       );
 
@@ -37,6 +38,7 @@ void main() {
           'id', 'original', 'translation', 'platform', 'content_title',
           'content_id', 'timestamp', 'saved_at', 'review_count',
           'next_review_at', 'review_level', 'last_reviewed_at',
+          'updated_at', 'synced_at',
         },
       );
 
@@ -56,12 +58,18 @@ void main() {
       final sessionsCols = (await db.rawQuery('PRAGMA table_info(study_sessions)'))
           .map((r) => r['name'] as String)
           .toSet();
-      expect(sessionsCols, {'id', 'started_at', 'ended_at', 'duration_seconds', 'saved_at'});
+      expect(sessionsCols, {
+        'id', 'started_at', 'ended_at', 'duration_seconds', 'saved_at',
+        'updated_at', 'synced_at',
+      });
 
       final goalsCols = (await db.rawQuery('PRAGMA table_info(weekly_goals)'))
           .map((r) => r['name'] as String)
           .toSet();
-      expect(goalsCols, {'id', 'target_minutes', 'effective_from', 'created_at'});
+      expect(goalsCols, {
+        'id', 'target_minutes', 'effective_from', 'created_at',
+        'updated_at', 'synced_at',
+      });
 
       await db.close();
     });
@@ -187,20 +195,27 @@ void main() {
 
       await v1Db.close();
 
-      // Reopen the same database file with the current (v3) openAppDatabase,
+      // Reopen the same database file with the current (v4) openAppDatabase,
       // which should trigger onUpgrade and add the two missing tables, plus
-      // review_level/last_reviewed_at columns for v3.
+      // review_level/last_reviewed_at columns for v3 and the sync columns
+      // for v4.
       final upgradedDb = await openAppDatabase(dbPath);
 
       final sessionsCols = (await upgradedDb.rawQuery('PRAGMA table_info(study_sessions)'))
           .map((r) => r['name'] as String)
           .toSet();
-      expect(sessionsCols, {'id', 'started_at', 'ended_at', 'duration_seconds', 'saved_at'});
+      expect(sessionsCols, {
+        'id', 'started_at', 'ended_at', 'duration_seconds', 'saved_at',
+        'updated_at', 'synced_at',
+      });
 
       final goalsCols = (await upgradedDb.rawQuery('PRAGMA table_info(weekly_goals)'))
           .map((r) => r['name'] as String)
           .toSet();
-      expect(goalsCols, {'id', 'target_minutes', 'effective_from', 'created_at'});
+      expect(goalsCols, {
+        'id', 'target_minutes', 'effective_from', 'created_at',
+        'updated_at', 'synced_at',
+      });
 
       // words/sentences must have the v3 review columns now.
       final wordsCols = (await upgradedDb.rawQuery('PRAGMA table_info(words)'))

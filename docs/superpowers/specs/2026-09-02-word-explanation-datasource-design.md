@@ -298,7 +298,7 @@ DB `eh-dict`, store 두 개.
   - 4토큰 이상 분리 → 매칭 안 됨
   - `put up with` 우선, 내부 `put up` 미검출 (최장 일치)
   - 겹치는 두 후보 중 앞선 것만 채택
-- `test/build-dictionary.test.js`
+- `test/build-transform.test.js`
   - kaikki 한 줄 → 레코드 변환, sense 4개 절단
   - ko.wiktionary 위키텍스트 → `== 영어 ==` 섹션 추출
   - 두 소스 병합 시 ko.wiktionary 우선

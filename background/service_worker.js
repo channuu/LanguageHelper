@@ -1,10 +1,10 @@
 // background/service_worker.js
 import { getAuth, signOutLocal } from '../cloud/auth.js';
 import {
-  syncNow, ensureMigrated, queueDelete, getSyncStatus, clearLocalData, capItems
+  syncNow, ensureMigrated, queueDelete, getSyncStatus, clearLocalData, capItems,
+  ensureOwner
 } from '../cloud/sync.js';
 
-const LAST_UID_KEY = 'eh-last-uid';
 const SUPPORTED_MATCHES = [
   'https://www.youtube.com/*',
   'https://www.netflix.com/*',
@@ -21,14 +21,13 @@ async function broadcastAuthChanged() {
   }
 }
 
-/** 다른 계정으로 로그인했으면 이전 계정의 로컬 캐시를 지운다 (설계 §4.4). */
+/**
+ * 다른 계정으로 로그인했으면 이전 계정의 로컬 캐시를 지운다 (설계 §4.4).
+ * 실제 판단은 cloud/sync.js의 ensureOwner가 한다 — 모든 sync 경로가 같은
+ * 검사를 거쳐야 이 메시지가 유실돼도 데이터가 섞이지 않는다.
+ */
 async function handleAccountSwitch(uid) {
-  const res = await chrome.storage.local.get(LAST_UID_KEY);
-  const lastUid = res[LAST_UID_KEY];
-  if (lastUid && lastUid !== uid) {
-    await clearLocalData();
-  }
-  await chrome.storage.local.set({ [LAST_UID_KEY]: uid });
+  await ensureOwner(uid);
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -177,6 +176,8 @@ async function handleMessage(message) {
       }
       await signOutLocal();
       await clearLocalData();
+      // 로그아웃하면 주인 표시도 지운다 — 다음 로그인은 '최초 로그인'으로
+      // 취급되지만 로컬 데이터도 방금 비웠으므로 섞일 것이 없다.
       await chrome.storage.local.remove('eh-last-uid');
       await broadcastAuthChanged();
       return { success: true, pending: 0 };

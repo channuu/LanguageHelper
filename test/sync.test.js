@@ -290,3 +290,54 @@ test('capItems leaves a list under the cap untouched', () => {
   const items = [{ id: 'a', synced_at: null }];
   assert.equal(capItems(items, 2), items);
 });
+
+test('a sync as a different account clears the previous account\'s data before pushing', async () => {
+  setValidAuth(store); // uid u1
+  store['eh-schema-version'] = SCHEMA_VERSION;
+  store['eh-last-uid'] = 'someone-else';
+  store['eh-words'] = [
+    { id: 'w1', word: 'alpha', updated_at: '2026-01-01T00:00:00.000Z', synced_at: null }
+  ];
+  store['eh-sentences'] = [];
+
+  const fs = installFakeFirestore();
+  await syncNow();
+
+  assert.deepEqual(store['eh-words'], [],
+    '이전 계정의 단어가 새 계정 아래 그대로 남았다');
+  assert.equal(fs.collections.words.size, 0,
+    '이전 계정의 단어를 새 계정의 Firestore로 올렸다');
+  assert.equal(store['eh-last-uid'], 'u1');
+});
+
+test('a sync as the same account keeps and pushes local data', async () => {
+  setValidAuth(store);
+  store['eh-schema-version'] = SCHEMA_VERSION;
+  store['eh-last-uid'] = 'u1';
+  store['eh-words'] = [
+    { id: 'w1', word: 'alpha', updated_at: '2026-01-01T00:00:00.000Z', synced_at: null }
+  ];
+  store['eh-sentences'] = [];
+
+  const fs = installFakeFirestore();
+  await syncNow();
+
+  assert.equal(store['eh-words'].length, 1);
+  assert.ok(fs.collections.words.has('w1'));
+});
+
+test('a first-ever sync adopts existing data instead of wiping it', async () => {
+  // 기존 사용자가 처음 로그인하는 경우다 — 여기서 지우면 라이브러리가 날아간다.
+  setValidAuth(store);
+  store['eh-schema-version'] = SCHEMA_VERSION;
+  store['eh-words'] = [
+    { id: 'w1', word: 'alpha', updated_at: '2026-01-01T00:00:00.000Z', synced_at: null }
+  ];
+  store['eh-sentences'] = [];
+
+  installFakeFirestore();
+  await syncNow();
+
+  assert.equal(store['eh-words'].length, 1);
+  assert.equal(store['eh-last-uid'], 'u1');
+});

@@ -109,6 +109,20 @@ class SyncService extends ChangeNotifier {
   /// 최초 로그인은 지우지 않는다 — 그러면 기존 사용자의 첫 로그인에서
   /// 라이브러리를 날려버리게 된다.
   Future<void> onSignedIn(String uid) async {
+    await _ensureOwner(uid);
+    await syncNow(uid);
+  }
+
+  /// 로컬 데이터의 주인이 지금 로그인한 계정인지 확인하고, 아니면 비운다.
+  ///
+  /// sync 경로 안에서도 부른다. onSignedIn 한 곳에만 두면 그 호출이
+  /// 유실될 때(로그인 직후 위젯이 사라지는 등) 이전 계정의 행이 로컬에
+  /// 남고, 다음 syncNow가 그것을 새 계정의 서버로 올려버린다 — 확장에서
+  /// 실제로 그렇게 샜다.
+  ///
+  /// 저장된 uid가 없으면 지우지 않는다. 기존 사용자의 첫 로그인이라
+  /// 여기서 지우면 라이브러리를 통째로 날린다.
+  Future<void> _ensureOwner(String uid) async {
     final prefs = await SharedPreferences.getInstance();
     final lastUid = prefs.getString(_lastUidKey);
     if (lastUid != null && lastUid != uid) {
@@ -118,7 +132,6 @@ class SyncService extends ChangeNotifier {
       _lastSyncAt = null;
     }
     await prefs.setString(_lastUidKey, uid);
-    await syncNow(uid);
   }
 
   /// 앱 진입에서 AuthGate와 루트 셸이 같은 프레임에 각각 부르고, 설정의
@@ -138,6 +151,7 @@ class SyncService extends ChangeNotifier {
   Future<SyncResult> _run(String uid) async {
     var ok = true;
     try {
+      await _ensureOwner(uid);
       await _pushDeletes(uid);
       await _syncWords(uid);
       await _syncSentences(uid);

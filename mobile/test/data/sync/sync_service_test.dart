@@ -359,4 +359,28 @@ void main() {
     expect(await timerRepo.getAllSessions(), hasLength(1),
         reason: '거부했으면 로컬 데이터는 그대로여야 한다');
   });
+
+  test('다른 계정으로 sync하면 이전 계정의 로컬 데이터를 먼저 비운다', () async {
+    // 계정 전환 검사가 onSignedIn 한 곳에만 있으면, 그 호출이 유실될 때
+    // 앱 진입 sync가 이전 계정의 단어를 새 계정으로 올려버린다.
+    SharedPreferences.setMockInitialValues({'sync_last_uid': 'someone-else'});
+    await repo.saveWord(makeWord('w1', updatedAt: t1));
+
+    await sync.syncNow('u1');
+
+    expect(await repo.getWords(), isEmpty,
+        reason: '이전 계정의 단어가 새 계정 아래 남았다');
+    expect(remote.docs['u1/words'] ?? {}, isEmpty,
+        reason: '이전 계정의 단어를 새 계정 서버로 올렸다');
+  });
+
+  test('처음 로그인하는 계정은 기존 로컬 데이터를 지우지 않는다', () async {
+    // 기존 사용자의 첫 로그인이다 — 여기서 지우면 라이브러리가 날아간다.
+    await repo.saveWord(makeWord('w1', updatedAt: t1));
+
+    await sync.syncNow('u1');
+
+    expect((await repo.getWords()).single.id, 'w1');
+    expect(remote.docs['u1/words']!.containsKey('w1'), isTrue);
+  });
 }

@@ -12,6 +12,7 @@ import { planMerge } from './merge.js';
 
 const KEYS = { words: 'eh-words', sentences: 'eh-sentences' };
 const QUEUE_KEY = 'eh-sync-queue';
+const LAST_UID_KEY = 'eh-last-uid';
 const LAST_SYNC_KEY = 'eh-last-sync';
 const VERSION_KEY = 'eh-schema-version';
 const MAX_ITEMS = 500;
@@ -182,6 +183,24 @@ export function syncNow() {
 }
 
 /**
+ * 로컬 데이터의 주인이 지금 로그인한 계정인지 확인하고, 아니면 비운다 (설계 §4.4).
+ *
+ * 이 검사는 sync 경로 안에 있어야 한다. 예전에는 로그인 창이 보내는
+ * EH_AUTH_CHANGED 한 번에만 걸려 있었는데, login.js는 그 메시지의 실패를
+ * 조용히 삼킨다(창이 먼저 닫히면 그렇게 된다). 그러면 이전 계정의 단어가
+ * 로컬에 남고, 다음 sync가 그것을 새 계정의 Firestore로 올려버린다 —
+ * 실제로 새 계정으로 가입하자마자 남의 단어가 보이는 사고가 났다.
+ *
+ * 저장된 uid가 없으면 지우지 않는다. 기존 사용자가 처음 로그인하는 경우라
+ * 여기서 지우면 라이브러리를 통째로 날린다.
+ */
+export async function ensureOwner(uid) {
+  const lastUid = await read(LAST_UID_KEY, null);
+  if (lastUid && lastUid !== uid) await clearLocalData();
+  await write(LAST_UID_KEY, uid);
+}
+
+/**
  * 밀린 것을 먼저 올리고, 그다음 내려받는다.
  * 401은 getValidToken이 이미 갱신을 시도한 뒤이므로 재시도하지 않는다.
  */
@@ -190,6 +209,8 @@ async function runSyncNow() {
 
   const auth = await getAuth();
   if (!auth) return { ok: false, pending: 0 };
+
+  await ensureOwner(auth.uid);
 
   const token = await getValidToken();
   if (!token) return { ok: false, pending: await countPending() };

@@ -1,7 +1,7 @@
 // background/service_worker.js
 import { getAuth, signOutLocal } from '../cloud/auth.js';
 import {
-  syncNow, ensureMigrated, queueDelete, getSyncStatus, clearLocalData
+  syncNow, ensureMigrated, queueDelete, getSyncStatus, clearLocalData, capItems
 } from '../cloud/sync.js';
 
 const LAST_UID_KEY = 'eh-last-uid';
@@ -66,8 +66,9 @@ async function handleMessage(message) {
       const result = await chrome.storage.local.get('eh-words');
       const words = result['eh-words'] || [];
       words.unshift(message.payload);
-      if (words.length > 500) words.splice(500);
-      await chrome.storage.local.set({ 'eh-words': words });
+      // 상한을 넘으면 잘라내되 아직 안 올라간 항목은 남긴다 — 서버에도
+      // 없는 데이터라 여기서 버리면 되돌릴 방법이 없다.
+      await chrome.storage.local.set({ 'eh-words': capItems(words) });
       // 로컬 저장은 이미 끝났다. 업로드 실패는 미동기 상태로 남을 뿐이다.
       syncNow().catch(err => console.warn('[EH BG] sync after save', err));
       return { success: true, id: message.payload.id };
@@ -78,8 +79,7 @@ async function handleMessage(message) {
       const result = await chrome.storage.local.get('eh-sentences');
       const sentences = result['eh-sentences'] || [];
       sentences.unshift(message.payload);
-      if (sentences.length > 500) sentences.splice(500);
-      await chrome.storage.local.set({ 'eh-sentences': sentences });
+      await chrome.storage.local.set({ 'eh-sentences': capItems(sentences) });
       syncNow().catch(err => console.warn('[EH BG] sync after save', err));
       return { success: true, id: message.payload.id };
     }

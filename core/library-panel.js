@@ -39,10 +39,18 @@
         return;
       }
 
+      // 패널을 열 때 한 번 당겨온다 (설계 §7.2) — 그러지 않으면 폰에서 지운
+      // 항목이 다음 알람(15분)이나 다음 저장 전까지 계속 보인다. 실패는
+      // 무시한다: 캐시된 로컬 데이터로 그리면 된다.
+      try {
+        await chrome.runtime.sendMessage({ type: 'EH_SYNC_NOW' });
+      } catch (_) { /* 오프라인 — 로컬 데이터로 그린다 */ }
+
       const res = await chrome.runtime.sendMessage({ type: 'GET_ALL' });
       words = (res && res.words) || [];
       sentences = (res && res.sentences) || [];
-      syncStatus = await chrome.runtime.sendMessage({ type: 'EH_SYNC_STATUS' });
+      const status = await chrome.runtime.sendMessage({ type: 'EH_SYNC_STATUS' });
+      syncStatus = status || { lastSyncAt: null, pending: 0 };
     } catch (_) {
       words = [];
       sentences = [];
@@ -110,7 +118,7 @@
 
     panelEl.querySelector('#eh-library-signout').addEventListener('click', async () => {
       let res = await chrome.runtime.sendMessage({ type: 'EH_SIGN_OUT' });
-      if (!res.success && res.error === 'pending') {
+      if (res && !res.success && res.error === 'pending') {
         const ok = confirm(
           `${res.pending}개 항목이 아직 저장되지 않았어요. 로그아웃하면 사라집니다. 계속할까요?`
         );

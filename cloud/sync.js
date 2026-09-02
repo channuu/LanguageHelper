@@ -16,6 +16,22 @@ const LAST_SYNC_KEY = 'eh-last-sync';
 const VERSION_KEY = 'eh-schema-version';
 const MAX_ITEMS = 500;
 
+/**
+ * 500개 상한을 지키되 아직 서버에 올라가지 않은 항목은 남긴다.
+ * synced_at이 null인 항목은 여기서 버리면 서버에도 없어 되돌릴 수 없다.
+ * 오래된 쪽(배열 끝)부터, 이미 올라간 항목만 골라 떨어뜨린다.
+ */
+export function capItems(items, max = MAX_ITEMS) {
+  if (items.length <= max) return items;
+  let toDrop = items.length - max;
+  const out = [];
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (toDrop > 0 && items[i].synced_at != null) { toDrop--; continue; }
+    out.unshift(items[i]);
+  }
+  return out;
+}
+
 async function read(key, fallback) {
   const res = await chrome.storage.local.get(key);
   return res[key] === undefined ? fallback : res[key];
@@ -128,15 +144,27 @@ async function pullEntity(uid, entity, token) {
   const byId = new Map(current.map(i => [i.id, i]));
   for (const id of toDeleteLocal) byId.delete(id);
 
+  // 삭제 대기 중인 항목은 서버 문서로 되살리지 않는다. 이번 sync의
+  // pushDeletes가 지나간 뒤에 지운 항목이 여기 남는데, 서버에는 아직 그
+  // 문서가 있어 rule 3이 "서버에만 있음"으로 읽고 다시 넣어버린다 —
+  // 방금 지운 게 눈앞에서 되살아난다. 다음 sync가 서버에서 지울 것이다.
+  const queuedDeletes = new Set(
+    (await read(QUEUE_KEY, []))
+      .filter(q => q.entity === entity)
+      .map(q => q.docId)
+  );
+
   const now = new Date().toISOString();
   for (const doc of toWriteLocal) {
+    if (queuedDeletes.has(doc.id)) continue;
     // 서버에서 온 문서는 정의상 동기화된 상태다.
     byId.set(doc.id, { ...doc, synced_at: now });
   }
 
-  const merged = [...byId.values()]
-    .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
-    .slice(0, MAX_ITEMS);
+  const merged = capItems(
+    [...byId.values()]
+      .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
+  );
 
   await write(KEYS[entity], merged);
 }

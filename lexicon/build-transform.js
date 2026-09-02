@@ -13,8 +13,11 @@ const KO_POS = {
 };
 
 export function bucketFor(word) {
-  const head = String(word).toLowerCase().slice(0, 2);
-  return /^[a-z]{2}$/.test(head) ? head : '_';
+  const w = String(word).toLowerCase();
+  const head2 = w.slice(0, 2);
+  if (!/^[a-z]{2}$/.test(head2)) return '_';
+  const head3 = w.slice(0, 3);
+  return /^[a-z]{3}$/.test(head3) ? head3 : head2;
 }
 
 export function parseKaikkiLine(line) {

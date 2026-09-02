@@ -4,10 +4,14 @@ import {
   bucketFor, parseKaikkiLine, parseKoSection, mergeEntry, buildInflections
 } from '../lexicon/build-transform.js';
 
-test('bucketFor: 앞 두 글자를 쓴다', () => {
-  assert.equal(bucketFor('awkward'), 'aw');
-  assert.equal(bucketFor('give up'), 'gi');
-  assert.equal(bucketFor('Give Up'), 'gi');
+test('bucketFor: 앞 세 글자가 모두 알파벳이면 세 글자를 쓴다', () => {
+  assert.equal(bucketFor('awkward'), 'awk');
+  assert.equal(bucketFor('give up'), 'giv');
+  assert.equal(bucketFor('Give Up'), 'giv');
+});
+
+test('bucketFor: 두 글자짜리 단어는 두 글자를 쓴다', () => {
+  assert.equal(bucketFor('go'), 'go');
 });
 
 test('bucketFor: 두 글자를 못 채우거나 알파벳이 아니면 _ 이다', () => {

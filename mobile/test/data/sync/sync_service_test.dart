@@ -302,4 +302,61 @@ void main() {
     expect((await repo.getSyncQueue()).single.docId, 'gone',
         reason: '실패한 항목은 큐에 남아 다음에 재시도한다');
   });
+
+  test('삭제 대기 중인 항목은 서버 문서로 되살아나지 않는다', () async {
+    await repo.saveWord(makeWord('w1', updatedAt: t1, syncedAt: t1));
+    remote.docs['u1/words'] = {
+      'w1': {...makeWord('w1', updatedAt: t1).toMap()..remove('synced_at')},
+    };
+    // 삭제 큐를 밀고 지나간 뒤 사용자가 w1을 지운다. 서버에는 아직 남아
+    // 있으므로 규칙 3이 "서버에만 있음"으로 읽는다.
+    var deleted = false;
+    remote.onList = () async {
+      if (deleted) return;
+      deleted = true;
+      await repo.deleteWord('w1');
+      await repo.queueDelete('words', 'w1');
+    };
+
+    await sync.syncNow('u1');
+
+    expect(await repo.getWords(), isEmpty,
+        reason: '방금 지운 항목이 같은 sync에서 되살아났다');
+  });
+
+  test('주간 목표를 올릴 때도 synced_at을 서버에 넣지 않는다', () async {
+    await timerRepo.setWeeklyGoal(300);
+
+    await sync.syncNow('u1');
+
+    final goal = remote.docs['u1/weekly_goals']!.values.single;
+    expect(goal.containsKey('synced_at'), isFalse,
+        reason: 'synced_at은 기기별 사실이라 서버에 두면 서로 덮어쓴다');
+  });
+
+  test('로그아웃은 타이머 데이터도 지운다', () async {
+    await timerRepo.startSession();
+    await timerRepo.endSession();
+    await timerRepo.setWeeklyGoal(300);
+
+    final result = await sync.signOut('u1');
+
+    expect(result.ok, isTrue);
+    expect(await timerRepo.getAllSessions(), isEmpty);
+    expect(await timerRepo.getAllGoals(), isEmpty);
+  });
+
+  test('아직 못 올린 학습 세션이 있으면 로그아웃을 거부한다', () async {
+    await timerRepo.startSession();
+    await timerRepo.endSession();
+    remote.throwOnWrite =
+        FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+
+    final result = await sync.signOut('u1');
+
+    expect(result.ok, isFalse);
+    expect(result.pending, greaterThan(0));
+    expect(await timerRepo.getAllSessions(), hasLength(1),
+        reason: '거부했으면 로컬 데이터는 그대로여야 한다');
+  });
 }

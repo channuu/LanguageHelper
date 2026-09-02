@@ -424,6 +424,27 @@ void main() {
     expect(queue.single.entity, 'sentences');
   });
 
+  test('clearAllLocalData는 타이머 테이블을 건드리지 않는다', () async {
+    // 타이머 테이블은 StudyTimerRepository의 것이고, 계정 전환·로그아웃은
+    // 두 저장소의 clearAllLocalData를 나란히 부른다. 학습 저장소가 남의
+    // 테이블까지 지우면 소유 관계가 흐려진다.
+    final db = await openAppDatabase(inMemoryDatabasePath);
+    final scoped = LocalSQLiteRepository(openDb: () async => db);
+    await db.insert('study_sessions', {
+      'id': 'sess1',
+      'started_at': '2026-08-01T00:00:00.000Z',
+      'ended_at': '2026-08-01T00:10:00.000Z',
+      'duration_seconds': 600,
+      'saved_at': '2026-08-01T00:10:00.000Z',
+      'updated_at': '2026-08-01T00:10:00.000Z',
+    });
+
+    await scoped.clearAllLocalData();
+
+    expect(await db.query('study_sessions'), hasLength(1));
+    await db.close();
+  });
+
   test('clearAllLocalData는 학습 데이터와 큐를 모두 비운다', () async {
     await repo.saveWord(Word(
       id: 'w1', word: 'hi', platform: 'youtube', contentTitle: 'T',

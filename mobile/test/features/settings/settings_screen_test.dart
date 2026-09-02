@@ -35,10 +35,12 @@ class _FakeSyncService extends SyncService {
   int syncNowCalls = 0;
   final String? _lastSync;
   final int _pending;
+  final bool _fails;
 
-  _FakeSyncService({String? lastSyncAt, int pending = 0})
+  _FakeSyncService({String? lastSyncAt, int pending = 0, bool fails = false})
       : _lastSync = lastSyncAt,
         _pending = pending,
+        _fails = fails,
         super(
           repository: LocalSQLiteRepository(
               openDb: () => openAppDatabase(inMemoryDatabasePath)),
@@ -55,7 +57,7 @@ class _FakeSyncService extends SyncService {
   @override
   Future<SyncResult> syncNow(String uid) async {
     syncNowCalls++;
-    return SyncResult(ok: true, pending: _pending);
+    return SyncResult(ok: !_fails, pending: _pending);
   }
 }
 
@@ -73,8 +75,10 @@ Future<_FakeSyncService> pumpSettings(
   required String email,
   String? lastSyncAt,
   int pending = 0,
+  bool syncFails = false,
 }) async {
-  final sync = _FakeSyncService(lastSyncAt: lastSyncAt, pending: pending);
+  final sync = _FakeSyncService(
+      lastSyncAt: lastSyncAt, pending: pending, fails: syncFails);
   await tester.pumpWidget(
     MultiProvider(
       providers: [
@@ -267,6 +271,18 @@ void main() {
   testWidgets('미동기 항목 개수를 보여준다', (tester) async {
     await pumpSettings(tester, email: 'a@b.c', pending: 3);
     expect(find.text('3개 대기 중'), findsOneWidget);
+  });
+
+  testWidgets('지금 동기화가 실패하면 알린다', (tester) async {
+    await pumpSettings(tester, email: 'a@b.c', syncFails: true);
+
+    await tester.tap(find.text('지금 동기화'));
+    await tester.pumpAndSettle();
+
+    // 자동 동기화는 조용히 넘어가지만(설계 §10.2), 사용자가 직접 누른
+    // 것은 결과를 알려줘야 한다.
+    expect(find.text('동기화하지 못했어요. 잠시 뒤 다시 시도해 주세요.'),
+        findsOneWidget);
   });
 
   testWidgets('지금 동기화를 누르면 syncNow를 호출한다', (tester) async {

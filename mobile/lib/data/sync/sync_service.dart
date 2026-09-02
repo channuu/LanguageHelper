@@ -27,6 +27,10 @@ class FirestoreRemoteStore implements RemoteStore {
   CollectionReference<Map<String, dynamic>> _col(String uid, String collection) =>
       _db.collection('users').doc(uid).collection(collection);
 
+  /// 컬렉션 전체를 한 번에 받는다 — 페이지네이션 없음. 확장은 최근 500개로
+  /// 자르지만(cloud/sync.js) 앱은 로컬이 원본이라 자를 수 없다. sync 한 번의
+  /// 비용이 저장 항목 수에 비례해 늘어난다는 뜻이고, 수천 개 규모가 되면
+  /// updated_at 기준 증분 pull(마지막 동기화 이후만)이 필요해진다.
   @override
   Future<List<Map<String, Object?>>> list(String uid, String collection) async {
     final snap = await _col(uid, collection).get();
@@ -202,6 +206,14 @@ class SyncService extends ChangeNotifier {
     final current = {
       for (final row in await readLocal()) row['id'] as String: row
     };
+    // 삭제 대기 중인 항목은 서버 문서로 되살리지 않는다. 이번 sync의
+    // _pushDeletes가 지나간 뒤에 지운 항목이 여기 남는데, 서버에는 아직
+    // 그 문서가 있어 규칙 3이 "서버에만 있음"으로 읽고 다시 넣어버린다.
+    // 다음 sync가 서버에서 지울 것이다.
+    final queuedDeletes = {
+      for (final entry in await repository.getSyncQueue())
+        if (entry.entity == collection) entry.docId
+    };
     final now = DateTime.now().toIso8601String();
 
     bool unchanged(String id) {
@@ -214,6 +226,7 @@ class SyncService extends ChangeNotifier {
       await writeLocal({...current[id]!, 'synced_at': now});
     }
     for (final rec in plan.toWriteLocal) {
+      if (queuedDeletes.contains(rec.id)) continue;
       if (current.containsKey(rec.id) && !unchanged(rec.id)) continue;
       // 서버에서 온 문서는 정의상 동기화된 상태다.
       await writeLocal({...rec.data, 'synced_at': now});

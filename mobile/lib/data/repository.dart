@@ -319,9 +319,9 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
     final db = await _database;
     await db.delete('words');
     await db.delete('sentences');
-    await db.delete('study_sessions');
-    await db.delete('weekly_goals');
     await db.delete('sync_queue');
+    // study_sessions·weekly_goals는 StudyTimerRepository의 것이다. 계정
+    // 전환과 로그아웃은 두 저장소의 clearAllLocalData를 나란히 부른다.
     notifyListeners();
   }
 

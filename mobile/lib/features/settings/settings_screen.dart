@@ -146,6 +146,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// 자동 동기화 실패는 조용히 넘어가지만(설계 §10.2) 사용자가 직접 누른
+  /// 것은 결과를 알려준다 — 아무 반응이 없으면 눌린 건지도 알 수 없다.
+  Future<void> _syncNow(
+      BuildContext context, AuthService auth, SyncService sync) async {
+    final uid = auth.currentUser?.uid;
+    if (uid == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await sync.syncNow(uid);
+    if (result.ok) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('동기화하지 못했어요. 잠시 뒤 다시 시도해 주세요.'),
+      ),
+    );
+  }
+
   Future<void> _confirmSignOut(
       BuildContext context, AuthService auth, SyncService sync) async {
     final uid = auth.currentUser?.uid;
@@ -222,10 +238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Row(
                 children: [
                   TextButton(
-                    onPressed: () {
-                      final uid = auth.currentUser?.uid;
-                      if (uid != null) sync.syncNow(uid);
-                    },
+                    onPressed: () => _syncNow(context, auth, sync),
                     child: const Text('지금 동기화'),
                   ),
                   const SizedBox(width: 8),

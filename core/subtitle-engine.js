@@ -3,6 +3,7 @@
 
   let visible = true;
   let currentEnText = '';
+  let currentMatches = [];
   let currentNativeText = '';
   let rafId = null;
   // 사용자가 오버레이를 직접 드래그해서 위치를 저장한 적이 있으면 그 이후로는
@@ -228,23 +229,48 @@
 
     // 영어 자막: 단어별 span으로 분리 (클릭 가능)
     enLine.innerHTML = '';
+    currentMatches = [];
     if (enText) {
       const s = window.EH.settings;
       enLine.style.fontSize = s.enSize + 'px';
-      enText.split(' ').forEach((word, i, arr) => {
+      const tokens = enText.split(' ');
+      const spans = [];
+
+      tokens.forEach((word, i, arr) => {
         const span = document.createElement('span');
         span.className = 'eh-word';
         span.textContent = word + (i < arr.length - 1 ? ' ' : '');
         span.addEventListener('click', (e) => {
           e.stopPropagation();
           const clean = word.replace(/[^a-zA-Z']/g, '');
-          if (clean && window.EH.WordPopup) {
-            window.EH.WordPopup.show(clean, fullEnText, nativeText,
-              window.EH.adapter?.getCurrentTime() || 0, e.clientX, e.clientY);
-          }
+          if (!clean || !window.EH.WordPopup) return;
+          const hit = currentMatches.find(m => i >= m.start && i <= m.end);
+          window.EH.WordPopup.show({
+            word: clean,
+            term: hit ? hit.term : null,
+            sentence: fullEnText,
+            translation: nativeText,
+            timestamp: window.EH.adapter?.getCurrentTime() || 0,
+            x: e.clientX, y: e.clientY
+          });
         });
+        spans.push(span);
         enLine.appendChild(span);
       });
+
+      // 구동사 구간 표시. 비동기라 cue가 이미 바뀌었으면 버린다.
+      const scannedFor = enText;
+      chrome.runtime.sendMessage({ type: 'DICT_SCAN', payload: { text: enText } })
+        .then((res) => {
+          if (!res || !res.success || scannedFor !== currentEnText) return;
+          currentMatches = res.matches;
+          for (const m of res.matches) {
+            for (let i = m.start; i <= m.end && i < spans.length; i++) {
+              spans[i].classList.add('eh-mwe');
+            }
+          }
+        })
+        .catch(() => {});
     }
 
     // 모국어 자막

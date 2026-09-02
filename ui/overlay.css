@@ -68,6 +68,12 @@ body.eh-hidden-offwatch #eh-library-panel {
 }
 .eh-word:hover  { background: rgba(var(--eh-gold-rgb), 0.45); }
 .eh-word:active { background: rgba(var(--eh-gold-rgb), 0.70); }
+.eh-word.eh-mwe {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(var(--eh-gold-rgb), 0.75);
+  text-underline-offset: 3px;
+}
 
 #eh-resize-handle {
   position: absolute;

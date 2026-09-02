@@ -12,7 +12,9 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const bg = Color(0xFFF2F3F7);
+  /// 목업의 모바일 아트보드는 모두 흰 배경이다. 카드는 흰 면 + border로
+  /// 구분되므로 배경만 흰색으로 바꾼다.
+  static const bg = Color(0xFFFFFFFF);
   static const surface = Color(0xFFFFFFFF);
   static const ink = Color(0xFF14161F);
   static const inkSecondary = Color(0xFF454D5E);

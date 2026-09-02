@@ -29,8 +29,9 @@ class AuthGate extends StatelessWidget {
         }
         // 계정 전환이면 이전 계정의 로컬 캐시를 비운다. 빌드 중에
         // 저장소를 건드리지 않도록 프레임 뒤로 미룬다.
+        final sync = context.read<SyncService>();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          context.read<SyncService>().onSignedIn(user.uid);
+          sync.onSignedIn(user.uid);
         });
         return child;
       },

@@ -61,7 +61,8 @@ export function parseKoSection(wikitext) {
     const category = line.match(/\[\[분류:영어\s*([^\]]+)\]\]/);
     if (category && !pos && KO_POS[category[1].trim()]) { pos = KO_POS[category[1].trim()]; }
 
-    if (line.startsWith('#')) {
+    // '#'는 뜻줄, '#:'/'#*'는 예문·인용문(중첩)이라 뜻으로 치지 않는다.
+    if (/^#[^#:*]/.test(line) || line === '#') {
       const text = unlink(line.replace(/^#+\s*/, '')).trim();
       if (text) senses.push(text);
     }

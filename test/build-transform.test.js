@@ -83,6 +83,21 @@ test('parseKoSection: 영어 구간이 없으면 null이다', () => {
   assert.equal(parseKoSection('== 한국어 ==\n# 뜻.'), null);
 });
 
+const KO_WITH_EXAMPLES = [
+  '== 영어 ==', '===Suffix===',
+  "# [[times|Times]]: 배수를 나타내는 접미사.",
+  "#* '''1809''', some old quotation citation that runs long:",
+  "#*: Her stomach being extremely delicate, an English quotation line.",
+  '#: {{예문|en|Example sentence in English.|한국어 번역.}}',
+  '# 두 번째 뜻.'
+].join('\n');
+
+test('parseKoSection: #:와 #*로 시작하는 예문·인용문 줄은 뜻으로 치지 않는다', () => {
+  assert.deepEqual(parseKoSection(KO_WITH_EXAMPLES), {
+    pos: '', senses: ['Times: 배수를 나타내는 접미사.', '두 번째 뜻.']
+  });
+});
+
 test('mergeEntry: ko.wiktionary 뜻이 kaikki 번역보다 우선한다', () => {
   const r = mergeEntry([parseKaikkiLine(KAIKKI)], parseKoSection(KO_VERB));
   assert.deepEqual(r.ko, ['그만두다, 포기하다.', '내주다, 넘겨주다, 양보하다.']);

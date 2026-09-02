@@ -11,6 +11,7 @@ import 'models/last_import_summary.dart';
 import 'models/sentence.dart';
 import 'models/word.dart';
 import 'review_schedule.dart';
+import 'timestamps.dart';
 
 class MergeResult {
   final int newWords;
@@ -138,7 +139,7 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: newLevel,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(newLevel, now),
-      updatedAt: now.toIso8601String(),
+      updatedAt: utcNowIso(),
       syncedAt: null,
     );
     await db.insert('words', updated.toMap(),
@@ -159,7 +160,7 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: newLevel,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(newLevel, now),
-      updatedAt: now.toIso8601String(),
+      updatedAt: utcNowIso(),
       syncedAt: null,
     );
     await db.insert('sentences', updated.toMap(),
@@ -178,7 +179,7 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: level,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(level, now),
-      updatedAt: now.toIso8601String(),
+      updatedAt: utcNowIso(),
       syncedAt: null,
     );
     await db.insert('words', updated.toMap(),
@@ -197,7 +198,7 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
       reviewLevel: level,
       lastReviewedAt: now.toIso8601String(),
       nextReviewAt: nextReviewAtForLevel(level, now),
-      updatedAt: now.toIso8601String(),
+      updatedAt: utcNowIso(),
       syncedAt: null,
     );
     await db.insert('sentences', updated.toMap(),

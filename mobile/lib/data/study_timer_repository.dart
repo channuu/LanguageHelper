@@ -11,6 +11,7 @@ import 'database.dart';
 import 'models/active_session_state.dart';
 import 'models/study_session.dart';
 import 'models/weekly_goal.dart';
+import 'timestamps.dart';
 
 /// The Monday (00:00) of the week containing [date].
 DateTime mondayOf(DateTime date) {
@@ -145,7 +146,7 @@ class LocalStudyTimerRepository extends ChangeNotifier implements StudyTimerRepo
       endedAt: now,
       durationSeconds: rawDuration < 0 ? 0 : rawDuration,
       savedAt: now.toIso8601String(),
-      updatedAt: now.toIso8601String(),
+      updatedAt: utcNowIso(),
     );
 
     final db = await _database;
@@ -198,7 +199,7 @@ class LocalStudyTimerRepository extends ChangeNotifier implements StudyTimerRepo
       targetMinutes: targetMinutes,
       effectiveFrom: mondayOf(now),
       createdAt: now.toIso8601String(),
-      updatedAt: now.toIso8601String(),
+      updatedAt: utcNowIso(),
     );
     await db.insert('weekly_goals', goal.toMap());
     notifyListeners();

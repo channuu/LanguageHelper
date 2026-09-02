@@ -10,6 +10,7 @@ import '../../data/review_schedule.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../theme/app_theme.dart';
 import 'flashcard_item.dart';
+import '../../data/timestamps.dart';
 
 enum _FlashcardMode { card, list }
 enum _TypeFilter { all, wordOnly, sentenceOnly }
@@ -827,7 +828,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           translation: ko,
           sentence: _exController.text.trim(),
           reviewLevel: _level,
-          updatedAt: DateTime.now().toIso8601String(),
+          updatedAt: utcNowIso(),
           syncedAt: null, // mark for cloud re-upload
         ));
       } else {
@@ -843,7 +844,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           timestamp: 0,
           savedAt: DateTime.now().toIso8601String(),
           reviewLevel: _level,
-          updatedAt: DateTime.now().toIso8601String(),
+          updatedAt: utcNowIso(),
         ));
       }
     } else {
@@ -866,7 +867,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           original: en,
           translation: ko,
           reviewLevel: _level,
-          updatedAt: DateTime.now().toIso8601String(),
+          updatedAt: utcNowIso(),
           syncedAt: null, // mark for cloud re-upload
         ));
       } else {
@@ -880,7 +881,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
           timestamp: 0,
           savedAt: DateTime.now().toIso8601String(),
           reviewLevel: _level,
-          updatedAt: DateTime.now().toIso8601String(),
+          updatedAt: utcNowIso(),
         ));
       }
     }

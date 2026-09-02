@@ -7,6 +7,7 @@
 // timer that fires forever can make that loop until it hits its internal
 // cap and throws "pumpAndSettle timed out". This file uses a bounded
 // settleOnce() helper everywhere instead — never pumpAndSettle().
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -48,6 +49,29 @@ class _NullRemoteStore implements RemoteStore {
   Future<void> delete(String uid, String c, String id) async {}
 }
 
+// 셸이 동기화를 부르는지만 보면 되므로, 네트워크를 타는 본체 대신
+// 호출만 세는 대역을 쓴다.
+class _RecordingSyncService extends SyncService {
+  final List<String> syncNowUids = [];
+  final List<String> signedInUids = [];
+
+  _RecordingSyncService({
+    required super.repository,
+    required super.timerRepository,
+  }) : super(remote: _NullRemoteStore());
+
+  @override
+  Future<SyncResult> syncNow(String uid) async {
+    syncNowUids.add(uid);
+    return const SyncResult(ok: true, pending: 0);
+  }
+
+  @override
+  Future<void> onSignedIn(String uid) async {
+    signedInUids.add(uid);
+  }
+}
+
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
@@ -62,6 +86,33 @@ void main() {
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 10));
     }
+  }
+
+  Future<_RecordingSyncService> pumpApp(WidgetTester tester) async {
+    final learningRepo = LocalSQLiteRepository(
+      openDb: () => openAppDatabase(inMemoryDatabasePath),
+    );
+    final timerRepo = LocalStudyTimerRepository(
+      openDb: () => openAppDatabase(inMemoryDatabasePath),
+    );
+    final sync = _RecordingSyncService(
+      repository: learningRepo,
+      timerRepository: timerRepo,
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<LearningRepository>.value(value: learningRepo),
+          ChangeNotifierProvider<StudyTimerRepository>.value(value: timerRepo),
+          Provider<AuthService>.value(value: _FakeAuthService()),
+          ChangeNotifierProvider<SyncService>.value(value: sync),
+        ],
+        child: const EnglishHelperApp(),
+      ),
+    );
+    await settleOnce(tester);
+    return sync;
   }
 
   testWidgets('bottom navigation switches between all 5 screens', (tester) async {
@@ -108,5 +159,26 @@ void main() {
     await tester.tap(find.text('타이머'));
     await settleOnce(tester);
     expect(find.text('시작'), findsOneWidget);
+  });
+
+  testWidgets('앱을 열면 로그인한 계정으로 동기화한다', (tester) async {
+    final sync = await pumpApp(tester);
+    expect(sync.syncNowUids, ['test-uid']);
+  });
+
+  testWidgets('포그라운드로 돌아오면 다시 동기화한다', (tester) async {
+    final sync = await pumpApp(tester);
+    sync.syncNowUids.clear();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await settleOnce(tester);
+
+    expect(sync.syncNowUids, ['test-uid']);
+  });
+
+  testWidgets('로그인 상태로 들어오면 계정 전환 검사를 태운다', (tester) async {
+    final sync = await pumpApp(tester);
+    expect(sync.signedInUids, ['test-uid']);
   });
 }

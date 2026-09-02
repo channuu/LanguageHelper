@@ -246,10 +246,20 @@ class SyncService extends ChangeNotifier {
       await writeLocal({...rec.data, 'synced_at': now});
     }
     for (final id in plan.toDeleteLocal) {
-      if (deleteLocal == null) break;
-      await deleteLocal(id);
-      // 다른 기기의 삭제를 따라간 것이지 우리가 삭제한 게 아니다 — 되밀지 않는다.
-      await repository.clearSyncQueueEntry(collection, id);
+      if (deleteLocal != null) {
+        await deleteLocal(id);
+        // 다른 기기의 삭제를 따라간 것이지 우리가 삭제한 게 아니다 — 되밀지 않는다.
+        await repository.clearSyncQueueEntry(collection, id);
+        continue;
+      }
+      // append-only 컬렉션(세션·목표)에는 삭제 경로가 없다. 따라서 "올린 적
+      // 있는데 서버에 없다"는 것은 다른 기기의 삭제가 아니라 유실이다 —
+      // 지우지 말고 다시 올린다. 그냥 두면 synced_at이 찍힌 채 로컬에만
+      // 남아 다시 올라가지도 않고, 다음 계정 전환에서 조용히 사라진다.
+      final row = current[id];
+      if (row == null) continue;
+      await remote.write(uid, collection, id, _forRemote(row));
+      await writeLocal({...row, 'synced_at': now});
     }
   }
 

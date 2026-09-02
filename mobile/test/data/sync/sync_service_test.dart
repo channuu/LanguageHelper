@@ -383,4 +383,22 @@ void main() {
     expect((await repo.getWords()).single.id, 'w1');
     expect(remote.docs['u1/words']!.containsKey('w1'), isTrue);
   });
+
+  test('서버에서 사라진 학습 세션은 지우지 않고 다시 올린다', () async {
+    // 세션·목표는 append-only다 — 앱에 삭제 경로가 없으므로 "서버에 없다"는
+    // 것은 삭제가 아니라 유실이다. 규칙 4가 걸릴 때 그대로 두면 로컬에만
+    // 남은 채 다시 올라가지 않고, 다음 계정 전환에서 조용히 사라진다.
+    await timerRepo.startSession();
+    await timerRepo.endSession();
+    await sync.syncNow('u1');
+    expect(remote.docs['u1/study_sessions'], hasLength(1));
+
+    remote.docs['u1/study_sessions']!.clear();
+    await sync.syncNow('u1');
+
+    expect(await timerRepo.getAllSessions(), hasLength(1),
+        reason: '로컬 기록을 지우면 안 된다');
+    expect(remote.docs['u1/study_sessions'], hasLength(1),
+        reason: '서버에 없으니 다시 올려야 한다');
+  });
 }

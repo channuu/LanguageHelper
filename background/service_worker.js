@@ -133,7 +133,11 @@ async function handleMessage(message) {
     }
 
     case 'EH_OPEN_LOGIN': {
-      await chrome.tabs.create({ url: chrome.runtime.getURL('auth/login.html') });
+      // 목업 §2b는 별도 창이다 — 영상 탭을 밀어내지 않고 로그인만 하고 닫는다.
+      await chrome.windows.create({
+        url: chrome.runtime.getURL('auth/login.html'),
+        type: 'popup', width: 440, height: 660
+      });
       return { success: true };
     }
 

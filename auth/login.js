@@ -7,12 +7,16 @@ const emailEl = document.getElementById('email');
 const passwordEl = document.getElementById('password');
 const submitEl = document.getElementById('submit');
 const errorEl = document.getElementById('error');
+const titleEl = document.getElementById('title');
 
 function setMode(next) {
   mode = next;
   document.getElementById('tab-signin').classList.toggle('active', mode === 'signin');
   document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+  // 목업 §2b: 제목은 모드를 따라가고, 비밀번호 힌트는 회원가입에서 규칙을 알려준다.
+  titleEl.textContent = mode === 'signin' ? '로그인' : '회원가입';
   submitEl.textContent = mode === 'signin' ? '로그인' : '가입하고 시작하기';
+  passwordEl.placeholder = mode === 'signin' ? '비밀번호' : '6자 이상';
   passwordEl.autocomplete = mode === 'signin' ? 'current-password' : 'new-password';
   errorEl.textContent = '';
 }
@@ -35,6 +39,7 @@ async function submit() {
   }
 
   submitEl.disabled = true;
+  submitEl.textContent = '연결 중…';
   errorEl.textContent = '';
   try {
     await (mode === 'signin' ? signIn(email, password) : signUp(email, password));
@@ -54,6 +59,7 @@ async function submit() {
       ? '연결을 확인해 주세요'
       : err.message;
     submitEl.disabled = false;
+    submitEl.textContent = mode === 'signin' ? '로그인' : '가입하고 시작하기';
   }
 }
 

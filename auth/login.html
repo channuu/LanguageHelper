@@ -3,54 +3,123 @@
 <head>
   <meta charset="utf-8">
   <title>English Helper 로그인</title>
+  <!-- 자체 호스팅 폰트(@font-face)만 가져다 쓴다. tokens.css의 색 변수는
+       영상 위 어두운 표면용이고, 이 창은 목업 §2b대로 밝은 학습 표면이다. -->
   <link rel="stylesheet" href="../ui/tokens.css">
   <style>
+    /* 목업 English Helper UI.dc.html 아트보드 2b(확장 프로그램 로그인 창). */
+    :root {
+      --lg-ink: #14161f;
+      --lg-ink-2: #6f778a;
+      --lg-ink-3: #8d95a6;
+      --lg-track: #eef0f5;
+      --lg-field: #dce1ea;
+      --lg-hair: #f0f2f7;
+      --lg-accent: #fb864d;
+      --lg-accent-ink: #c24700;
+      --lg-error: #c0432c;
+    }
+    * { box-sizing: border-box; }
     body {
       margin: 0; min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: center;
+      background: #fff;
+      color: var(--lg-ink);
+      font-family: 'Schibsted Grotesk', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card { width: 420px; max-width: 100%; padding: 30px 30px 26px; }
+
+    .brand { display: flex; align-items: center; gap: 9px; }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--lg-accent);
       display: flex; align-items: center; justify-content: center;
-      background: var(--eh-bg, #14110f);
-      color: var(--eh-text, #f5f0e8);
-      font-family: system-ui, -apple-system, sans-serif;
+      font-weight: 700; font-size: 13px; color: var(--lg-ink);
     }
-    .card { width: 320px; }
-    h1 { font-size: 20px; margin: 0 0 4px; }
-    .sub { font-size: 13px; opacity: .7; margin: 0 0 20px; }
-    .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .brand-name { font-weight: 600; font-size: 14px; }
+
+    h1 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin: 20px 0 0; }
+    .sub { font-size: 12.5px; line-height: 1.65; color: var(--lg-ink-2); margin: 7px 0 0; }
+
+    .tabs {
+      display: flex; gap: 4px; padding: 3px; margin-top: 20px;
+      background: var(--lg-track); border-radius: 10px;
+    }
     .tab {
-      flex: 1; padding: 8px; text-align: center; font-size: 13px;
-      cursor: pointer; border-radius: 6px; opacity: .5;
+      flex: 1; height: 32px; border-radius: 8px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 12.5px; color: var(--lg-ink-2);
+      background: transparent; transition: background .18s, color .18s;
     }
-    .tab.active { background: rgba(255,255,255,.1); opacity: 1; }
-    label { display: block; font-size: 12px; opacity: .7; margin-bottom: 4px; }
+    .tab.active {
+      background: #fff; color: var(--lg-ink);
+      box-shadow: 0 1px 3px rgba(20, 22, 31, .12);
+    }
+
+    label {
+      display: block; margin-top: 18px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600; font-size: 10px; letter-spacing: .1em; color: var(--lg-ink-3);
+    }
+    label + input { margin-top: 7px; }
     input {
-      width: 100%; box-sizing: border-box; padding: 10px;
-      margin-bottom: 12px; border-radius: 6px;
-      border: 1px solid rgba(255,255,255,.2);
-      background: rgba(0,0,0,.25); color: inherit; font-size: 14px;
+      width: 100%; height: 42px; padding: 0 12px;
+      border-radius: 10px; border: 1px solid var(--lg-field); background: #fff;
+      font-family: inherit; font-size: 14px; color: var(--lg-ink); outline: none;
+    }
+    input::placeholder { color: #acb3c2; }
+    input:focus {
+      border-color: var(--lg-accent);
+      box-shadow: 0 0 0 3px rgba(251, 134, 77, .18);
+    }
+
+    .error {
+      min-height: 18px; margin-top: 9px;
+      font-size: 12px; color: var(--lg-error);
     }
     button {
-      width: 100%; padding: 11px; border: 0; border-radius: 6px;
-      background: var(--eh-accent, #e5a663); color: #14110f;
-      font-size: 14px; font-weight: 600; cursor: pointer;
+      width: 100%; height: 44px; border: 0; border-radius: 11px;
+      background: var(--lg-accent); color: var(--lg-ink);
+      font-family: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+      transition: background .18s;
     }
-    button[disabled] { opacity: .5; cursor: default; }
-    .error { color: #ff8f7a; font-size: 13px; min-height: 18px; margin-top: 10px; }
+    button[disabled] { background: rgba(251, 134, 77, .45); cursor: default; }
+
+    .note {
+      display: flex; align-items: center; gap: 7px;
+      margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--lg-hair);
+      font-size: 11.5px; line-height: 1.55; color: var(--lg-ink-3);
+    }
+    .note-chip {
+      flex: none;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+      color: var(--lg-accent-ink); background: rgba(251, 134, 77, .12);
+      padding: 2px 7px; border-radius: 5px;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>English Helper</h1>
+    <div class="brand">
+      <div class="brand-mark">E</div>
+      <div class="brand-name">English Helper</div>
+    </div>
+    <h1 id="title">로그인</h1>
     <p class="sub">저장한 단어를 모든 기기에서 보려면 로그인하세요.</p>
     <div class="tabs">
       <div class="tab active" id="tab-signin" data-mode="signin">로그인</div>
       <div class="tab" id="tab-signup" data-mode="signup">회원가입</div>
     </div>
-    <label for="email">이메일</label>
-    <input id="email" type="email" autocomplete="username">
-    <label for="password">비밀번호</label>
-    <input id="password" type="password" autocomplete="current-password">
-    <button id="submit">로그인</button>
+    <label for="email">EMAIL</label>
+    <input id="email" type="email" autocomplete="username" placeholder="you@example.com">
+    <label for="password">PASSWORD</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호">
     <div class="error" id="error"></div>
+    <button id="submit">로그인</button>
+    <div class="note">
+      <span class="note-chip">SYNC</span>
+      로그인하면 브라우저에서 저장한 단어가 앱 복습 목록에 함께 쌓입니다.
+    </div>
   </div>
   <script type="module" src="login.js"></script>
 </body>

@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -11,13 +12,22 @@ import 'package:english_helper_app/data/sync/sync_service.dart';
 class InMemoryRemoteStore implements RemoteStore {
   final Map<String, Map<String, Map<String, Object?>>> docs = {};
   int writeCount = 0;
+  int listCount = 0;
   Object? throwOnWrite;
+  Object? throwOnDelete;
+
+  /// 네트워크 왕복 '중에' 로컬에서 벌어지는 일을 재현하는 훅.
+  Future<void> Function()? onList;
+  Future<void> Function()? onWrite;
 
   String _key(String uid, String collection) => '$uid/$collection';
 
   @override
-  Future<List<Map<String, Object?>>> list(String uid, String collection) async =>
-      (docs[_key(uid, collection)] ?? {}).values.toList();
+  Future<List<Map<String, Object?>>> list(String uid, String collection) async {
+    listCount++;
+    if (onList != null) await onList!();
+    return (docs[_key(uid, collection)] ?? {}).values.toList();
+  }
 
   @override
   Future<void> write(String uid, String collection, String docId,
@@ -25,10 +35,12 @@ class InMemoryRemoteStore implements RemoteStore {
     if (throwOnWrite != null) throw throwOnWrite!;
     writeCount++;
     docs.putIfAbsent(_key(uid, collection), () => {})[docId] = data;
+    if (onWrite != null) await onWrite!();
   }
 
   @override
   Future<void> delete(String uid, String collection, String docId) async {
+    if (throwOnDelete != null) throw throwOnDelete!;
     docs[_key(uid, collection)]?.remove(docId);
   }
 }
@@ -229,5 +241,65 @@ void main() {
     await sync.onSignedIn('u2');
 
     expect(await timerRepo.getAllSessions(), isEmpty);
+  });
+
+  group('왕복 중 들어온 로컬 변경', () {
+    test('업로드 중 매긴 복습 점수를 스냅샷으로 되돌리지 않는다', () async {
+      await repo.saveWord(makeWord('w1', updatedAt: t1));
+      // 업로드가 오가는 사이 사용자가 같은 카드를 채점한다.
+      remote.onWrite = () => repo.setWordReviewLevel('w1', 3);
+
+      await sync.syncNow('u1');
+
+      final w = (await repo.getWords()).single;
+      expect(w.reviewLevel, 3, reason: '왕복 전 스냅샷이 편집을 덮어썼다');
+      expect(w.syncedAt, isNull,
+          reason: '서버에 없는 편집이므로 미동기로 남아 다음 sync가 올려야 한다');
+    });
+
+    test('내려받기 중 매긴 복습 점수를 서버 문서로 덮지 않는다', () async {
+      await repo.saveWord(makeWord('w1', updatedAt: t1, syncedAt: t1));
+      remote.docs['u1/words'] = {
+        'w1': {...makeWord('w1', updatedAt: t2).toMap()..remove('synced_at')},
+      };
+      // words 목록을 받아오는 첫 왕복에서만 끼어든다 — 훅은 컬렉션마다
+      // 불리므로 그대로 두면 마지막 컬렉션 뒤에 편집이 일어나 검증이 무의미해진다.
+      var edited = false;
+      remote.onList = () async {
+        if (edited) return;
+        edited = true;
+        await repo.setWordReviewLevel('w1', 4);
+      };
+
+      await sync.syncNow('u1');
+
+      final w = (await repo.getWords()).single;
+      expect(w.reviewLevel, 4, reason: '서버 문서가 방금 매긴 점수를 덮었다');
+    });
+  });
+
+  test('동시에 부른 syncNow는 한 번만 돈다', () async {
+    await repo.saveWord(makeWord('w1', updatedAt: t1));
+
+    final first = sync.syncNow('u1');
+    final second = sync.syncNow('u1');
+    await Future.wait([first, second]);
+
+    expect(remote.listCount, 4,
+        reason: '컬렉션 4개 × 1회 — 두 번 돌면 8이 된다');
+  });
+
+  test('삭제 하나가 실패해도 나머지 동기화를 계속한다', () async {
+    await repo.saveWord(makeWord('w1', updatedAt: t1));
+    await repo.queueDelete('words', 'gone');
+    remote.throwOnDelete =
+        FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied');
+
+    await sync.syncNow('u1');
+
+    expect(remote.docs['u1/words']?.containsKey('w1'), isTrue,
+        reason: '삭제 하나가 4개 컬렉션 전체를 막으면 안 된다');
+    expect((await repo.getSyncQueue()).single.docId, 'gone',
+        reason: '실패한 항목은 큐에 남아 다음에 재시도한다');
   });
 }

@@ -7,6 +7,8 @@
 // timer that fires forever can make that loop until it hits its internal
 // cap and throws "pumpAndSettle timed out". This file uses a bounded
 // settleOnce() helper everywhere instead — never pumpAndSettle().
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +36,28 @@ class _FakeAuthService implements AuthService {
   @override
   Future<void> signUp(String email, String password) async {}
 
+  @override
+  Future<void> signOut() async {}
+}
+
+// 같은 사용자가 스트림에서 두 번 흘러도(재빌드) 계정 전환 검사는 한 번만
+// 돌아야 한다 — onSignedIn은 syncNow까지 부르는 무거운 경로다.
+class _StreamAuthService implements AuthService {
+  final _controller = StreamController<AuthUser?>.broadcast();
+  @override
+  AuthUser? currentUser = const AuthUser(uid: 'test-uid', email: 'test@example.com');
+
+  void emit(AuthUser? user) {
+    currentUser = user;
+    _controller.add(user);
+  }
+
+  @override
+  Stream<AuthUser?> authStateChanges() => _controller.stream;
+  @override
+  Future<void> signIn(String email, String password) async {}
+  @override
+  Future<void> signUp(String email, String password) async {}
   @override
   Future<void> signOut() async {}
 }
@@ -179,6 +203,38 @@ void main() {
 
   testWidgets('로그인 상태로 들어오면 계정 전환 검사를 태운다', (tester) async {
     final sync = await pumpApp(tester);
+    expect(sync.signedInUids, ['test-uid']);
+  });
+
+  testWidgets('같은 계정이 다시 흘러도 계정 전환 검사는 한 번만 돈다', (tester) async {
+    final learningRepo = LocalSQLiteRepository(
+      openDb: () => openAppDatabase(inMemoryDatabasePath),
+    );
+    final timerRepo = LocalStudyTimerRepository(
+      openDb: () => openAppDatabase(inMemoryDatabasePath),
+    );
+    final sync = _RecordingSyncService(
+      repository: learningRepo,
+      timerRepository: timerRepo,
+    );
+    final auth = _StreamAuthService();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<LearningRepository>.value(value: learningRepo),
+          ChangeNotifierProvider<StudyTimerRepository>.value(value: timerRepo),
+          Provider<AuthService>.value(value: auth),
+          ChangeNotifierProvider<SyncService>.value(value: sync),
+        ],
+        child: const EnglishHelperApp(),
+      ),
+    );
+    auth.emit(auth.currentUser);
+    await settleOnce(tester);
+    auth.emit(auth.currentUser);
+    await settleOnce(tester);
+
     expect(sync.signedInUids, ['test-uid']);
   });
 }

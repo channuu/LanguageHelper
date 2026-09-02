@@ -59,6 +59,7 @@ class SyncService extends ChangeNotifier {
 
   String? _lastSyncAt;
   int _pending = 0;
+  Future<SyncResult>? _inFlight;
 
   SyncService({
     required this.repository,
@@ -116,7 +117,21 @@ class SyncService extends ChangeNotifier {
     await syncNow(uid);
   }
 
-  Future<SyncResult> syncNow(String uid) async {
+  /// 앱 진입에서 AuthGate와 루트 셸이 같은 프레임에 각각 부르고, 설정의
+  /// "지금 동기화"가 그 위에 겹칠 수 있다. 두 벌이 같은 행을 오가면 서로가
+  /// 상대의 '왕복 중 로컬 변경'이 되어 아래 재확인 로직을 무의미하게 만든다
+  /// — 진행 중인 실행이 있으면 새로 돌리지 않고 그것을 함께 기다린다.
+  Future<SyncResult> syncNow(String uid) {
+    final running = _inFlight;
+    if (running != null) return running;
+    final started = _run(uid);
+    _inFlight = started;
+    return started.whenComplete(() {
+      if (identical(_inFlight, started)) _inFlight = null;
+    });
+  }
+
+  Future<SyncResult> _run(String uid) async {
     var ok = true;
     try {
       await _pushDeletes(uid);
@@ -143,112 +158,110 @@ class SyncService extends ChangeNotifier {
     // 삭제는 먼저 반영한다 — 나중에 pull하면 로컬에서 지운 항목이 서버에
     // 아직 있는 걸 보고 되살려버린다.
     for (final entry in await repository.getSyncQueue()) {
-      await remote.delete(uid, entry.entity, entry.docId);
+      try {
+        await remote.delete(uid, entry.entity, entry.docId);
+      } on FirebaseException catch (err) {
+        // 한 항목이 영영 안 지워지더라도(규칙 변경, 깨진 docId) 네 컬렉션의
+        // push/pull 전체를 영구히 막으면 안 된다. 큐에 남겨 다음에 재시도한다.
+        // FirebaseException이 아닌 예외는 진짜 버그이므로 그대로 올린다.
+        debugPrint('[Sync] delete failed ${entry.entity}/${entry.docId}: $err');
+        continue;
+      }
       await repository.clearSyncQueueEntry(entry.entity, entry.docId);
     }
   }
 
-  Future<void> _syncWords(String uid) async {
-    final local = (await repository.getWords()).map((w) => w.toMap()).toList();
-    final remoteDocs = await remote.list(uid, 'words');
+  /// 컬렉션 한 벌을 동기화한다. 네 컬렉션의 차이는 어디서 읽고 어떻게
+  /// 쓰느냐뿐이라 한곳에 모은다 — 왕복 중 로컬 변경을 다루는 규칙이 네
+  /// 군데로 흩어지면 한 군데만 고쳐진 채 남기 쉽다.
+  Future<void> _syncCollection({
+    required String uid,
+    required String collection,
+    required Future<List<Map<String, Object?>>> Function() readLocal,
+    required Future<void> Function(Map<String, Object?> row) writeLocal,
+    Future<void> Function(String id)? deleteLocal,
+  }) async {
+    final before = await readLocal();
+    final remoteDocs = await remote.list(uid, collection);
     final plan = planMerge(
-      local: local.map(_recordOf).toList(),
+      local: before.map(_recordOf).toList(),
       remote: remoteDocs.map(_recordOf).toList(),
     );
 
-    final now = DateTime.now().toIso8601String();
+    final pushedIds = <String>[];
     for (final rec in plan.toPush) {
-      await remote.write(uid, 'words', rec.id, _forRemote(rec.data));
-      // per-row upsert by id — safe even if another word was saved
-      // concurrently between the read above and this write.
-      await repository.saveWord(
-        Word.fromMap({...rec.data, 'synced_at': now}),
-      );
+      await remote.write(uid, collection, rec.id, _forRemote(rec.data));
+      pushedIds.add(rec.id);
+    }
+
+    // 네트워크가 오가는 사이 사용자가 같은 행을 고쳤을 수 있다. 왕복 전
+    // 스냅샷을 그대로 되쓰면 그 편집이 사라지고, synced_at까지 찍혀 다시
+    // 올라가지도 않는다. 쓰기 직전에 현재 행을 다시 읽어, updated_at이
+    // 그대로인 행에만 결정을 적용한다 — 바뀐 행은 다음 sync가 가져간다.
+    final snapshot = {for (final row in before) row['id'] as String: row};
+    final current = {
+      for (final row in await readLocal()) row['id'] as String: row
+    };
+    final now = DateTime.now().toIso8601String();
+
+    bool unchanged(String id) {
+      final cur = current[id];
+      return cur != null && cur['updated_at'] == snapshot[id]?['updated_at'];
+    }
+
+    for (final id in pushedIds) {
+      if (!unchanged(id)) continue;
+      await writeLocal({...current[id]!, 'synced_at': now});
     }
     for (final rec in plan.toWriteLocal) {
-      await repository.saveWord(
-        Word.fromMap({...rec.data, 'synced_at': now}),
-      );
+      if (current.containsKey(rec.id) && !unchanged(rec.id)) continue;
+      // 서버에서 온 문서는 정의상 동기화된 상태다.
+      await writeLocal({...rec.data, 'synced_at': now});
     }
     for (final id in plan.toDeleteLocal) {
-      await repository.deleteWord(id);
+      if (deleteLocal == null) break;
+      await deleteLocal(id);
       // 다른 기기의 삭제를 따라간 것이지 우리가 삭제한 게 아니다 — 되밀지 않는다.
-      await repository.clearSyncQueueEntry('words', id);
+      await repository.clearSyncQueueEntry(collection, id);
     }
   }
 
-  Future<void> _syncSentences(String uid) async {
-    final local =
-        (await repository.getSentences()).map((s) => s.toMap()).toList();
-    final remoteDocs = await remote.list(uid, 'sentences');
-    final plan = planMerge(
-      local: local.map(_recordOf).toList(),
-      remote: remoteDocs.map(_recordOf).toList(),
-    );
-
-    final now = DateTime.now().toIso8601String();
-    for (final rec in plan.toPush) {
-      await remote.write(uid, 'sentences', rec.id, _forRemote(rec.data));
-      await repository.saveSentence(
-        Sentence.fromMap({...rec.data, 'synced_at': now}),
+  Future<void> _syncWords(String uid) => _syncCollection(
+        uid: uid,
+        collection: 'words',
+        readLocal: () async =>
+            (await repository.getWords()).map((w) => w.toMap()).toList(),
+        writeLocal: (row) => repository.saveWord(Word.fromMap(row)),
+        deleteLocal: repository.deleteWord,
       );
-    }
-    for (final rec in plan.toWriteLocal) {
-      await repository.saveSentence(
-        Sentence.fromMap({...rec.data, 'synced_at': now}),
+
+  Future<void> _syncSentences(String uid) => _syncCollection(
+        uid: uid,
+        collection: 'sentences',
+        readLocal: () async =>
+            (await repository.getSentences()).map((s) => s.toMap()).toList(),
+        writeLocal: (row) => repository.saveSentence(Sentence.fromMap(row)),
+        deleteLocal: repository.deleteSentence,
       );
-    }
-    for (final id in plan.toDeleteLocal) {
-      await repository.deleteSentence(id);
-      await repository.clearSyncQueueEntry('sentences', id);
-    }
-  }
 
-  Future<void> _syncSessions(String uid) async {
-    final local = (await timerRepository.getAllSessions())
-        .map((s) => s.toMap())
-        .toList();
-    final remoteDocs = await remote.list(uid, 'study_sessions');
-    final plan = planMerge(
-      local: local.map(_recordOf).toList(),
-      remote: remoteDocs.map(_recordOf).toList(),
-    );
+  // 세션과 목표는 append-only다 — 앱에 삭제 경로가 없어 toDeleteLocal을
+  // 다룰 필요가 없다.
+  Future<void> _syncSessions(String uid) => _syncCollection(
+        uid: uid,
+        collection: 'study_sessions',
+        readLocal: () async =>
+            (await timerRepository.getAllSessions()).map((s) => s.toMap()).toList(),
+        writeLocal: (row) =>
+            timerRepository.upsertSession(StudySession.fromMap(row)),
+      );
 
-    final now = DateTime.now().toIso8601String();
-    for (final rec in plan.toPush) {
-      await remote.write(uid, 'study_sessions', rec.id, _forRemote(rec.data));
-      await timerRepository
-          .upsertSession(StudySession.fromMap({...rec.data, 'synced_at': now}));
-    }
-    for (final rec in plan.toWriteLocal) {
-      await timerRepository
-          .upsertSession(StudySession.fromMap({...rec.data, 'synced_at': now}));
-    }
-    // 세션은 append-only다 — 앱에는 삭제 경로가 없어(확장과 달리 이 데이터는
-    // 기기 전용) toDeleteLocal을 다룰 필요가 없다.
-  }
-
-  Future<void> _syncGoals(String uid) async {
-    final local =
-        (await timerRepository.getAllGoals()).map((g) => g.toMap()).toList();
-    final remoteDocs = await remote.list(uid, 'weekly_goals');
-    final plan = planMerge(
-      local: local.map(_recordOf).toList(),
-      remote: remoteDocs.map(_recordOf).toList(),
-    );
-
-    final now = DateTime.now().toIso8601String();
-    for (final rec in plan.toPush) {
-      await remote.write(uid, 'weekly_goals', rec.id, _forRemote(rec.data));
-      await timerRepository
-          .upsertGoal(WeeklyGoal.fromMap({...rec.data, 'synced_at': now}));
-    }
-    for (final rec in plan.toWriteLocal) {
-      await timerRepository
-          .upsertGoal(WeeklyGoal.fromMap({...rec.data, 'synced_at': now}));
-    }
-    // 목표도 append-only — 삭제 경로가 없다.
-  }
+  Future<void> _syncGoals(String uid) => _syncCollection(
+        uid: uid,
+        collection: 'weekly_goals',
+        readLocal: () async =>
+            (await timerRepository.getAllGoals()).map((g) => g.toMap()).toList(),
+        writeLocal: (row) => timerRepository.upsertGoal(WeeklyGoal.fromMap(row)),
+      );
 
   /// 로그아웃 전에 밀린 것을 먼저 밀어낸다. 남으면 거부한다 — 로그아웃은
   /// 로컬 캐시를 비우므로 미동기 항목이 유실된다.

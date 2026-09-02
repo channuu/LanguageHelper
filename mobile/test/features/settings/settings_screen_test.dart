@@ -6,8 +6,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/repository.dart';
 import 'package:english_helper_app/data/study_timer_repository.dart';
-import 'package:english_helper_app/data/models/sentence.dart';
-import 'package:english_helper_app/data/models/word.dart';
 import 'package:english_helper_app/data/sync/auth_service.dart';
 import 'package:english_helper_app/data/sync/sync_service.dart';
 import 'package:english_helper_app/features/settings/settings_screen.dart';
@@ -142,7 +140,9 @@ void main() {
     expect(find.text('日本語'), findsOneWidget);
   });
 
-  testWidgets('shows the DB path from the repository', (tester) async {
+  testWidgets('데이터 섹션을 더 이상 보여주지 않는다', (tester) async {
+    // 클라우드 동기화가 파일 기반 이동 경로를 대체했다(설계 §8·§9).
+    // DB 경로와 저장 항목 수는 파일을 직접 옮기던 시절의 잔재다.
     final repo = LocalSQLiteRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
     addTearDown(repo.close);
     final timerRepo = LocalStudyTimerRepository(openDb: () => openAppDatabase(inMemoryDatabasePath));
@@ -150,31 +150,10 @@ void main() {
     await tester.pumpWidget(buildScreen(repo, timerRepo));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text(inMemoryDatabasePath), 200);
-    expect(find.text(inMemoryDatabasePath), findsOneWidget);
-  });
-
-  testWidgets('shows the saved item count from the repository', (tester) async {
-    final db = await openAppDatabase(inMemoryDatabasePath);
-    final repo = LocalSQLiteRepository(openDb: () async => db);
-    addTearDown(repo.close);
-    final timerRepo = LocalStudyTimerRepository(openDb: () async => db);
-    addTearDown(timerRepo.close);
-
-    await repo.saveWord(const Word(
-      id: 'w1', word: 'x', platform: 'youtube', contentTitle: 't', contentId: 'c', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
-      updatedAt: '2026-08-01T00:00:00.000Z',
-    ));
-    await repo.saveSentence(const Sentence(
-      id: 's1', original: 'x', platform: 'youtube', contentTitle: 't', contentId: 'c', timestamp: 0, savedAt: '2026-08-01T00:00:00.000Z',
-      updatedAt: '2026-08-01T00:00:00.000Z',
-    ));
-
-    await tester.pumpWidget(buildScreen(repo, timerRepo));
-    await tester.pumpAndSettle();
-
-    await tester.scrollUntilVisible(find.text('2'), 200);
-    expect(find.text('2'), findsOneWidget);
+    expect(find.text('데이터'), findsNothing);
+    expect(find.text('DB 파일 경로'), findsNothing);
+    expect(find.text('저장된 항목'), findsNothing);
+    expect(find.text(inMemoryDatabasePath), findsNothing);
   });
 
   testWidgets('editing 하루 복습 목표 via the stepper persists the new value', (tester) async {

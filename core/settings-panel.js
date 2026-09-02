@@ -79,7 +79,6 @@
         <div class="eh-settings-export-row">
           <div class="eh-settings-export-btn primary" id="eh-export-script-html">스크립트 내보내기<span class="eh-settings-export-ext">.html</span></div>
           <div class="eh-settings-export-btn" id="eh-export-script-pdf">스크립트 내보내기<span class="eh-settings-export-ext">.pdf</span></div>
-          <div class="eh-settings-export-btn" id="eh-export-sqlite">저장 항목 내보내기<span class="eh-settings-export-ext">.sqlite</span></div>
         </div>
       </div>
     `;
@@ -116,21 +115,6 @@
 
     panelEl.querySelector('#eh-export-script-pdf').addEventListener('click', () => {
       window.EH.ScriptPanel?.exportScriptPdf();
-    });
-
-    panelEl.querySelector('#eh-export-sqlite').addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      const original = btn.innerHTML;
-      btn.textContent = '내보내는 중...';
-      try {
-        const res = await chrome.runtime.sendMessage({ type: 'GET_ALL' });
-        await window.EH.SqliteExport.exportAll((res && res.words) || [], (res && res.sentences) || []);
-        btn.innerHTML = original;
-      } catch (err) {
-        console.error('[EH SettingsPanel] sqlite export failed', err);
-        btn.textContent = '내보내기 실패';
-        setTimeout(() => { btn.innerHTML = original; }, 2000);
-      }
     });
   }
 

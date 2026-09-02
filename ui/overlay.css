@@ -571,15 +571,6 @@ body.eh-hidden-offwatch #eh-library-panel {
   margin-top: 8px; cursor: pointer;
 }
 
-.eh-library-footer { flex: none; padding: 12px 15px; border-top: 1px solid rgba(var(--eh-text-rgb), 0.08); }
-.eh-library-export-btn {
-  height: 42px; border-radius: 10px;
-  background: var(--eh-accent); color: #14161f;
-  display: flex; align-items: center; gap: 8px; padding: 0 13px;
-  font: 600 12.5px var(--eh-font-body); cursor: pointer;
-}
-.eh-library-export-ext { margin-left: auto; font: 10.5px var(--eh-font-mono); opacity: 0.62; }
-.eh-library-hint { font-size: 11px; line-height: 1.55; color: rgba(var(--eh-text-rgb), 0.32); margin-top: 9px; }
 
 .eh-panel-title-row {
   flex: none; padding: 10px 14px 0;

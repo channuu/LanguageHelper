@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../data/repository.dart';
 import '../../data/study_timer_repository.dart';
 import '../../data/sync/auth_service.dart';
 import '../../data/sync/sync_service.dart';
@@ -35,8 +34,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _dailyReviewGoal = 20;
   String _flashcardFront = 'en';
   bool _showSourceSentence = true;
-  String? _dbPath;
-  int? _savedItemCount;
 
   @override
   void initState() {
@@ -45,19 +42,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
-    final repo = context.read<LearningRepository>();
     final prefs = await SharedPreferences.getInstance();
-    final dbPath = await repo.getDatabasePath();
-    final words = await repo.getWords();
-    final sentences = await repo.getSentences();
     if (!mounted) return;
     setState(() {
       _nativeLang = prefs.getString('native_lang') ?? 'ko';
       _dailyReviewGoal = prefs.getInt('daily_review_goal') ?? 20;
       _flashcardFront = prefs.getString('flashcard_front') ?? 'en';
       _showSourceSentence = prefs.getBool('show_source_sentence') ?? true;
-      _dbPath = dbPath;
-      _savedItemCount = words.length + sentences.length;
     });
   }
 
@@ -310,39 +301,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _showSourceSentence,
                   onChanged: _setShowSourceSentence,
                   isLast: true,
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            _SectionLabel('데이터'),
-            _SettingsCard(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('DB 파일 경로', style: TextStyle(fontSize: 14)),
-                      const SizedBox(height: 5),
-                      Text(
-                        _dbPath ?? '불러오는 중...',
-                        style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 11.5, color: AppColors.inkQuaternary),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(height: 1, color: const Color(0xFFF1F3F8)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                  child: Row(
-                    children: [
-                      const Expanded(child: Text('저장된 항목', style: TextStyle(fontSize: 14))),
-                      Text(
-                        '${_savedItemCount ?? 0}',
-                        style: const TextStyle(fontFamily: AppFonts.mono, fontSize: 13, color: AppColors.inkTertiary),
-                      ),
-                    ],
-                  ),
                 ),
               ],
             ),

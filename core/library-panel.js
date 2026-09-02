@@ -108,10 +108,6 @@
           ? '<div class="eh-library-empty">저장한 항목이 없습니다</div>'
           : items.map(it => tab === 'w' ? wordCard(it) : sentenceCard(it)).join('')}
       </div>
-      <div class="eh-library-footer">
-        <div class="eh-library-export-btn" id="eh-library-export">SQLite 내보내기<span class="eh-library-export-ext">.sqlite</span></div>
-        <div class="eh-library-hint">내보낸 파일은 앱의 가져오기 화면에서 불러옵니다.</div>
-      </div>
     `;
 
     panelEl.querySelector('#eh-library-close').addEventListener('click', hide);
@@ -142,19 +138,6 @@
       });
     });
 
-    panelEl.querySelector('#eh-library-export').addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      const original = btn.innerHTML;
-      btn.textContent = '내보내는 중...';
-      try {
-        await window.EH.SqliteExport.exportAll(words, sentences);
-        btn.innerHTML = original;
-      } catch (err) {
-        console.error('[EH LibraryPanel] sqlite export failed', err);
-        btn.textContent = '내보내기 실패';
-        setTimeout(() => { btn.innerHTML = original; }, 2000);
-      }
-    });
   }
 
   function wordCard(w) {

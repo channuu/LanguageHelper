@@ -38,8 +38,6 @@
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
-        "vendor/sql-wasm.js",
-        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",
@@ -63,8 +61,6 @@
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
-        "vendor/sql-wasm.js",
-        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",
@@ -82,8 +78,6 @@
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
-        "vendor/sql-wasm.js",
-        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",
@@ -107,8 +101,6 @@
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
-        "vendor/sql-wasm.js",
-        "core/sqlite-export.js",
         "core/subtitle-engine.js",
         "core/script-panel.js",
         "core/word-popup.js",
@@ -137,15 +129,6 @@
     {
       "resources": ["inject/coupang_inject.js"],
       "matches": ["https://*.coupangplay.com/*"]
-    },
-    {
-      "resources": ["vendor/sql-wasm.wasm"],
-      "matches": [
-        "https://www.youtube.com/*",
-        "https://www.netflix.com/*",
-        "https://www.disneyplus.com/*",
-        "https://*.coupangplay.com/*"
-      ]
     },
     {
       "resources": ["ui/fonts/*.woff2"],

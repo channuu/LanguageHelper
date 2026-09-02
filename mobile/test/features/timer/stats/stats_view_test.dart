@@ -13,6 +13,14 @@ void main() {
     databaseFactory = databaseFactoryFfiNoIsolate;
   });
 
+  /// 일자 상세 패널의 값은 요약 카드의 총합·평균과 같은 문자열이 될 수 있다
+  /// (활동한 날이 하루뿐이면 총합 = 평균 = 그날의 학습 시간). 그러니 값만으로
+  /// 찾지 말고, 라벨과 같은 _DayStat 컬럼 안에서만 값을 찾는다.
+  Finder dayStatValue(String label, String value) => find.descendant(
+        of: find.ancestor(of: find.text(label), matching: find.byType(Column)).first,
+        matching: find.text(value),
+      );
+
   Widget buildView(LearningRepository learningRepo, StudyTimerRepository timerRepo) {
     return MultiProvider(
       providers: [
@@ -178,8 +186,9 @@ void main() {
     await tester.tap(find.text('1').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('0:45'), findsOneWidget); // 학습 시간
-    expect(find.text('1'), findsWidgets); // 세션 count and/or 저장 count both show "1"
+    expect(dayStatValue('학습 시간', '0:45'), findsOneWidget);
+    expect(dayStatValue('세션', '1'), findsOneWidget);
+    expect(dayStatValue('저장', '1'), findsOneWidget);
   });
 
   testWidgets('shows current streak and monthly activity rate', (tester) async {

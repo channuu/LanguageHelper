@@ -1,37 +1,13 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'database.dart';
-import 'models/last_import_summary.dart';
 import 'models/sentence.dart';
 import 'models/word.dart';
 import 'review_schedule.dart';
 import 'timestamps.dart';
-
-class MergeResult {
-  final int newWords;
-  final int newSentences;
-  final int skippedWords;
-  final int skippedSentences;
-  const MergeResult({
-    required this.newWords,
-    required this.newSentences,
-    required this.skippedWords,
-    required this.skippedSentences,
-  });
-}
-
-class InvalidBackupFileException implements Exception {
-  final String message;
-  const InvalidBackupFileException(this.message);
-  @override
-  String toString() => 'InvalidBackupFileException: $message';
-}
 
 class SyncQueueEntry {
   final String entity;
@@ -50,9 +26,7 @@ abstract class LearningRepository extends ChangeNotifier {
   Future<void> markSentenceReviewed(String id);
   Future<void> setWordReviewLevel(String id, int level);
   Future<void> setSentenceReviewLevel(String id, int level);
-  Future<MergeResult> mergeFromFile(String filePath);
   Future<String> getDatabasePath();
-  Future<LastImportSummary?> getLastImportSummary();
   Future<List<SyncQueueEntry>> getSyncQueue();
   Future<void> queueDelete(String entity, String docId);
   Future<void> clearSyncQueueEntry(String entity, String docId);
@@ -61,17 +35,13 @@ abstract class LearningRepository extends ChangeNotifier {
 }
 
 class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository {
-  static const _lastImportKey = 'last_import_summary';
 
   final Future<Database> Function() _openDb;
-  final Future<SharedPreferences> Function() _getPrefs;
   Database? _db;
 
   LocalSQLiteRepository({
     Future<Database> Function()? openDb,
-    Future<SharedPreferences> Function()? getPrefs,
-  })  : _openDb = openDb ?? _defaultOpenDb,
-        _getPrefs = getPrefs ?? SharedPreferences.getInstance;
+  }) : _openDb = openDb ?? _defaultOpenDb;
 
   static Future<Database> _defaultOpenDb() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -210,79 +180,6 @@ class LocalSQLiteRepository extends ChangeNotifier implements LearningRepository
   Future<String> getDatabasePath() async {
     final db = await _database;
     return db.path;
-  }
-
-  @override
-  Future<MergeResult> mergeFromFile(String filePath) async {
-    final importDb = await databaseFactory.openDatabase(
-      filePath,
-      options: OpenDatabaseOptions(readOnly: true),
-    );
-
-    if (!await hasValidSchema(importDb)) {
-      await importDb.close();
-      throw const InvalidBackupFileException(
-        '올바른 English Helper 백업 파일이 아닙니다',
-      );
-    }
-
-    final db = await _database;
-    var newWords = 0;
-    var newSentences = 0;
-    var skippedWords = 0;
-    var skippedSentences = 0;
-
-    try {
-      final wordRows = await importDb.query('words');
-      for (final row in wordRows) {
-        final rowId = await db.insert('words', row,
-            conflictAlgorithm: ConflictAlgorithm.ignore);
-        if (rowId != 0) {
-          newWords++;
-        } else {
-          skippedWords++;
-        }
-      }
-
-      final sentenceRows = await importDb.query('sentences');
-      for (final row in sentenceRows) {
-        final rowId = await db.insert('sentences', row,
-            conflictAlgorithm: ConflictAlgorithm.ignore);
-        if (rowId != 0) {
-          newSentences++;
-        } else {
-          skippedSentences++;
-        }
-      }
-    } finally {
-      await importDb.close();
-    }
-
-    final summary = LastImportSummary(
-      importedAt: DateTime.now(),
-      newWords: newWords,
-      newSentences: newSentences,
-      skippedWords: skippedWords,
-      skippedSentences: skippedSentences,
-    );
-    final prefs = await _getPrefs();
-    await prefs.setString(_lastImportKey, jsonEncode(summary.toJson()));
-
-    notifyListeners();
-    return MergeResult(
-      newWords: newWords,
-      newSentences: newSentences,
-      skippedWords: skippedWords,
-      skippedSentences: skippedSentences,
-    );
-  }
-
-  @override
-  Future<LastImportSummary?> getLastImportSummary() async {
-    final prefs = await _getPrefs();
-    final raw = prefs.getString(_lastImportKey);
-    if (raw == null) return null;
-    return LastImportSummary.fromJson(jsonDecode(raw) as Map<String, Object?>);
   }
 
   @override

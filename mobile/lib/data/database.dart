@@ -1,16 +1,4 @@
-import 'package:flutter/foundation.dart' show setEquals;
 import 'package:sqflite/sqflite.dart';
-
-const List<String> kWordsColumns = [
-  'id', 'word', 'definition', 'sentence', 'translation', 'platform',
-  'content_title', 'content_id', 'timestamp', 'saved_at',
-  'review_count', 'next_review_at',
-];
-
-const List<String> kSentencesColumns = [
-  'id', 'original', 'translation', 'platform', 'content_title',
-  'content_id', 'timestamp', 'saved_at', 'review_count', 'next_review_at',
-];
 
 Future<void> _createTimerTables(Database db) async {
   await db.execute('''
@@ -138,26 +126,4 @@ Future<Database> openAppDatabase(String path) {
       },
     ),
   );
-}
-
-Future<bool> hasValidSchema(Database db) async {
-  final tables = (await db.rawQuery(
-    "SELECT name FROM sqlite_master WHERE type='table'",
-  )).map((r) => r['name'] as String).toSet();
-
-  if (!tables.contains('words') || !tables.contains('sentences')) {
-    return false;
-  }
-
-  final wordsCols = (await db.rawQuery('PRAGMA table_info(words)'))
-      .map((r) => r['name'] as String)
-      .toSet();
-  if (!setEquals(wordsCols, kWordsColumns.toSet())) return false;
-
-  final sentencesCols = (await db.rawQuery('PRAGMA table_info(sentences)'))
-      .map((r) => r['name'] as String)
-      .toSet();
-  if (!setEquals(sentencesCols, kSentencesColumns.toSet())) return false;
-
-  return true;
 }

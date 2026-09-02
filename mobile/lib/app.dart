@@ -6,7 +6,6 @@ import 'data/sync/sync_service.dart';
 import 'features/auth/auth_gate.dart';
 import 'features/flashcard/flashcard_screen.dart';
 import 'features/home/home_screen.dart';
-import 'features/import/import_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/timer/timer_screen.dart';
 import 'shared/widgets/app_bottom_nav.dart';
@@ -41,12 +40,11 @@ class _RootShellState extends State<_RootShell> with WidgetsBindingObserver {
   int _index = 0;
 
   // Order matches the design mockup's AppNav.dc.html exactly:
-  // 홈 / 플래시카드 / 타이머 / 가져오기 / 설정.
+  // 홈 / 플래시카드 / 타이머 / 설정.
   static const _screens = [
     HomeScreen(),
     FlashcardScreen(),
     TimerScreen(),
-    ImportScreen(),
     SettingsScreen(),
   ];
 

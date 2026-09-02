@@ -12,7 +12,7 @@ class AppBottomNav extends StatelessWidget {
 
   const AppBottomNav({super.key, required this.selectedIndex, required this.onTap});
 
-  static const _labels = ['홈', '플래시카드', '타이머', '가져오기', '설정'];
+  static const _labels = ['홈', '플래시카드', '타이머', '설정'];
 
   /// oklch(0.58 0.17 42) — the mockup's active nav color (distinct from
   /// AppColors.accentInk, which is oklch(0.56 0.17 42)).
@@ -29,7 +29,7 @@ class AppBottomNav extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (var i = 0; i < 5; i++)
+          for (var i = 0; i < 4; i++)
             Expanded(
               child: _NavItem(
                 index: i,
@@ -60,8 +60,6 @@ class _NavItem extends StatelessWidget {
         return _FlashcardIconPainter(color);
       case 2:
         return _TimerIconPainter(color);
-      case 3:
-        return _ImportIconPainter(color);
       default:
         return _SettingsIconPainter(color);
     }
@@ -163,35 +161,6 @@ class _TimerIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TimerIconPainter oldDelegate) => oldDelegate.color != color;
-}
-
-class _ImportIconPainter extends CustomPainter {
-  final Color color;
-  const _ImportIconPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = _strokePaint(color);
-    final arrow = Path()
-      ..moveTo(10.5, 3.2)
-      ..lineTo(10.5, 11.8)
-      ..moveTo(10.5, 11.8)
-      ..lineTo(7.4, 8.7)
-      ..moveTo(10.5, 11.8)
-      ..lineTo(13.6, 8.7);
-    canvas.drawPath(arrow, paint);
-    final tray = Path()
-      ..moveTo(3.6, 13.4)
-      ..lineTo(3.6, 15.8)
-      ..arcToPoint(const Offset(5.4, 17.6), radius: const Radius.circular(1.8))
-      ..lineTo(15.6, 17.6)
-      ..arcToPoint(const Offset(17.4, 15.8), radius: const Radius.circular(1.8))
-      ..lineTo(17.4, 13.4);
-    canvas.drawPath(tray, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ImportIconPainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _SettingsIconPainter extends CustomPainter {

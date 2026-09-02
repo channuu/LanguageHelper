@@ -75,64 +75,6 @@ void main() {
     });
   });
 
-  group('hasValidSchema', () {
-    test('a fresh v3 app database has extra columns beyond a valid backup schema', () async {
-      // hasValidSchema pins the backup-file contract to kWordsColumns/
-      // kSentencesColumns (the Chrome extension's export shape), which is
-      // intentionally narrower than the app's own live schema now that the
-      // app has review_level/last_reviewed_at that the extension never
-      // produces. This is the correct, expected mismatch — not a bug.
-      final db = await openAppDatabase(inMemoryDatabasePath);
-      expect(await hasValidSchema(db), isFalse);
-      await db.close();
-    });
-
-    test('returns false for a database missing the sentences table', () async {
-      final db = await databaseFactory.openDatabase(inMemoryDatabasePath);
-      await db.execute('CREATE TABLE words (id TEXT PRIMARY KEY, word TEXT)');
-      expect(await hasValidSchema(db), isFalse);
-      await db.close();
-    });
-
-    test('returns false for a words table missing a required column', () async {
-      final db = await databaseFactory.openDatabase(inMemoryDatabasePath);
-      await db.execute('CREATE TABLE words (id TEXT PRIMARY KEY)');
-      await db.execute('CREATE TABLE sentences (id TEXT PRIMARY KEY, original TEXT)');
-      expect(await hasValidSchema(db), isFalse);
-      await db.close();
-    });
-
-    test('returns false for a words table with an extra column', () async {
-      final db = await openAppDatabase(inMemoryDatabasePath);
-      await db.execute('ALTER TABLE words ADD COLUMN extra_column TEXT');
-      expect(await hasValidSchema(db), isFalse);
-      await db.close();
-    });
-
-    test('ignores study_sessions/weekly_goals when validating an import file', () async {
-      // A file with only words/sentences (like a real Chrome-extension export)
-      // must still validate, even though the app's own DB also has the two
-      // timer tables — hasValidSchema must not require them.
-      final db = await databaseFactory.openDatabase(inMemoryDatabasePath);
-      await db.execute('''
-        CREATE TABLE words (
-          id TEXT PRIMARY KEY, word TEXT NOT NULL, definition TEXT, sentence TEXT,
-          translation TEXT, platform TEXT, content_title TEXT, content_id TEXT,
-          timestamp REAL, saved_at TEXT, review_count INTEGER DEFAULT 0, next_review_at TEXT
-        )
-      ''');
-      await db.execute('''
-        CREATE TABLE sentences (
-          id TEXT PRIMARY KEY, original TEXT NOT NULL, translation TEXT, platform TEXT,
-          content_title TEXT, content_id TEXT, timestamp REAL, saved_at TEXT,
-          review_count INTEGER DEFAULT 0, next_review_at TEXT
-        )
-      ''');
-      expect(await hasValidSchema(db), isTrue);
-      await db.close();
-    });
-  });
-
   group('schema migration', () {
     test('adds study_sessions/weekly_goals to a pre-existing v1 (Phase B) database', () async {
       // Use a real file on disk (not the in-memory path) because an

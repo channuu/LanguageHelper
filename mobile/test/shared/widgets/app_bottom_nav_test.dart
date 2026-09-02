@@ -11,10 +11,12 @@ void main() {
     );
   }
 
-  testWidgets('shows all 5 labels in the correct order', (tester) async {
+  testWidgets('shows all 4 labels in the correct order', (tester) async {
     await tester.pumpWidget(buildNav(0, (_) {}));
 
-    final labels = ['홈', '플래시카드', '타이머', '가져오기', '설정'];
+    final labels = ['홈', '플래시카드', '타이머', '설정'];
+    // 가져오기 탭은 클라우드 동기화가 대체했다(설계 §8·§9).
+    expect(find.text('가져오기'), findsNothing);
     for (final label in labels) {
       expect(find.text(label), findsOneWidget);
     }
@@ -28,7 +30,7 @@ void main() {
     expect(tapped, 2);
 
     await tester.tap(find.text('설정'));
-    expect(tapped, 4);
+    expect(tapped, 3);
   });
 
   testWidgets('has no Material NavigationBar selection indicator', (tester) async {

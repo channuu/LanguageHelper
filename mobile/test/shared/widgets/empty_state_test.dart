@@ -6,10 +6,10 @@ void main() {
   testWidgets('renders the given message', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: EmptyState(message: '아직 저장된 항목이 없어요. Import 탭에서 불러오세요'),
+        home: EmptyState(message: '아직 저장된 항목이 없어요. 브라우저에서 단어를 저장해 보세요'),
       ),
     );
 
-    expect(find.text('아직 저장된 항목이 없어요. Import 탭에서 불러오세요'), findsOneWidget);
+    expect(find.text('아직 저장된 항목이 없어요. 브라우저에서 단어를 저장해 보세요'), findsOneWidget);
   });
 }

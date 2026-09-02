@@ -307,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _emptyMessage({required bool hasAny}) {
-    return hasAny ? '검색 결과가 없어요' : '아직 저장된 항목이 없어요. Import 탭에서 불러오세요';
+    return hasAny ? '검색 결과가 없어요' : '아직 저장된 항목이 없어요. 브라우저에서 단어를 저장해 보세요';
   }
 }
 

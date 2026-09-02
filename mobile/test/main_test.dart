@@ -139,7 +139,7 @@ void main() {
     return sync;
   }
 
-  testWidgets('bottom navigation switches between all 5 screens', (tester) async {
+  testWidgets('bottom navigation switches between all 4 screens', (tester) async {
     final learningRepo = LocalSQLiteRepository(
       openDb: () => openAppDatabase(inMemoryDatabasePath),
     );
@@ -171,10 +171,6 @@ void main() {
     await tester.tap(find.text('플래시카드'));
     await settleOnce(tester);
     expect(find.text('플래시카드'), findsWidgets);
-
-    await tester.tap(find.text('가져오기'));
-    await settleOnce(tester);
-    expect(find.text('파일 선택'), findsOneWidget);
 
     await tester.tap(find.text('설정'));
     await settleOnce(tester);

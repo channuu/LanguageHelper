@@ -75,8 +75,8 @@ function idbUpdate(store, key, fn) {
   });
 }
 
-async function fetchJson(pathname) {
-  const res = await fetch(`${DICT_BASE}/${pathname}`, { cache: 'no-store' });
+async function fetchJson(pathname, options) {
+  const res = await fetch(`${DICT_BASE}/${pathname}`, options);
   if (!res.ok) throw new Error(`dict fetch ${pathname}: ${res.status}`);
   return res.json();
 }
@@ -87,7 +87,8 @@ async function fetchJson(pathname) {
  */
 async function refreshVersion() {
   let remote = null;
-  try { remote = await fetchJson('version.json'); } catch (e) {
+  // version.json은 항상 최신이어야 한다 — HTTP 캐시를 절대 타지 않는다.
+  try { remote = await fetchJson('version.json', { cache: 'no-store' }); } catch (e) {
     console.warn('[EH dict] version.json 조회 실패', e);
     return;
   }
@@ -148,15 +149,18 @@ function getIndex() {
 async function getBucket(name) {
   const cached = await idbGet('buckets', name);
   if (cached) return cached;
+  // 버킷은 version.json의 해시로 내용 주소가 붙는다 — HTTP 캐시(immutable)를
+  // 타도 안전하니 fetch 기본 캐시 모드를 그대로 쓴다 (설계 §7, firebase.json).
   const entries = await fetchJson(`b/${name}.json`);
   await idbPut('buckets', name, entries);
   const version = await idbGet('meta', 'version');
-  if (version && version.buckets && version.buckets[name]) {
-    await idbUpdate('meta', 'hashes', hashes => ({
-      ...(hashes || {}),
-      [name]: version.buckets[name],
-    }));
-  }
+  const hash = (version && version.buckets && version.buckets[name]) || '';
+  // version.json 조회가 실패했던 동안 받은 버킷도 항상 항목을 남긴다 —
+  // 그래야 staleBuckets가 훑는 목록에 들어가서 다음 성공 시 무효화될 수 있다.
+  await idbUpdate('meta', 'hashes', hashes => ({
+    ...(hashes || {}),
+    [name]: hash,
+  }));
   return entries;
 }
 

@@ -40,19 +40,23 @@
       const res = await chrome.runtime.sendMessage({
         type: 'DICT_LOOKUP', payload: { term }
       });
-      return (res && res.success) ? res.entry : null;
+      if (!res || res.success !== true) return { error: true };
+      return res.entry;
     } catch (e) {
-      return null;
+      return { error: true };
     }
   }
 
   /** 뜻 목록을 저장용 한 줄로 만든다. */
   function flatten(entry) {
-    if (!entry) return '';
+    if (!entry || entry.error) return '';
     return (entry.ko.length ? entry.ko : entry.en).join(' / ');
   }
 
   function renderBody(entry) {
+    if (entry && entry.error) {
+      return `<div class="eh-popup-def">사전을 불러오지 못했습니다</div>`;
+    }
     if (!entry) {
       return `<div class="eh-popup-def">정의를 찾을 수 없습니다.</div>`;
     }
@@ -95,7 +99,7 @@
           : ''}
         ${sentence ? `<div class="eh-popup-sentence">"${esc(sentence)}"</div>` : ''}
         <div class="eh-popup-actions">
-          <button class="eh-popup-btn" id="eh-save-word">${term ? '표현 저장' : '단어 저장'}</button>
+          <button class="eh-popup-btn" id="eh-save-word">${headword === term ? '표현 저장' : '단어 저장'}</button>
           <button class="eh-popup-btn" id="eh-save-sent">문장 저장</button>
         </div>
         <div class="eh-popup-credit">뜻: 위키낱말사전 (CC BY-SA)</div>

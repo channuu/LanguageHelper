@@ -146,6 +146,7 @@ void main() {
     await tester.pumpWidget(buildScreen(repo, timerRepo));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(find.text(inMemoryDatabasePath), 200);
     expect(find.text(inMemoryDatabasePath), findsOneWidget);
   });
 
@@ -168,6 +169,7 @@ void main() {
     await tester.pumpWidget(buildScreen(repo, timerRepo));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(find.text('2'), 200);
     expect(find.text('2'), findsOneWidget);
   });
 

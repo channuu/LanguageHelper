@@ -15,6 +15,7 @@ import 'package:english_helper_app/data/database.dart';
 import 'package:english_helper_app/data/repository.dart';
 import 'package:english_helper_app/data/study_timer_repository.dart';
 import 'package:english_helper_app/data/sync/auth_service.dart';
+import 'package:english_helper_app/data/sync/sync_service.dart';
 import 'package:english_helper_app/app.dart';
 
 // AuthGate가 인증 스트림을 보므로, EnglishHelperApp을 직접 띄우는 테스트는
@@ -34,6 +35,17 @@ class _FakeAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {}
+}
+
+// SettingsScreen이 SyncService를 watch하므로 프로바이더가 필요하다.
+// 이 테스트는 동기화를 검증하지 않으니 아무것도 하지 않는 원격 저장소를 쓴다.
+class _NullRemoteStore implements RemoteStore {
+  @override
+  Future<List<Map<String, Object?>>> list(String uid, String collection) async => [];
+  @override
+  Future<void> write(String uid, String c, String id, Map<String, Object?> d) async {}
+  @override
+  Future<void> delete(String uid, String c, String id) async {}
 }
 
 void main() {
@@ -66,6 +78,13 @@ void main() {
           ChangeNotifierProvider<LearningRepository>.value(value: learningRepo),
           ChangeNotifierProvider<StudyTimerRepository>.value(value: timerRepo),
           Provider<AuthService>.value(value: _FakeAuthService()),
+          ChangeNotifierProvider<SyncService>.value(
+            value: SyncService(
+              repository: learningRepo,
+              timerRepository: timerRepo,
+              remote: _NullRemoteStore(),
+            ),
+          ),
         ],
         child: const EnglishHelperApp(),
       ),

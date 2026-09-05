@@ -2,3 +2,8 @@
 *.log
 
 .superpowers/
+
+dist/
+dumps/
+work/
+.firebase/

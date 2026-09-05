@@ -4,6 +4,7 @@ import {
   syncNow, ensureMigrated, queueDelete, getSyncStatus, clearLocalData, capItems,
   ensureOwner
 } from '../cloud/sync.js';
+import { scanText, lookup } from '../lexicon/lookup.js';
 
 const SUPPORTED_MATCHES = [
   'https://www.youtube.com/*',
@@ -44,6 +45,24 @@ async function handleMessage(message) {
   }
 
   switch (message.type) {
+
+    // 사전 — 로그인과 무관하다. 자막을 보는 것 자체는 계정 없이 되기 때문이다.
+    case 'DICT_SCAN': {
+      try {
+        return { success: true, matches: await scanText(message.payload.text || '') };
+      } catch (err) {
+        console.warn('[EH BG] dict scan', err);
+        return { success: true, matches: [] };   // 사전이 없어도 자막은 나와야 한다
+      }
+    }
+
+    case 'DICT_LOOKUP': {
+      try {
+        return { success: true, entry: await lookup(message.payload.term || '') };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    }
 
     case 'FETCH_CAPTIONS': {
       const base = message.payload.url.replace(/&fmt=[^&]*/g, '');

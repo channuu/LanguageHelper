@@ -35,71 +35,112 @@
     popupEl.style.top  = y + 'px';
   }
 
-  async function fetchDefinition(word) {
+  async function lookup(term) {
     try {
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      const entry = data[0];
-      return {
-        phonetic: entry.phonetic || entry.phonetics?.[0]?.text || '',
-        definition: entry.meanings?.[0]?.definitions?.[0]?.definition || ''
-      };
+      const res = await chrome.runtime.sendMessage({
+        type: 'DICT_LOOKUP', payload: { term }
+      });
+      if (!res || res.success !== true) return { error: true };
+      return res.entry;
     } catch (e) {
-      return null;
+      return { error: true };
     }
   }
 
-  async function show(word, sentence, translation, timestamp, clientX, clientY) {
+  /** 뜻 목록을 저장용 한 줄로 만든다. */
+  function flatten(entry) {
+    if (!entry || entry.error) return '';
+    return (entry.ko.length ? entry.ko : entry.en).join(' / ');
+  }
+
+  function renderBody(entry) {
+    if (entry && entry.error) {
+      return `<div class="eh-popup-def">사전을 불러오지 못했습니다</div>`;
+    }
+    if (!entry) {
+      return `<div class="eh-popup-def">정의를 찾을 수 없습니다.</div>`;
+    }
+    const meta = [entry.pos.join(', '), entry.ipa].filter(Boolean).join(' · ');
+    const senses = entry.ko.length ? entry.ko : entry.en;
+    const noKo = !entry.ko.length && entry.en.length
+      ? `<div class="eh-popup-note">한국어 뜻 없음 — 영어 정의를 보여줍니다</div>` : '';
+    return `
+      ${meta ? `<div class="eh-popup-phonetic">${esc(meta)}</div>` : ''}
+      <div class="eh-popup-divider"></div>
+      ${noKo}
+      ${senses.map(s => `<div class="eh-popup-def">${esc(s)}</div>`).join('')}
+    `;
+  }
+
+  async function show({ word, term, sentence, translation, timestamp, x, y }) {
     if (!popupEl) return;
 
-    // 로딩 상태로 즉시 표시
+    // 다어절 표현이 있으면 그쪽이 표제어다. find out을 눌렀는데 find가 뜨면
+    // 이 기능의 존재 이유가 사라진다 (설계 §9).
+    let headword = term || word;
+
     popupEl.innerHTML = `
-      <div class="eh-popup-word">${esc(word)}</div>
+      <div class="eh-popup-word">${esc(headword)}</div>
       <div class="eh-popup-loading">불러오는 중...</div>
     `;
     popupEl.classList.add('visible');
-    positionPopup(clientX, clientY);
+    positionPopup(x, y);
 
-    // 사전 API 호출
-    const dict = await fetchDefinition(word);
+    let entry = await lookup(headword);
+    render();
 
-    popupEl.innerHTML = `
-      <div class="eh-popup-word">${esc(word)}</div>
-      ${dict?.phonetic ? `<div class="eh-popup-phonetic">${esc(dict.phonetic)}</div>` : ''}
-      <div class="eh-popup-divider"></div>
-      <div class="eh-popup-def">${esc(dict?.definition || '정의를 찾을 수 없습니다.')}</div>
-      ${sentence ? `<div class="eh-popup-sentence">"${esc(sentence)}"</div>` : ''}
-      <div class="eh-popup-actions">
-        <button class="eh-popup-btn" id="eh-save-word">단어 저장</button>
-        <button class="eh-popup-btn" id="eh-save-sent">문장 저장</button>
-      </div>
-    `;
+    function render() {
+      const showWordLink = term && headword === term;
+      popupEl.innerHTML = `
+        <div class="eh-popup-word">${esc(headword)}</div>
+        ${renderBody(entry)}
+        ${showWordLink
+          ? `<button class="eh-popup-link" id="eh-show-word">"${esc(word)}" 뜻 보기</button>`
+          : ''}
+        ${sentence ? `<div class="eh-popup-sentence">"${esc(sentence)}"</div>` : ''}
+        <div class="eh-popup-actions">
+          <button class="eh-popup-btn" id="eh-save-word">${headword === term ? '표현 저장' : '단어 저장'}</button>
+          <button class="eh-popup-btn" id="eh-save-sent">문장 저장</button>
+        </div>
+        <div class="eh-popup-credit">뜻: 위키낱말사전 (CC BY-SA)</div>
+      `;
+      positionPopup(x, y);
+      wire();
+    }
 
-    // 팝업 높이가 바뀌었으므로 재위치
-    positionPopup(clientX, clientY);
+    function wire() {
+      const link = document.getElementById('eh-show-word');
+      if (link) {
+        link.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          headword = word;
+          entry = await lookup(word);
+          render();
+        });
+      }
 
-    document.getElementById('eh-save-word').addEventListener('click', () => {
-      window.EH.Storage.saveWord({
-        word, definition: dict?.definition || '',
-        sentence, translation, timestamp
-      }).then((res) => {
-        if (window.EH.handleAuthRequired(res)) return;
-        window.EH.showToast?.(`✓ "${word}" 저장됨`);
-        document.dispatchEvent(new CustomEvent('eh-item-saved'));
-        hide();
-      });
-    });
-
-    document.getElementById('eh-save-sent').addEventListener('click', () => {
-      window.EH.Storage.saveSentence({ original: sentence, translation, timestamp })
-        .then((res) => {
+      document.getElementById('eh-save-word').addEventListener('click', () => {
+        window.EH.Storage.saveWord({
+          word: headword, definition: flatten(entry),
+          sentence, translation, timestamp
+        }).then((res) => {
           if (window.EH.handleAuthRequired(res)) return;
-          window.EH.showToast?.('✓ 문장 저장됨');
+          window.EH.showToast?.(`✓ "${headword}" 저장됨`);
           document.dispatchEvent(new CustomEvent('eh-item-saved'));
           hide();
         });
-    });
+      });
+
+      document.getElementById('eh-save-sent').addEventListener('click', () => {
+        window.EH.Storage.saveSentence({ original: sentence, translation, timestamp })
+          .then((res) => {
+            if (window.EH.handleAuthRequired(res)) return;
+            window.EH.showToast?.('✓ 문장 저장됨');
+            document.dispatchEvent(new CustomEvent('eh-item-saved'));
+            hide();
+          });
+      });
+    }
   }
 
   function esc(s) {

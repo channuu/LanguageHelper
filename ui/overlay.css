@@ -68,6 +68,12 @@ body.eh-hidden-offwatch #eh-library-panel {
 }
 .eh-word:hover  { background: rgba(var(--eh-gold-rgb), 0.45); }
 .eh-word:active { background: rgba(var(--eh-gold-rgb), 0.70); }
+.eh-word.eh-mwe {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(var(--eh-gold-rgb), 0.75);
+  text-underline-offset: 3px;
+}
 
 #eh-resize-handle {
   position: absolute;
@@ -306,6 +312,22 @@ body.eh-hidden-offwatch #eh-library-panel {
 .eh-popup-def {
   font-size: 13px; color: rgba(var(--eh-text-rgb), 0.8);
   line-height: 1.55; margin-bottom: 6px;
+}
+.eh-popup-note {
+  font-size: 11px; color: var(--eh-text-faint);
+  margin-bottom: 6px;
+}
+.eh-popup-link {
+  display: block; width: 100%; margin: 6px 0 0;
+  padding: 5px 0; font-size: 12px;
+  background: none; border: none; cursor: pointer;
+  color: rgba(var(--eh-gold-rgb), 0.85);
+  text-align: left;
+}
+.eh-popup-link:hover { color: var(--eh-text); }
+.eh-popup-credit {
+  margin-top: 10px; font-size: 10px;
+  color: var(--eh-text-faint);
 }
 .eh-popup-sentence {
   font-size: 12px; color: var(--eh-text-faint);

@@ -11,6 +11,7 @@
       this._rafId = null;
       this._lastEnText = '';
       this._lastNativeText = '';
+      this._lastTickTime = -1;
       this._currentVideoId = '';
       this._availableTracks = []; // [{langCode, baseUrl}]
 
@@ -224,7 +225,14 @@
       // RAF 루프로 현재 자막 감지
       const tick = () => {
         const video = document.querySelector('video');
-        if (video && !video.paused && this._enCues.length) {
+        // 재생 중일 때만 계산하면, 정지 상태에서 스크립트 패널의 다른 시점을
+        // 눌렀을 때 영상만 이동하고 자막은 이전 문장에 그대로 남는다.
+        // 시간이 바뀐 프레임에서는 정지 중이어도 다시 계산한다 — 진짜로 멈춰
+        // 있는 동안에는 시간이 변하지 않으므로 예전처럼 아무 일도 하지 않는다.
+        const nowTime = video ? video.currentTime : -1;
+        const timeChanged = nowTime !== this._lastTickTime;
+        this._lastTickTime = nowTime;
+        if (video && (!video.paused || timeChanged) && this._enCues.length) {
           const t = video.currentTime + 0.1;
           const enCue = this._getCueAtTime(this._enCues, t);
           // native(번역) 자막은 자기 cue의 [start,end]로 독립적으로 찾지

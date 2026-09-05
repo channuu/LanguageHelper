@@ -259,18 +259,29 @@
       });
 
       // 구동사 구간 표시. 비동기라 cue가 이미 바뀌었으면 버린다.
+      //
+      // 이 블록 밖으로 예외가 나가면 안 된다. 확장을 새로 로드하면 이미 열려
+      // 있던 탭의 chrome.runtime이 무효가 되는데, 그때 sendMessage는 거부된
+      // 프로미스를 주는 게 아니라 그 자리에서 throw한다 — .catch로는 안 잡힌다.
+      // 그 예외가 renderSubtitles 밖으로 나가면 어댑터의 RAF 루프가 다음
+      // 프레임을 예약하지 못하고 죽어서, 자막이 페이지를 새로고침할 때까지
+      // 이전 문장에 얼어붙는다. 사전은 부가 기능이므로 자막을 볼모로 잡지 않는다.
       const scannedFor = enText;
-      chrome.runtime.sendMessage({ type: 'DICT_SCAN', payload: { text: enText } })
-        .then((res) => {
-          if (!res || !res.success || scannedFor !== currentEnText) return;
-          currentMatches = res.matches;
-          for (const m of res.matches) {
-            for (let i = m.start; i <= m.end && i < spans.length; i++) {
-              spans[i].classList.add('eh-mwe');
+      try {
+        chrome.runtime.sendMessage({ type: 'DICT_SCAN', payload: { text: enText } })
+          .then((res) => {
+            if (!res || !res.success || scannedFor !== currentEnText) return;
+            currentMatches = res.matches;
+            for (const m of res.matches) {
+              for (let i = m.start; i <= m.end && i < spans.length; i++) {
+                spans[i].classList.add('eh-mwe');
+              }
             }
-          }
-        })
-        .catch(() => {});
+          })
+          .catch(() => {});
+      } catch (e) {
+        // 확장 컨텍스트 무효 등. 구동사 표시만 포기하고 자막은 그대로 간다.
+      }
     }
 
     // 모국어 자막

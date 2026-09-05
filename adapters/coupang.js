@@ -181,10 +181,17 @@
             this._lastNativeText = nativeText;
             const nativeLang = window.EH.settings?.nativeLang || 'ko';
             if (this._subtitleCb) {
-              this._subtitleCb([
-                { lang: 'en', text: enText, fullText: enCue?.text || '', cueStart: enCue?.start },
-                { lang: nativeLang, text: nativeText }
-              ]);
+              // 렌더 중 난 예외가 여기서 새어 나가면 아래 requestAnimationFrame이
+              // 예약되지 않아 루프가 죽고, 자막이 새로고침 전까지 영구히 멈춘다.
+              // 한 프레임을 잃는 건 감수하되 루프는 반드시 살려 둔다.
+              try {
+                this._subtitleCb([
+                  { lang: 'en', text: enText, fullText: enCue?.text || '', cueStart: enCue?.start },
+                  { lang: nativeLang, text: nativeText }
+                ]);
+              } catch (err) {
+                console.warn('[EH] 자막 렌더 실패 — 루프는 계속한다', err);
+              }
             }
           }
         }

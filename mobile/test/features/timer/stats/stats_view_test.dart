@@ -59,20 +59,25 @@ void main() {
     // only a single active day, average always equals total (average =
     // total / activeDays = total / 1), which would make this assertion
     // ambiguous regardless of the chosen duration.
+    //
+    // StatsView only loads sessions that start before now + 1 day, so on a
+    // Monday the second session must start no later than Tuesday midnight.
+    // Starting both at midnight keeps them loaded at any time of the week.
     final monday = mondayOf(DateTime.now());
+    final tuesday = monday.add(const Duration(days: 1));
     await db.insert('study_sessions', {
       'id': 's1',
-      'started_at': monday.add(const Duration(hours: 9)).toIso8601String(),
-      'ended_at': monday.add(const Duration(hours: 10, minutes: 30)).toIso8601String(),
+      'started_at': monday.toIso8601String(),
+      'ended_at': monday.add(const Duration(hours: 1, minutes: 30)).toIso8601String(),
       'duration_seconds': 5400,
-      'saved_at': monday.add(const Duration(hours: 10, minutes: 30)).toIso8601String(),
+      'saved_at': monday.add(const Duration(hours: 1, minutes: 30)).toIso8601String(),
     });
     await db.insert('study_sessions', {
       'id': 's2',
-      'started_at': monday.add(const Duration(days: 1, hours: 9)).toIso8601String(),
-      'ended_at': monday.add(const Duration(days: 1, hours: 9, minutes: 30)).toIso8601String(),
+      'started_at': tuesday.toIso8601String(),
+      'ended_at': tuesday.add(const Duration(minutes: 30)).toIso8601String(),
       'duration_seconds': 1800,
-      'saved_at': monday.add(const Duration(days: 1, hours: 9, minutes: 30)).toIso8601String(),
+      'saved_at': tuesday.add(const Duration(minutes: 30)).toIso8601String(),
     });
 
     await tester.pumpWidget(buildView(learningRepo, timerRepo));

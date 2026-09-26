@@ -35,6 +35,10 @@
 
   const DEFAULT_SETTINGS = { enSize: 22, nativeSize: 18, mode: 'both', nativeLang: 'ko', cueLines: 2 };
   const ENABLED_KEY = 'eh-enabled';
+  // 오버레이·스크립트 패널을 켜고 끈 상태. 사이트를 옮기거나 다음 영상으로
+  // 넘어가도 매번 다시 열리지 않도록 기억한다.
+  const UI_KEY = 'eh-ui';
+  const DEFAULT_UI = { overlay: true, panel: true };
 
   // 툴바 팝업(popup/)의 "전체 기능" 스위치. 꺼져 있으면 이 페이지에 UI를
   // 아무것도 만들지 않는다 — 상단 바도, 오버레이도, 패널도.
@@ -76,9 +80,10 @@
     }
     window.EH.adapter = adapter;
 
-    const stored = await chrome.storage.local.get(['eh-settings', ENABLED_KEY]);
+    const stored = await chrome.storage.local.get(['eh-settings', ENABLED_KEY, UI_KEY]);
     window.EH.settings = { ...DEFAULT_SETTINGS, ...(stored['eh-settings'] || {}) };
     window.EH.enabled = stored[ENABLED_KEY] !== false; // 저장된 적 없으면 켜짐
+    const ui = { ...DEFAULT_UI, ...(stored[UI_KEY] || {}) };
 
     if (!window.EH.enabled) {
       // 어댑터는 생성자에서 이미 플랫폼 자막을 가리고 RAF 루프를 돌리고
@@ -93,6 +98,19 @@
     if (window.EH.SubtitleEngine) window.EH.SubtitleEngine.setup(adapter);
     if (window.EH.ScriptPanel)    window.EH.ScriptPanel.setup(adapter);
     if (window.EH.WordPopup)      window.EH.WordPopup.setup(adapter);
+
+    // 두 모듈 다 켜진 상태로 만들어지므로, 지난번에 꺼 둔 것만 되돌린다.
+    // 패널은 임베드↔밀어내기 모드가 정해진 뒤에 닫아야 레이아웃 보정까지
+    // 함께 걷히므로 setup 이후에 부른다.
+    if (!ui.overlay) window.EH.SubtitleEngine?.toggle();
+    if (!ui.panel)   window.EH.ScriptPanel?.toggle(false);
+  }
+
+  function _saveUi(patch) {
+    chrome.storage.local.get(UI_KEY, (stored) => {
+      const next = { ...DEFAULT_UI, ...(stored[UI_KEY] || {}), ...patch };
+      chrome.storage.local.set({ [UI_KEY]: next });
+    });
   }
 
   function applySettings(patch) {
@@ -159,10 +177,12 @@
 
     if (msg.type === 'TOGGLE_OVERLAY') {
       const visible = window.EH.SubtitleEngine?.toggle();
+      if (typeof visible === 'boolean') _saveUi({ overlay: visible });
       document.dispatchEvent(new CustomEvent('eh-overlay-toggled', { detail: { visible } }));
     }
     if (msg.type === 'TOGGLE_PANEL') {
       const visible = window.EH.ScriptPanel?.toggle(msg.visible);
+      if (typeof visible === 'boolean') _saveUi({ panel: visible });
       document.dispatchEvent(new CustomEvent('eh-panel-toggled', { detail: { visible } }));
     }
     if (msg.type === 'APPLY_SETTINGS') {

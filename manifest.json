@@ -17,6 +17,16 @@
     "https://firestore.googleapis.com/*"
   ],
 
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "English Helper",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
   "background": {
     "service_worker": "background/service_worker.js",
     "type": "module"
@@ -34,7 +44,6 @@
       "js": [
         "core/adapter-interface.js",
         "core/cue-utils.js",
-        "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
@@ -57,7 +66,6 @@
       "js": [
         "core/adapter-interface.js",
         "core/cue-utils.js",
-        "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
@@ -71,10 +79,15 @@
     },
     {
       "matches": ["https://www.disneyplus.com/*"],
+      "js": ["inject/disney_inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.disneyplus.com/*"],
       "js": [
         "core/adapter-interface.js",
         "core/cue-utils.js",
-        "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
@@ -97,7 +110,6 @@
       "js": [
         "core/adapter-interface.js",
         "core/cue-utils.js",
-        "core/topbar.js",
         "core/settings-panel.js",
         "core/library-panel.js",
         "core/storage.js",
@@ -129,6 +141,10 @@
     {
       "resources": ["inject/coupang_inject.js"],
       "matches": ["https://*.coupangplay.com/*"]
+    },
+    {
+      "resources": ["inject/disney_inject.js"],
+      "matches": ["https://www.disneyplus.com/*"]
     },
     {
       "resources": ["ui/fonts/*.woff2"],

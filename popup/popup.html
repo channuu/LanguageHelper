@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<div id="app">
+  <header class="hd">
+    <img class="hd-icon" src="../icons/icon48.png" alt="">
+    <div class="hd-name">English Helper</div>
+    <span class="badge" id="site-badge">—</span>
+  </header>
+  <p class="site-line" id="site-line"></p>
+
+  <div class="master" id="master" role="button" tabindex="0">
+    <div class="master-txt">
+      <div class="master-title">전체 기능</div>
+      <div class="master-sub" id="master-sub"></div>
+    </div>
+    <div class="sw sw-lg" id="master-sw"><i></i></div>
+  </div>
+
+  <div class="subs" id="subs">
+    <div class="row" id="row-overlay" role="button" tabindex="0">
+      <div class="row-txt"><div class="row-title">자막 오버레이</div><div class="row-sub">영상 위 이중 자막</div></div>
+      <div class="sw" id="sw-overlay"><i></i></div>
+    </div>
+    <div class="row" id="row-panel" role="button" tabindex="0">
+      <div class="row-txt"><div class="row-title">스크립트 패널</div><div class="row-sub">오른쪽 전체 자막 목록</div></div>
+      <div class="sw" id="sw-panel"><i></i></div>
+    </div>
+
+    <div class="row row-btn" id="row-library" role="button" tabindex="0">
+      <div class="row-txt"><div class="row-title">저장 목록</div><div class="row-sub">저장한 문장과 단어</div></div>
+      <span class="count" id="lib-count">0</span>
+    </div>
+
+  </div>
+
+  <footer class="ft">
+    <span class="dot" id="acct-dot"></span>
+    <span class="acct" id="acct">로그인하지 않음</span>
+    <span class="ver" id="ver"></span>
+  </footer>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

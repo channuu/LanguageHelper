@@ -34,6 +34,36 @@
   }
 
   const DEFAULT_SETTINGS = { enSize: 22, nativeSize: 18, mode: 'both', nativeLang: 'ko', cueLines: 2 };
+  const ENABLED_KEY = 'eh-enabled';
+
+  // 툴바 팝업(popup/)의 "전체 기능" 스위치. 꺼져 있으면 이 페이지에 UI를
+  // 아무것도 만들지 않는다 — 상단 바도, 오버레이도, 패널도.
+  window.EH = window.EH || {};
+  window.EH.enabled = true;
+
+  // 전체 기능을 끌 때: 우리가 만든 DOM과 레이아웃 보정 스타일을 남김없이
+  // 지우고 어댑터를 정지시킨다. 어댑터의 destroy()는 RAF 루프를 끄고 플랫폼
+  // 자막을 가리던 스타일도 없애므로, 끈 직후 페이지가 원래 상태로 돌아온다.
+  // id가 없는 요소는 만들지 않으므로 [id^="eh-"] 하나로 전부 걷힌다
+  // (오버레이·상단 바·패널·토스트·밀어내기 스타일 모두 해당).
+  function teardownUI() {
+    try { window.EH.adapter?.destroy?.(); } catch (e) {}
+    document.querySelectorAll('[id^="eh-"]').forEach(el => el.remove());
+  }
+
+  function _overlayVisible() {
+    const el = document.getElementById('eh-overlay');
+    return !!el && !el.classList.contains('hidden');
+  }
+
+  // core/script-panel.js의 _isPanelVisible()과 같은 판정 — 래퍼(임베드 모드)와
+  // 패널 중 하나라도 hidden이면 보이지 않는 것으로 본다.
+  function _panelVisible() {
+    const panel = document.getElementById('eh-panel');
+    if (!panel || panel.classList.contains('hidden')) return false;
+    const wrapper = document.getElementById('eh-panel-wrapper');
+    return !(wrapper && wrapper.classList.contains('hidden'));
+  }
 
   /**
    * 어댑터가 준비되면 호출. 코어 모듈들을 순서대로 초기화한다.
@@ -46,11 +76,18 @@
     }
     window.EH.adapter = adapter;
 
-    const stored = await chrome.storage.local.get('eh-settings');
+    const stored = await chrome.storage.local.get(['eh-settings', ENABLED_KEY]);
     window.EH.settings = { ...DEFAULT_SETTINGS, ...(stored['eh-settings'] || {}) };
+    window.EH.enabled = stored[ENABLED_KEY] !== false; // 저장된 적 없으면 켜짐
+
+    if (!window.EH.enabled) {
+      // 어댑터는 생성자에서 이미 플랫폼 자막을 가리고 RAF 루프를 돌리고
+      // 있으므로, 모듈을 세우지 않는 것만으로는 부족하다. 바로 정지시킨다.
+      try { adapter.destroy?.(); } catch (e) {}
+      return;
+    }
 
     // 각 코어 모듈은 window.EH.* 에 등록 후 이 함수를 기다린다
-    if (window.EH.TopBar)         window.EH.TopBar.setup(adapter);
     if (window.EH.SettingsPanel)  window.EH.SettingsPanel.setup(adapter);
     if (window.EH.LibraryPanel)   window.EH.LibraryPanel.setup(adapter);
     if (window.EH.SubtitleEngine) window.EH.SubtitleEngine.setup(adapter);
@@ -71,7 +108,55 @@
   window.EH.settings = { ...DEFAULT_SETTINGS };
 
   // 팝업 / service worker 메시지 수신
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // 팝업이 스위치 상태를 그릴 때 쓰는 현재 상태. 전체 기능이 꺼져 있어도
+    // 이 리스너는 살아 있으므로(모듈만 안 세운 것) 팝업이 다시 켤 수 있다.
+    if (msg.type === 'EH_GET_STATE') {
+      const meta = window.EH.enabled ? (window.EH.adapter?.getPlatformMeta?.() || {}) : {};
+      sendResponse({
+        ok: true,
+        enabled: window.EH.enabled !== false,
+        overlay: _overlayVisible(),
+        panel: _panelVisible(),
+        settings: window.EH.settings,
+        platform: meta.platform || '',
+        title: meta.title || ''
+      });
+      return;
+    }
+
+    if (msg.type === 'EH_SET_ENABLED') {
+      const enabled = !!msg.enabled;
+      window.EH.enabled = enabled;
+      chrome.storage.local.set({ [ENABLED_KEY]: enabled });
+      // 끄기는 그 자리에서 반영한다. 켜기는 팝업이 탭을 새로고침해서
+      // 처리한다 — destroy()한 어댑터는 되살릴 수 없기 때문이다.
+      if (!enabled) teardownUI();
+      sendResponse({ ok: true, enabled });
+      return;
+    }
+
+    if (msg.type === 'EH_OPEN_LIBRARY') {
+      document.dispatchEvent(new CustomEvent('eh-library-toggle'));
+      sendResponse({ ok: true });
+      return;
+    }
+
+    if (msg.type === 'EH_OPEN_SETTINGS') {
+      document.dispatchEvent(new CustomEvent('eh-settings-toggle'));
+      sendResponse({ ok: true });
+      return;
+    }
+
+    if (msg.type === 'EH_EXPORT') {
+      const panel = window.EH.ScriptPanel;
+      if (!panel) { sendResponse({ ok: false, error: 'panel not ready' }); return; }
+      if (msg.format === 'pdf') panel.exportScriptPdf();
+      else panel.exportScriptHtml();
+      sendResponse({ ok: true });
+      return;
+    }
+
     if (msg.type === 'TOGGLE_OVERLAY') {
       const visible = window.EH.SubtitleEngine?.toggle();
       document.dispatchEvent(new CustomEvent('eh-overlay-toggled', { detail: { visible } }));

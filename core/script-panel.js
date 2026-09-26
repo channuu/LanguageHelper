@@ -299,6 +299,17 @@ ${rows}
         width: calc(100% - ${w}px) !important;
         box-sizing: border-box !important;
       }
+      /* Disney+ — 플레이어 루트(.video_view--theater 등)가
+         position:absolute + left:0/right:0이라 body의 margin-right로는
+         밀리지 않는다. width만 줄이면 과제약이 되어 left가 버려지고 오른쪽에
+         붙어 패널 밑으로 들어가므로, left를 명시하고 right를 패널 폭만큼
+         띄운다. 안쪽의 .hudson-container는 inset:0이라 알아서 따라온다.
+         재생 모드에 따라 클래스 뒷부분이 달라져 접두사로 잡는다. */
+      [class*="video_view--"] {
+        left: 0 !important;
+        right: ${w}px !important;
+        width: auto !important;
+      }
     `;
   }
 
@@ -324,6 +335,13 @@ ${rows}
     header.className = 'eh-panel-header';
     header.innerHTML =
       '<span class="eh-panel-title">Script</span>' +
+      // 상단 바를 없앤 뒤 자막 설정으로 가는 유일한 경로다. 자막이 보이는
+      // 곳에서만 조작하도록 팝업에는 같은 항목을 두지 않는다.
+      '<button class="eh-panel-btn" id="eh-panel-settings" title="자막 설정">' +
+        '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">' +
+        '<path d="M1.6 3.6h9.8M1.6 9.4h9.8"></path>' +
+        '<circle cx="4.6" cy="3.6" r="1.7"></circle><circle cx="8.4" cy="9.4" r="1.7"></circle></svg>' +
+      '</button>' +
       '<button class="eh-panel-btn" id="eh-panel-expand" title="실제 크기로 확장">⤢</button>' +
       '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>' +
       '<div class="eh-panel-export-menu hidden" id="eh-panel-export-menu">' +
@@ -488,6 +506,12 @@ ${rows}
     const exportBtn   = header.querySelector('#eh-panel-export');
     const expandBtn   = header.querySelector('#eh-panel-expand');
     const exportMenu  = header.querySelector('#eh-panel-export-menu');
+    const settingsBtn = header.querySelector('#eh-panel-settings');
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.dispatchEvent(new CustomEvent('eh-settings-toggle'));
+    });
 
     exportBtn.addEventListener('click', (e) => {
       e.stopPropagation();

@@ -1,0 +1,110 @@
+/* 툴바 아이콘 팝업 — Claude Design 목업 §1k 기준.
+ * 다크 표면(#1d2025)을 쓰는 이유는 §1k가 그렇게 잡혀 있기 때문이다.
+ * (ui/tokens.css의 "팝업은 밝은 앱 테마" 주석은 저장 목록이 팝업에 있던
+ * 이전 안을 가리킨다 — §1j에서 저장 목록이 상단 바로 옮겨지며 바뀌었다.)
+ * 폰트는 ui/fonts/를 그대로 재사용한다. 팝업은 확장 페이지라 호스트
+ * 페이지 CSP와 무관하므로 web_accessible_resources 등록은 필요 없다.
+ */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../ui/fonts/SchibstedGrotesk-Variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-weight: 400;
+  font-display: swap;
+  src: url('../ui/fonts/IBMPlexMono-Regular.woff2') format('woff2');
+}
+
+:root {
+  --bg: #1d2025;
+  --line: rgba(255, 255, 255, .1);
+  --fg: #e8eaed;
+  --fg-strong: #fff;
+  --dim: rgba(255, 255, 255, .5);
+  --dimmer: rgba(255, 255, 255, .45);
+  --accent: #fb864d; /* oklch(0.74 0.16 45) */
+  --font: 'Schibsted Grotesk', 'Noto Sans KR', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  width: 360px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+}
+
+/* ── 헤더 ───────────────────────────────────────────── */
+.hd { display: flex; align-items: center; gap: 9px; padding: 14px 16px 0; }
+.hd-icon { width: 22px; height: 22px; display: block; }
+.hd-name { flex: 1; font-weight: 600; font-size: 14px; color: var(--fg-strong); }
+.badge {
+  font: 600 9.5px var(--mono); letter-spacing: .06em;
+  padding: 3px 7px; border-radius: 5px;
+  background: rgba(251, 134, 77, .16); color: var(--accent);
+}
+.badge.off { background: rgba(255, 255, 255, .08); color: var(--dim); }
+.site-line { margin: 0; padding: 6px 16px 14px; font-size: 12px; line-height: 1.55; color: var(--dim); }
+
+/* ── 마스터 스위치 ──────────────────────────────────── */
+.master {
+  margin: 0 12px; padding: 12px 14px; border-radius: 10px;
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  background: rgba(251, 134, 77, .1); border: 1px solid rgba(251, 134, 77, .35);
+}
+.master.off { background: rgba(255, 255, 255, .04); border-color: var(--line); }
+.master-txt { flex: 1; }
+.master-title { font-weight: 600; font-size: 13.5px; color: var(--fg-strong); }
+.master-sub { font-size: 11.5px; color: var(--dim); margin-top: 2px; }
+
+/* ── 스위치 ─────────────────────────────────────────── */
+.sw {
+  width: 32px; height: 18px; border-radius: 9px; position: relative; flex: none;
+  background: rgba(255, 255, 255, .18); transition: background .18s;
+}
+.sw i {
+  position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  border-radius: 7px; background: rgba(255, 255, 255, .55);
+  transition: left .18s, background .18s;
+}
+.sw.on { background: var(--accent); }
+.sw.on i { left: 16px; background: #fff; }
+.sw-lg { width: 38px; height: 22px; border-radius: 11px; }
+.sw-lg i { top: 3px; width: 16px; height: 16px; border-radius: 8px; }
+.sw-lg.on i { left: 19px; }
+
+/* ── 하위 항목 ──────────────────────────────────────── */
+.subs { padding: 6px 0 4px; transition: opacity .18s; }
+.subs.disabled { opacity: .4; pointer-events: none; }
+.row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 16px 11px 26px; cursor: pointer;
+}
+.row:hover, .row:focus-visible { background: rgba(255, 255, 255, .04); outline: none; }
+.row-txt { flex: 1; }
+.row-title { font-weight: 600; font-size: 13px; }
+.row-sub { font-size: 11.5px; color: var(--dimmer); margin-top: 2px; }
+.count {
+  font: 500 11px var(--mono); padding: 2px 8px; border-radius: 9px;
+  background: rgba(255, 255, 255, .08); color: var(--fg);
+}
+
+/* ── 푸터 ───────────────────────────────────────────── */
+.ft {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 16px; border-top: 1px solid rgba(255, 255, 255, .07);
+  font-size: 11.5px; color: var(--dim);
+}
+.dot { width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .25); flex: none; }
+.dot.on { background: #5bc184; }
+.acct { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ver { font: 400 10.5px var(--mono); color: rgba(255, 255, 255, .3); }
+
+/* 비지원 사이트 — 조작할 대상이 없으므로 토글과 설정을 모두 감춘다 */
+body.unsupported .master, body.unsupported .subs { display: none; }

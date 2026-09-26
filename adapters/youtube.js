@@ -310,7 +310,7 @@
   }
 
   // content_scripts는 youtube.com 전체(홈, 검색결과, 채널 페이지 등)에 매칭되므로,
-  // 영상이 없는 페이지에서도 topbar/패널이 그대로 마운트돼 레이아웃을 불필요하게
+  // 영상이 없는 페이지에서도 패널이 그대로 마운트돼 레이아웃을 불필요하게
   // 줄여버리는 문제가 있었다 — 실제로 /watch 페이지에 들어갈 때까지 초기화를
   // 미룬다. 홈에서 SPA 방식으로(새로고침 없이) 영상을 눌러 들어가는 경우를
   // 잡기 위해 MutationObserver로 경로 변화를 감시한다.
@@ -319,7 +319,7 @@
   }
 
   // 최초 진입만 막는 것으로는 부족했다 — 영상을 보다가 SPA로 홈/검색
-  // 등으로 "나가는" 경우, topbar/패널/오버레이가 계속 화면에 남아있고
+  // 등으로 "나가는" 경우, 패널/오버레이가 계속 화면에 남아있고
   // 밀어내기 스타일도 그대로 적용된 채라 새 페이지의 레이아웃을 계속
   // 침범했다. /watch를 벗어나면 우리 UI를 숨기고 밀어내기 스타일도
   // 비워서, 다시 /watch로 돌아왔을 때 자연스럽게 복구되게 한다.
@@ -345,18 +345,11 @@
         _panelVisibleBeforeRouteHide = !!target && !target.classList.contains('hidden');
       }
       window.EH.ScriptPanel?.toggle(false);
-      // topbar는 body 클래스로 숨기지만, topbar가 유튜브 마스트헤드를 아래로
-      // 밀어놓은 스타일(#eh-topbar-push-style)은 별개로 남아있다 — 안 지우면
-      // topbar는 안 보이는데 마스트헤드만 그 자리만큼 아래로 밀린 채 남아
-      // 위쪽에 빈 공백이 생긴다.
-      const topbarPush = document.getElementById('eh-topbar-push-style');
-      if (topbarPush) topbarPush.textContent = '';
     } else {
       if (_panelVisibleBeforeRouteHide !== null) {
         if (_panelVisibleBeforeRouteHide) window.EH.ScriptPanel?.toggle(true);
         _panelVisibleBeforeRouteHide = null;
       }
-      window.EH.TopBar?.refreshLayout?.();
     }
   }
 

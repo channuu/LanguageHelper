@@ -7,6 +7,11 @@
   let lastActiveChunkText = '';
   let searchQuery = '';
   let autoScrollEnabled = true;
+  // 사용자가 스크롤해서 다른 곳을 보고 있는 동안에는 자동 스크롤을 멈춘다.
+  // 재생이 진행돼 현재 줄이 다시 화면에 들어오거나 "현재 위치로"를 누르면
+  // 해제된다. 시간 기반으로 자동 복귀시키지 않는 것은 의도적이다 — 읽는
+  // 도중에 화면이 튕기는, 바로 이 기능이 없애려는 문제가 되풀이된다.
+  let userBrowsing = false;
   let savedSet = new Set();
   let saveFilter = 'all'; // 'all' | 'saved' | 'unsaved'
   let captionConflictSuspected = false;
@@ -390,6 +395,7 @@ ${rows}
     list.innerHTML = '<div class="eh-panel-empty">자막 로딩 중...</div>';
     panel.appendChild(list);
     attachOverlayScrollbar(panel, list);
+    attachBrowsePause(panel, list);
 
     const footer = document.createElement('div');
     footer.className = 'eh-panel-footer';
@@ -408,6 +414,7 @@ ${rows}
 
     footer.querySelector('#eh-panel-autoscroll').addEventListener('click', () => {
       autoScrollEnabled = !autoScrollEnabled;
+      if (!autoScrollEnabled) _setUserBrowsing(false);
       const el = footer.querySelector('#eh-panel-autoscroll');
       el.querySelector('.eh-panel-autoscroll-switch').classList.toggle('on', autoScrollEnabled);
       el.querySelector('.eh-panel-autoscroll-label').classList.toggle('dim', !autoScrollEnabled);
@@ -912,6 +919,9 @@ ${rows}
     if (!active || !autoScrollEnabled) return;
 
     if (seeked) {
+      // 사용자가 직접 시점을 옮긴 경우는 "거기를 보겠다"는 뜻이므로
+      // 둘러보던 상태를 풀고 따라간다.
+      _setUserBrowsing(false);
       _scrollActiveToTop(active);
       return;
     }
@@ -924,7 +934,44 @@ ${rows}
     const listRect = list?.getBoundingClientRect();
     const activeRect = active.getBoundingClientRect();
     const isVisible = listRect && activeRect.top >= listRect.top && activeRect.bottom <= listRect.bottom;
+    if (userBrowsing) {
+      // 재생이 따라와서 현재 줄이 다시 보이면 둘러보기가 끝난 것으로 본다.
+      if (isVisible) _setUserBrowsing(false);
+      return;
+    }
     if (!isVisible) _scrollActiveToTop(active);
+  }
+
+  function _setUserBrowsing(on) {
+    if (userBrowsing === on) return;
+    userBrowsing = on;
+    document.getElementById('eh-panel-resume')?.classList.toggle('hidden', !on);
+  }
+
+  // 우리가 부른 스크롤과 사용자의 스크롤을 scroll 이벤트만으로 구분하기는
+  // 까다롭다. 휠·터치·키처럼 의도가 분명한 입력만 듣는 편이 견고하다.
+  function attachBrowsePause(panel, list) {
+    const start = () => { if (autoScrollEnabled) _setUserBrowsing(true); };
+    list.addEventListener('wheel', start, { passive: true });
+    list.addEventListener('touchmove', start, { passive: true });
+    list.addEventListener('keydown', (e) => {
+      if (/^(ArrowUp|ArrowDown|PageUp|PageDown|Home|End)$/.test(e.key)) start();
+    });
+    // 오버레이 스크롤바를 끄는 것도 명백한 둘러보기다.
+    panel.addEventListener('mousedown', (e) => {
+      if (e.target.closest?.('.eh-panel-scrollbar')) start();
+    });
+
+    const resume = document.createElement('button');
+    resume.id = 'eh-panel-resume';
+    resume.className = 'eh-panel-resume hidden';
+    resume.textContent = '현재 위치로';
+    resume.addEventListener('click', () => {
+      _setUserBrowsing(false);
+      const active = document.querySelector('.eh-panel-item.active');
+      if (active) _scrollActiveToTop(active);
+    });
+    panel.appendChild(resume);
   }
 
   function applySettings(s) {

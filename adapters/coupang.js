@@ -15,6 +15,7 @@
       this._lastNativeText = '';
       this._lastTickTime = -1;
       this._hiddenStyle = null;
+      this._retryTimer = null;
 
       this._onMessage = this._handleMessage.bind(this);
       window.addEventListener('message', this._onMessage);
@@ -61,6 +62,7 @@
     destroy() {
       window.removeEventListener('message', this._onMessage);
       if (this._rafId) cancelAnimationFrame(this._rafId);
+      if (this._retryTimer) clearInterval(this._retryTimer);
       this._hiddenStyle?.remove();
     }
 
@@ -74,9 +76,14 @@
     _hideNativeSubtitles() {
       if (this._hiddenStyle) return;
       this._hiddenStyle = document.createElement('style');
-      // 쿠팡플레이 자막 DOM을 숨기고 EH 오버레이로 대체
-      // (실제 셀렉터 미검증 — 일반적인 OTT 패턴, 라이브 사이트에서 확인 필요)
-      this._hiddenStyle.textContent = '.subtitle-text { visibility: hidden !important; } [class*="subtitle"] { visibility: hidden !important; }';
+      // 쿠팡플레이는 Video.js로 자막을 그린다 — .vjs-text-track-display가
+      // 자막 레이어다. 이것만 숨기고 EH 오버레이로 대체한다.
+      //
+      // 이전에는 [class*="subtitle"]로 뭉뚱그려 숨겼는데, 정작 자막 레이어는
+      // 클래스에 subtitle이 없어 그대로 보이고(우리 오버레이와 이중으로 뜬다)
+      // 엉뚱하게 플레이어의 "음성 & 자막" 설정 메뉴(AudioSubtitle_subtitle__*,
+      // vjs-subtitles-menu-item)가 숨겨져 언어를 바꿀 수 없었다.
+      this._hiddenStyle.textContent = '.vjs-text-track-display { visibility: hidden !important; }';
       document.head.appendChild(this._hiddenStyle);
     }
 
@@ -89,6 +96,10 @@
 
       if (e.data.enVtt)     this._enCues     = this._parseVtt(e.data.enVtt);
       if (e.data.nativeVtt) this._nativeCues = this._parseVtt(e.data.nativeVtt);
+      if (this._enCues.length && this._retryTimer) {
+        clearInterval(this._retryTimer);
+        this._retryTimer = null;
+      }
       this._triggerTracksReady();
     }
 
@@ -214,6 +225,23 @@
         window.postMessage({ type: 'EH_CP_TRIGGER_LOAD', videoId, nativeLang }, '*');
       };
 
+      // /api/playback/play는 DRM 준비와 광고 설정을 거쳐 오기 때문에 1.5초보다
+      // 늦는 경우가 흔하다. 한 번만 묻고 말면 그때부터 영영 "자막 없음"으로
+      // 남으므로, 자막이 들어올 때까지 주기적으로 다시 요청한다.
+      const startRequesting = () => {
+        if (this._retryTimer) clearInterval(this._retryTimer);
+        triggerLoad();
+        let tries = 0;
+        this._retryTimer = setInterval(() => {
+          if (this._enCues.length || ++tries > 15) {
+            clearInterval(this._retryTimer);
+            this._retryTimer = null;
+            return;
+          }
+          triggerLoad();
+        }, 2000);
+      };
+
       // SPA 라우팅 — 영상 변경 감지
       let lastVideoId = this._getContentId();
       new MutationObserver(() => {
@@ -224,12 +252,12 @@
           this._nativeCues = [];
           this._lastEnText = '';
           this._lastNativeText = '';
-          if (videoId) setTimeout(triggerLoad, 1500);
+          if (videoId) setTimeout(startRequesting, 1500);
         }
       }).observe(document, { subtree: true, childList: true });
 
       // 초기 자막 요청 — /playback/play 응답이 캡처될 시간을 준다
-      setTimeout(triggerLoad, 1500);
+      setTimeout(startRequesting, 1500);
     }
   }
 

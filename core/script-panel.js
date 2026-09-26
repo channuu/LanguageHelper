@@ -305,7 +305,11 @@ ${rows}
          붙어 패널 밑으로 들어가므로, left를 명시하고 right를 패널 폭만큼
          띄운다. 안쪽의 .hudson-container는 inset:0이라 알아서 따라온다.
          재생 모드에 따라 클래스 뒷부분이 달라져 접두사로 잡는다. */
-      [class*="video_view--"] {
+      [class*="video_view--"],
+      /* 쿠팡플레이도 같은 구조다 — Player_playerWrapper가 position:absolute라
+         body의 margin-right를 무시하고 패널 밑으로 들어간다. 클래스 뒤의
+         해시는 빌드마다 바뀌므로 접두사로 잡는다. */
+      [class*="Player_playerWrapper"] {
         left: 0 !important;
         right: ${w}px !important;
         width: auto !important;

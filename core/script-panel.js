@@ -337,13 +337,13 @@ ${rows}
       '<span class="eh-panel-title">Script</span>' +
       // 상단 바를 없앤 뒤 자막 설정으로 가는 유일한 경로다. 자막이 보이는
       // 곳에서만 조작하도록 팝업에는 같은 항목을 두지 않는다.
-      '<button class="eh-panel-btn" id="eh-panel-settings" title="자막 설정">' +
+      '<button class="eh-panel-btn" id="eh-panel-settings" aria-label="자막 설정" data-tip="자막 설정">' +
         '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">' +
         '<path d="M1.6 3.6h9.8M1.6 9.4h9.8"></path>' +
         '<circle cx="4.6" cy="3.6" r="1.7"></circle><circle cx="8.4" cy="9.4" r="1.7"></circle></svg>' +
       '</button>' +
-      '<button class="eh-panel-btn" id="eh-panel-expand" title="실제 크기로 확장">⤢</button>' +
-      '<button class="eh-panel-btn" id="eh-panel-export" title="스크립트 내보내기">⬇</button>' +
+      '<button class="eh-panel-btn" id="eh-panel-expand" aria-label="실제 크기로 확장" data-tip="실제 크기로 확장">⤢</button>' +
+      '<button class="eh-panel-btn" id="eh-panel-export" aria-label="스크립트 내보내기" data-tip="스크립트 내보내기">⬇</button>' +
       '<div class="eh-panel-export-menu hidden" id="eh-panel-export-menu">' +
         '<div class="eh-panel-export-item" data-format="html">HTML로 저장<span class="eh-panel-export-ext">.html</span></div>' +
         '<div class="eh-panel-export-item" data-format="pdf">PDF로 저장<span class="eh-panel-export-ext">.pdf</span></div>' +
@@ -385,6 +385,7 @@ ${rows}
     list.id = 'eh-panel-list';
     list.innerHTML = '<div class="eh-panel-empty">자막 로딩 중...</div>';
     panel.appendChild(list);
+    attachOverlayScrollbar(panel, list);
 
     const footer = document.createElement('div');
     footer.className = 'eh-panel-footer';
@@ -544,6 +545,9 @@ ${rows}
       _closeExportMenu();
       expanded = !expanded;
       expandBtn.classList.toggle('active', expanded);
+      const expandTip = expanded ? '원래 크기로' : '실제 크기로 확장';
+      expandBtn.setAttribute('data-tip', expandTip);
+      expandBtn.setAttribute('aria-label', expandTip);
       if (_isYouTube()) {
         // YouTube: #secondary 임베드는 폭을 우리가 제어할 수 없으므로,
         // 확장 시엔 고정(fixed) 모드로 강제 전환해 더 넓은 폭을 확보한다.
@@ -598,6 +602,86 @@ ${rows}
       if (e.target.closest('#eh-panel-search')) return;
       e.preventDefault();
     });
+  }
+
+  // 네이티브 스크롤바는 얇게 두면 잡기 어렵고, 넓히려 해도
+  // ::-webkit-scrollbar의 width에는 트랜지션이 먹지 않아 툭 끊긴다.
+  // 그래서 숨기고 오버레이로 직접 그린다 — 일반 요소라 두께가 부드럽게
+  // 변하고, 떠 있는 레이어라 콘텐츠 폭도 밀지 않는다.
+  function attachOverlayScrollbar(panel, list) {
+    const NEAR_PX = 56;   // 커서가 이 안으로 들어오면 굵어진다
+    const MIN_THUMB = 28; // 항목이 아주 많아도 집을 수 있는 최소 높이
+
+    const bar = document.createElement('div');
+    bar.className = 'eh-panel-scrollbar hidden';
+    const thumb = document.createElement('div');
+    thumb.className = 'eh-panel-scrollbar-thumb';
+    bar.appendChild(thumb);
+    panel.appendChild(bar);
+
+    let dragging = false, dragStartY = 0, dragStartScroll = 0;
+
+    function layout() {
+      const track = list.clientHeight;
+      const scrollable = list.scrollHeight - track;
+      if (scrollable <= 1) { bar.classList.add('hidden'); return; }
+      bar.classList.remove('hidden');
+      // 트랙을 목록 영역에 맞춘다 — #eh-panel이 position:absolute라
+      // offsetParent가 되므로 offsetTop을 그대로 쓸 수 있다.
+      bar.style.top = list.offsetTop + 'px';
+      bar.style.height = track + 'px';
+      const h = Math.max(MIN_THUMB, Math.round(track * track / list.scrollHeight));
+      thumb.style.height = h + 'px';
+      thumb.style.transform = 'translateY(' + ((list.scrollTop / scrollable) * (track - h)) + 'px)';
+    }
+
+    list.addEventListener('scroll', layout, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(layout).observe(list);
+    // 자막이 나중에 도착하거나 검색/필터로 목록이 다시 그려질 때마다
+    // thumb 크기가 달라진다.
+    new MutationObserver(layout).observe(list, { childList: true });
+
+    panel.addEventListener('mousemove', (e) => {
+      if (dragging) return;
+      const r = list.getBoundingClientRect();
+      bar.classList.toggle('near', e.clientX >= r.right - NEAR_PX && e.clientX <= r.right);
+    });
+    panel.addEventListener('mouseleave', () => {
+      if (!dragging) bar.classList.remove('near');
+    });
+
+    thumb.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // 드래그 중 텍스트가 선택되지 않게
+      dragging = true;
+      dragStartY = e.clientY;
+      dragStartScroll = list.scrollTop;
+      bar.classList.add('dragging');
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const track = list.clientHeight;
+      const h = thumb.getBoundingClientRect().height;
+      const scrollable = list.scrollHeight - track;
+      if (track - h <= 0) return;
+      list.scrollTop = dragStartScroll + ((e.clientY - dragStartY) / (track - h)) * scrollable;
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      bar.classList.remove('dragging', 'near');
+    });
+
+    // 트랙을 누르면 그 위치로 건너뛴다.
+    bar.addEventListener('mousedown', (e) => {
+      if (e.target === thumb) return;
+      const r = bar.getBoundingClientRect();
+      const h = thumb.getBoundingClientRect().height;
+      const track = list.clientHeight;
+      const ratio = Math.min(1, Math.max(0, (e.clientY - r.top - h / 2) / (track - h)));
+      list.scrollTop = ratio * (list.scrollHeight - track);
+    });
+
+    layout();
   }
 
   function attachPanelResize(panel, handle, isExpanded, setSavedWidth) {

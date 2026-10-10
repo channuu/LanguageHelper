@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — English Helper</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; padding: 48px 20px 80px;
+    font-family: 'Schibsted Grotesk', -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+    color: #14161f; background: #fff;
+    line-height: 1.75; font-size: 15px;
+  }
+  main { max-width: 68ch; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.01em; margin: 0 0 6px; }
+  h2 { font-size: 17px; margin: 38px 0 10px; letter-spacing: -0.01em; }
+  h3 { font-size: 15px; margin: 22px 0 6px; }
+  .meta { color: #646c80; font-size: 13px; margin: 0 0 8px; }
+  .lang { font-size: 13px; margin: 0 0 24px; }
+  p, li { text-wrap: pretty; }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid #e7eaf1; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f5f7fb; font-weight: 600; }
+  code { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; background: #f5f7fb; padding: 1px 5px; border-radius: 4px; }
+  .note { background: #f5f7fb; border: 1px solid #eef0f5; border-radius: 10px; padding: 14px 16px; margin: 16px 0; }
+  .todo { background: #fff6ed; border: 1px solid #ffd9b8; border-radius: 10px; padding: 14px 16px; margin: 16px 0; }
+  hr { border: 0; border-top: 1px solid #e7eaf1; margin: 40px 0; }
+  footer { color: #646c80; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Privacy Policy</h1>
+<p class="meta">English Helper (Chrome extension and mobile app)</p>
+<p class="meta">Effective: October 10, 2026 · Last updated: October 10, 2026</p>
+<p class="lang"><a href="./privacy.html">한국어</a> · <strong>English</strong></p>
+
+<div class="todo">
+<strong>Before publishing</strong><br>
+Replace <code>[Operator name]</code> and <code>[Contact email]</code> below with real values and delete this box.
+If the mobile app has not shipped yet, adjust the "and mobile app" wording as well.
+</div>
+
+<p>
+English Helper ("the Service") shows English subtitles alongside a translation on YouTube,
+Netflix, Disney+, and Coupang Play, and lets you save selected sentences and words to review
+later. This policy explains what the Service does — and does not — do with your information.
+</p>
+
+<div class="note">
+<strong>Core principle — only what you explicitly save is sent to a server.</strong><br>
+Subtitles shown during playback are never transmitted, words you look up in the dictionary are
+not transmitted, and the Service does not automatically record what you watch.
+</div>
+
+<h2>1. Information we collect</h2>
+
+<h3>a. Account information (only if you sign in)</h3>
+<p>
+To sync across devices, signing in processes your <strong>email address</strong> and an
+<strong>account identifier (UID)</strong>. Authentication is handled by Google Firebase
+Authentication; the Service never stores or sees your password. All subtitle features work
+without signing in.
+</p>
+
+<h3>b. Learning data you save</h3>
+<p>The following is stored and synced only when you press the save button on a sentence or word.</p>
+<table>
+  <tr><th>Category</th><th>Fields</th></tr>
+  <tr><td>Saved content</td><td>The sentence or word you saved, its dictionary definition, the translation of the sentence</td></tr>
+  <tr><td>Source context</td><td>Platform name, content title, content identifier, playback position within the video</td></tr>
+  <tr><td>Review history</td><td>Time saved, review count and level, next and last review times</td></tr>
+</table>
+<p>
+Source context exists so that a saved expression can later be reviewed together with the scene
+it came from. As a result, <strong>the title of the content you were watching is retained for the
+items you save</strong>. Viewing of content you did not save from is not recorded.
+</p>
+
+<h3>c. What we do not collect</h3>
+<ul>
+  <li>The full text of subtitles shown during playback — processed on your device only, never transmitted or retained</li>
+  <li>Words you look up in the dictionary — see section 5 for why these never reach a server</li>
+  <li>Viewing history for content you did not save from, lists of websites visited, or search history</li>
+  <li>Location, contacts, payment information, or health information</li>
+  <li>Advertising identifiers or other tracking identifiers — the Service shows no ads and does not track users</li>
+</ul>
+
+<h2>2. Information stored only on your device</h2>
+<p>
+The following stays in your browser or device and is never transmitted. Removing the extension or
+clearing browser storage deletes it.
+</p>
+<ul>
+  <li>Subtitle preferences (native language, display mode, font sizes, amount shown per line)</li>
+  <li>Feature on/off and panel visibility state, panel width, and subtitle overlay position</li>
+  <li>A local copy of saved items and the sync queue — these stay on the device if you do not sign in</li>
+  <li>Your sign-in token</li>
+  <li>Cached dictionary data</li>
+</ul>
+
+<h2>3. How we use information</h2>
+<ul>
+  <li>To display dual subtitles over video and provide the transcript panel</li>
+  <li>To store the expressions you save and sync them across your devices</li>
+  <li>To schedule reviews</li>
+</ul>
+<p>We do not use this information for advertising, sell it, or provide it for creditworthiness purposes.</p>
+
+<h2>4. Third parties and processors</h2>
+<p>
+We do not sell or share personal information with third parties. We do rely on the following
+provider's infrastructure to operate the Service, which means data is stored on their servers.
+</p>
+<table>
+  <tr><th>Processor</th><th>Purpose</th><th>Data processed</th></tr>
+  <tr>
+    <td>Google LLC<br>(Firebase Authentication,<br>Cloud Firestore)</td>
+    <td>Account authentication; storage and sync of learning data</td>
+    <td>Email, UID, and the learning data described in 1(b)</td>
+  </tr>
+</table>
+<p>
+This data is stored in Google's data centers and may be held outside your country of residence.
+See
+<a href="https://firebase.google.com/support/privacy">Firebase's privacy information</a>
+for details on Google's processing.
+</p>
+
+<h2>5. How dictionary lookups work</h2>
+<p>
+When you look up a word, the Service does not send that word to a server. Instead it downloads
+dictionary files grouped by the opening letters of words, stores them on your device, and performs
+the lookup locally.
+</p>
+<p>
+As a consequence, the Service's dictionary host may retain ordinary web server access logs
+recording which group file was requested, when, and from which IP address. Group file names are
+the first two or three letters of a word, so these logs indicate only
+<strong>which range of starting letters was consulted</strong>, not which word. Once a group has
+been downloaded it is kept on the device, so repeated lookups in the same range generate no
+request at all. These logs are used solely to operate and troubleshoot the Service.
+</p>
+
+<h2>6. Retention and deletion</h2>
+<ul>
+  <li>Learning data is retained until you delete it or delete your account.</li>
+  <li>Individual items can be deleted at any time from the saved list; deleting an item also deletes its synced copy.</li>
+  <li>Deleting your account deletes that account's learning data and account information without undue delay.</li>
+</ul>
+
+<h2>7. Your rights and how to exercise them</h2>
+<ul>
+  <li><strong>Access</strong> — every saved item is visible in the saved list.</li>
+  <li><strong>Deletion</strong> — delete individual items from the saved list.</li>
+  <li><strong>Account and full data deletion</strong> — request account deletion from the app's settings, or contact us using the details below.</li>
+  <li><strong>Stop syncing</strong> — sign out, and subsequent data stays on your device only.</li>
+</ul>
+
+<h2>8. Security</h2>
+<ul>
+  <li>All communication is encrypted with HTTPS.</li>
+  <li>Firestore security rules restrict each user to their own data.</li>
+  <li>Passwords are managed by Firebase Authentication and are not retained by the Service.</li>
+</ul>
+
+<h2>9. Children's privacy</h2>
+<p>
+The Service is not directed to children under 14, or under the minimum age of digital consent in
+the user's jurisdiction, whichever is higher, and we do not knowingly collect their personal
+information. If we become aware of such data, we delete it without undue delay.
+</p>
+
+<h2>10. Changes to this policy</h2>
+<p>
+If this policy changes, we will post the change and its effective date on this page. Significant
+changes will also be announced within the Service.
+</p>
+
+<h2>11. Contact</h2>
+<p>For questions about this policy, or to request access or deletion, contact us:</p>
+<ul>
+  <li>Operator: <code>[Operator name]</code></li>
+  <li>Email: <code>[Contact email]</code></li>
+</ul>
+
+<hr>
+<footer>English Helper · Published for Chrome Web Store and App Store listing requirements.</footer>
+
+</main>
+</body>
+</html>

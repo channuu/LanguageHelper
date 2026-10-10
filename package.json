@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/**/*.js",
-    "build:dict": "node tools/build-dictionary.js"
+    "build:dict": "node tools/build-dictionary.js",
+    "package": "node tools/package-extension.js"
   }
 }

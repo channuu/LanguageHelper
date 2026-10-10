@@ -1,101 +1,85 @@
-# English Helper — Chrome Extension
+# English Helper
 
-YouTube / Netflix 자막을 오버레이로 표시하고, 문장을 저장해 Flutter 앱에서 복습하는 서비스입니다.
+YouTube · Netflix · Disney+ · 쿠팡플레이에서 영어 자막과 번역을 함께 보여주고,
+마음에 든 문장과 단어를 저장해 모바일 앱에서 복습하는 서비스입니다.
+
+Chrome 확장 프로그램(`/`)과 Flutter 앱(`mobile/`) 두 표면으로 이루어져 있고,
+저장한 항목은 같은 계정으로 로그인하면 Firebase를 통해 양쪽을 오갑니다.
 
 ---
 
-## 파일 구조
+## 확장 프로그램
+
+### 구조
 
 ```
-english-helper-extension/
-├── manifest.json                  # Extension 설정 (MV3)
-├── firebase-config.js             # ⚠ Firebase 키 입력 필요
-├── background/
-│   └── service_worker.js          # Firebase Auth + Firestore CRUD
-├── content/
-│   ├── youtube.js                 # YouTube 자막 추출 + 오버레이
-│   ├── netflix.js                 # Netflix 자막 추출 + 오버레이
-│   └── overlay.css                # 오버레이 스타일
-├── icons/                         # 아이콘 이미지 (직접 추가)
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
-└── flutter_integration.dart       # Flutter 앱 연동 코드
+manifest.json            MV3 설정
+background/              서비스워커 — 인증, 동기화, 사전 조회, 내보내기
+core/                    플랫폼과 무관한 UI와 로직
+  adapter-interface.js     어댑터 계약 + 전체 기능 on/off
+  subtitle-engine.js       영상 위 자막 오버레이
+  script-panel.js          우측 스크립트 패널
+  settings-panel.js        자막 설정
+  library-panel.js         저장 목록
+  word-popup.js            단어 팝업
+  cue-utils.js             청크 분할 — 오버레이와 패널이 공유
+  storage.js
+adapters/                플랫폼별 자막 수집 (youtube, netflix, disney, coupang)
+inject/                  MAIN world 스크립트 — 네트워크 가로채기
+popup/                   툴바 아이콘 팝업
+auth/ export/            실행 중에 열리는 확장 페이지
+cloud/                   Firebase 인증 · Firestore 동기화
+lexicon/                 사전 조회와 캐시
+ui/                      디자인 토큰, 오버레이 스타일, 폰트
+tools/                   빌드 스크립트 (저장소 전용, 패키지에 포함되지 않음)
 ```
 
----
+### 새 플랫폼 추가하기
 
-## 설치 방법
+`core/adapter-interface.js`의 `SubtitleAdapter`를 상속한 파일 하나를
+`adapters/`에 두고 manifest에 등록하면 됩니다. 코어는 건드리지 않습니다.
 
-### 1. Firebase 프로젝트 설정
+플랫폼마다 자막을 꺼내는 방법이 다릅니다. 네 어댑터 모두 DOM을 긁는 대신
+**플레이어가 받아오는 자막 파일을 가로채는 방식**을 씁니다 — DOM 자막은
+shadow DOM에 있거나(Disney+) 구조가 자주 바뀌어 신뢰할 수 없습니다.
 
-1. [Firebase Console](https://console.firebase.google.com) 에서 새 프로젝트 생성
-2. Authentication → Google 로그인 활성화
-3. Firestore Database 생성 (테스트 모드로 시작)
-4. 프로젝트 설정 → 웹 앱 추가 → SDK 구성 복사
-5. `firebase-config.js`의 `FIREBASE_CONFIG` 값 교체
+### 개발
 
-### 2. Firestore 보안 규칙 설정
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /saved_sentences/{docId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.userId;
-    }
-  }
-}
+```bash
+npm test                 # 순수 모듈 테스트 (lexicon, cloud)
+npm run build:dict       # dumps/ → dist/dict 사전 빌드
+npm run package          # 웹 스토어 제출용 ZIP → build/
 ```
 
-### 3. Chrome에 Extension 설치
+확장을 설치하려면 `chrome://extensions`에서 개발자 모드를 켜고 이 폴더를
+"압축해제된 확장 프로그램 로드"로 선택합니다.
 
-1. Chrome 주소창에 `chrome://extensions` 입력
-2. 우측 상단 "개발자 모드" 활성화
-3. "압축해제된 확장 프로그램 로드" 클릭
-4. 이 폴더 선택
+> **확장 코드를 고친 뒤에는 확장을 새로고침하고, 이미 열려 있던 탭도
+> 새로고침해야 합니다.** 확장만 리로드하면 기존 탭에는 예전 content script가
+> 그대로 남아 변경이 반영되지 않습니다.
 
-### 4. 아이콘 추가
+브라우저 측 코드(`core/`, `adapters/`, `inject/`)는 `npm test`가 커버하지
+않습니다 — 실제 재생 페이지에서 확인해야 합니다.
 
-`icons/` 폴더에 PNG 파일 추가 (16×16, 48×48, 128×128 픽셀)
-임시로 단색 PNG 하나를 세 이름으로 복사해도 됩니다.
+## 모바일 앱
 
----
+Flutter. 저장 목록, 플래시카드, 학습 타이머와 주간 목표, 설정 화면으로
+이루어져 있습니다.
 
-## 사용 방법
+```bash
+cd mobile
+flutter test
+flutter run
+```
 
-1. YouTube 또는 Netflix에서 영어 자막 활성화
-2. 자막 위에 오버레이가 표시됨
-3. 영어 자막 위에 마우스를 올리면 **＋** 버튼 표시
-4. **＋** 클릭 → Firestore에 자동 저장
-5. Extension 팝업에서 저장된 문장 확인 가능
+## 스토어 등록
 
----
+개인정보처리방침은 `dist/privacy.html`(한국어)과 `dist/privacy-en.html`에
+있고, Firebase Hosting으로 배포하면 `/privacy.html`로 열립니다.
+운영자명과 문의 이메일이 플레이스홀더로 남아 있습니다.
 
-## Phase 2 — 다음 개발 단계
+## 설정
 
-| 기능 | 방법 |
-|------|------|
-| 한글 번역 표시 | Background SW에서 DeepL/Google API 호출 후 오버레이 업데이트 |
-| 단어 사전 팝업 | 단어 클릭 시 Merriam-Webster API 또는 사전 DB 조회 |
-| Netflix 자막 안정화 | `timedtext-speaking` 클래스 기반으로 변경 감지 보완 |
-| Flutter 앱 | `flutter_integration.dart` 기반으로 복습 카드 UI 구성 |
-
----
-
-## 알려진 제한 사항
-
-- Netflix는 자막 구조를 자주 변경하므로 선택자 업데이트가 필요할 수 있음
-- YouTube 자동 생성 자막(CC)은 싱크가 약간 지연될 수 있음
-- Firebase 무료 티어(Spark): Firestore 1GB, 하루 5만 읽기 / 2만 쓰기
-
----
-
-## Flutter 앱 연동
-
-`flutter_integration.dart` 파일 참조.
-Firebase 프로젝트를 공유하면 Extension에서 저장된 문장이 앱에서 실시간으로 보입니다.
-`FlutterFire CLI`로 `google-services.json` (Android) / `GoogleService-Info.plist` (iOS) 생성 필요.
+`cloud/config.js`에 Firebase 프로젝트 식별자가 있습니다. 웹 API 키는 비밀이
+아니며, 접근 통제는 `firestore.rules`가 담당합니다 — 각 사용자는 자신의
+`users/{uid}` 문서에만 접근할 수 있습니다.

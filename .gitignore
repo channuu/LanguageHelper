@@ -10,5 +10,6 @@ dist/*
 !dist/privacy.html
 !dist/privacy-en.html
 dumps/
+build/
 work/
 .firebase/

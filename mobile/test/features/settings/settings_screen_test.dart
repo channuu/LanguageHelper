@@ -26,6 +26,18 @@ class _FakeAuthService implements AuthService {
   Future<void> signOut() async {
     currentUser = null;
   }
+
+  /// 계정 삭제 호출 여부와 전달된 비밀번호를 기록한다 — 원격 데이터를 먼저
+  /// 지우기 전에 불리면 안 되는 호출이라, 순서 검증에 쓴다.
+  String? deletedWithPassword;
+  Object? throwOnDelete;
+
+  @override
+  Future<void> deleteAccount(String password) async {
+    if (throwOnDelete != null) throw throwOnDelete!;
+    deletedWithPassword = password;
+    currentUser = null;
+  }
 }
 
 /// SyncService는 ChangeNotifier라 상속해서 동작만 갈아끼우는 편이 짧다.

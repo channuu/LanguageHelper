@@ -23,6 +23,7 @@ const Map<String, String> _errorCopy = {
   'too-many-requests': '잠시 후 다시 시도해 주세요',
   'user-disabled': '사용할 수 없는 계정이에요',
   'network-request-failed': '연결을 확인해 주세요',
+  'requires-recent-login': '보안을 위해 비밀번호를 다시 입력해 주세요',
 };
 
 /// 확장의 cloud/auth.js와 같은 문구를 쓴다. 어느 쪽이 틀렸는지
@@ -36,6 +37,14 @@ abstract class AuthService {
   Future<void> signIn(String email, String password);
   Future<void> signUp(String email, String password);
   Future<void> signOut();
+
+  /// 계정과 인증 정보를 영구히 삭제한다. Firebase는 최근 로그인하지 않은
+  /// 사용자의 삭제를 거부하므로 비밀번호로 먼저 재인증한다.
+  ///
+  /// 호출 전에 Firestore 문서를 먼저 지워야 한다 — 규칙이
+  /// request.auth.uid == uid라, 계정이 사라지면 그 데이터를 지울 권한도
+  /// 함께 사라져 영구히 고아로 남는다.
+  Future<void> deleteAccount(String password);
 }
 
 class FirebaseAuthService implements AuthService {
@@ -74,4 +83,22 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<void> signOut() => _auth.signOut();
+
+  @override
+  Future<void> deleteAccount(String password) async {
+    final user = _auth.currentUser;
+    if (user == null) throw const AuthException('로그인 상태가 아니에요');
+    final email = user.email;
+    if (email == null || email.isEmpty) {
+      throw const AuthException('이메일을 확인할 수 없어요');
+    }
+    try {
+      await user.reauthenticateWithCredential(
+        fb.EmailAuthProvider.credential(email: email, password: password),
+      );
+      await user.delete();
+    } on fb.FirebaseAuthException catch (e) {
+      throw AuthException(authErrorMessage(e.code));
+    }
+  }
 }

@@ -189,6 +189,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await auth.signOut();
   }
 
+  /// 계정 삭제. 순서가 이 기능의 전부다 —
+  /// 재인증 → 원격 문서 삭제 → 인증 계정 삭제 → 로컬 정리.
+  ///
+  /// 원격 문서를 반드시 계정보다 먼저 지워야 한다. Firestore 규칙이
+  /// request.auth.uid == uid라, 계정이 먼저 사라지면 그 문서를 지울 권한도
+  /// 사라져 영구히 고아로 남는다. 그래서 원격 삭제가 실패하면 계정은
+  /// 건드리지 않고 중단한다.
+  Future<void> _confirmDeleteAccount(
+      BuildContext context, AuthService auth, SyncService sync) async {
+    final uid = auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('계정을 삭제할까요?'),
+        content: const Text(
+          '저장한 문장과 단어, 학습 기록이 모두 지워집니다. '
+          '되돌릴 수 없어요.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    // Firebase는 최근 로그인하지 않은 사용자의 삭제를 거부한다.
+    final password = await _askPassword(context);
+    if (password == null || password.isEmpty || !context.mounted) return;
+
+    try {
+      await sync.deleteRemoteData(uid);
+    } catch (e) {
+      if (context.mounted) {
+        _showMessage(context, '데이터를 지우지 못했어요. 계정은 그대로예요.');
+      }
+      return;
+    }
+
+    try {
+      await auth.deleteAccount(password);
+    } on AuthException catch (e) {
+      // 여기까지 왔다면 원격 데이터는 이미 지워졌다. 다시 시도하면 지울
+      // 것이 없는 상태에서 계정만 삭제된다.
+      if (context.mounted) _showMessage(context, '$e 다시 시도해 주세요.');
+      return;
+    }
+
+    await sync.clearLocalAfterDelete();
+  }
+
+  Future<String?> _askPassword(BuildContext context) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('비밀번호 확인'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '비밀번호'),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
   static String _formatSyncTime(String? iso) {
     if (iso == null) return '아직 동기화 안 됨';
     final d = DateTime.parse(iso);
@@ -236,6 +324,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   TextButton(
                     onPressed: () => _confirmSignOut(context, auth, sync),
                     child: const Text('로그아웃'),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => _confirmDeleteAccount(context, auth, sync),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                    child: const Text('계정 삭제'),
                   ),
                 ],
               ),

@@ -27,6 +27,9 @@ class _PendingAuthService implements AuthService {
   Future<void> signUp(String email, String password) async {}
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> deleteAccount(String password) async {}
 }
 
 void main() {

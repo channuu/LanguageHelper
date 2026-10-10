@@ -401,4 +401,51 @@ void main() {
     expect(remote.docs['u1/study_sessions'], hasLength(1),
         reason: '서버에 없으니 다시 올려야 한다');
   });
+
+  // ── 계정 삭제 ────────────────────────────────────────────────────
+  // Firestore 규칙이 request.auth.uid == uid라, 인증 계정이 먼저 사라지면
+  // 그 문서를 지울 권한도 사라진다. 그래서 "원격 문서를 먼저, 전부" 지우는
+  // 것이 이 기능의 핵심 불변식이다.
+
+  void seedAllCollections() {
+    for (final c in SyncService.remoteCollections) {
+      remote.docs['u1/$c'] = {
+        'a': {'id': 'a'},
+        'b': {'id': 'b'},
+      };
+    }
+  }
+
+  test('deleteRemoteData는 동기화 대상 네 컬렉션을 모두 비운다', () async {
+    seedAllCollections();
+    await sync.deleteRemoteData('u1');
+    for (final c in SyncService.remoteCollections) {
+      expect(remote.docs['u1/$c'], isEmpty, reason: '$c이 남으면 영구히 고아가 된다');
+    }
+  });
+
+  test('remoteCollections는 실제 동기화하는 컬렉션 이름과 일치한다', () async {
+    // 여기서 빠진 컬렉션은 계정 삭제 후에도 서버에 남는다.
+    expect(
+      SyncService.remoteCollections,
+      containsAll(<String>['words', 'sentences', 'study_sessions', 'weekly_goals']),
+    );
+  });
+
+  test('원격 삭제가 실패하면 예외를 던진다 — 호출부가 계정을 지우면 안 된다', () async {
+    seedAllCollections();
+    remote.throwOnDelete = StateError('network');
+    await expectLater(() => sync.deleteRemoteData('u1'), throwsA(isA<StateError>()));
+  });
+
+  test('clearLocalAfterDelete는 미동기 항목이 있어도 로컬을 비운다', () async {
+    // signOut은 미동기 항목이 있으면 거부하지만, 계정 삭제는 어차피 전부
+    // 없애는 동작이라 거기서 막히면 안 된다.
+    await repo.saveWord(makeWord('w1', updatedAt: '2026-01-01T00:00:00.000Z'));
+    expect(await repo.getWords(), isNotEmpty);
+
+    await sync.clearLocalAfterDelete();
+
+    expect(await repo.getWords(), isEmpty);
+  });
 }

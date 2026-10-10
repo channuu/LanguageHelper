@@ -302,6 +302,47 @@ class SyncService extends ChangeNotifier {
 
   /// 로그아웃 전에 밀린 것을 먼저 밀어낸다. 남으면 거부한다 — 로그아웃은
   /// 로컬 캐시를 비우므로 미동기 항목이 유실된다.
+  /// 계정 삭제 시 지워야 하는 원격 컬렉션. _syncWords/_syncSentences/
+  /// _syncSessions/_syncGoals가 쓰는 이름과 반드시 같아야 한다 — 여기서
+  /// 빠지면 그 컬렉션만 영구히 남는다.
+  static const List<String> remoteCollections = [
+    'words',
+    'sentences',
+    'study_sessions',
+    'weekly_goals',
+  ];
+
+  /// users/{uid} 아래 우리가 쓴 문서를 전부 지운다. Firestore 클라이언트에는
+  /// 재귀 삭제가 없어 컬렉션마다 열거해서 지워야 한다.
+  ///
+  /// 반드시 인증 계정을 지우기 "전에" 성공해야 한다 — 규칙이
+  /// request.auth.uid == uid라, 계정이 먼저 사라지면 이 문서들을 지울 권한도
+  /// 사라져 영구히 고아로 남는다. 그래서 실패를 삼키지 않고 그대로 던진다.
+  Future<void> deleteRemoteData(String uid) async {
+    for (final collection in remoteCollections) {
+      final rows = await remote.list(uid, collection);
+      for (final row in rows) {
+        final id = row['id'] as String?;
+        if (id == null) continue;
+        await remote.delete(uid, collection, id);
+      }
+    }
+  }
+
+  /// 기기에 남은 사본과 동기화 메타데이터를 지운다. signOut과 달리 미동기
+  /// 항목이 있어도 멈추지 않는다 — 계정 삭제는 어차피 전부 없애는 동작이라
+  /// 거기서 막으면 방해만 된다.
+  Future<void> clearLocalAfterDelete() async {
+    await repository.clearAllLocalData();
+    await timerRepository.clearAllLocalData();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_lastSyncKey);
+    await prefs.remove(_lastUidKey);
+    _lastSyncAt = null;
+    _pending = 0;
+    notifyListeners();
+  }
+
   Future<SyncResult> signOut(String uid, {bool force = false}) async {
     final result = await syncNow(uid);
     if (result.pending > 0 && !force) {

@@ -38,6 +38,9 @@ class _FakeAuthService implements AuthService {
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> deleteAccount(String password) async {}
 }
 
 // 같은 사용자가 스트림에서 두 번 흘러도(재빌드) 계정 전환 검사는 한 번만
@@ -60,6 +63,9 @@ class _StreamAuthService implements AuthService {
   Future<void> signUp(String email, String password) async {}
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> deleteAccount(String password) async {}
 }
 
 // SettingsScreen이 SyncService를 watch하므로 프로바이더가 필요하다.

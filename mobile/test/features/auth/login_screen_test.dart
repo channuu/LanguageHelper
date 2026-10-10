@@ -36,6 +36,9 @@ class FakeAuthService implements AuthService {
   Future<void> signOut() async {
     currentUser = null;
   }
+
+  @override
+  Future<void> deleteAccount(String password) async {}
 }
 
 Future<void> pumpLogin(WidgetTester tester, AuthService auth) {

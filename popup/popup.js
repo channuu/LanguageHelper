@@ -88,22 +88,20 @@
 
   // ── 동작 ─────────────────────────────────────────────────────────
 
+  // 끄기·켜기 모두 그 자리에서 반영된다 — 페이지를 새로고침하지 않는다.
+  // 콘텐츠 스크립트가 UI를 없애는 대신 멈추고 숨기기만 하기 때문이다.
   async function setMaster(enabled) {
-    if (enabled) {
-      // destroy()한 어댑터는 되살릴 수 없어서 새로고침으로 깨끗하게 다시 세운다.
-      await chrome.storage.local.set({ 'eh-enabled': true });
-      await send({ type: 'EH_SET_ENABLED', enabled: true });
-      chrome.tabs.reload(tabId);
-      window.close();
-      return;
-    }
-    state.enabled = false;
-    state.overlay = false;
-    state.panel = false;
+    state.enabled = enabled;
     renderToggles();
     renderChrome();
-    await chrome.storage.local.set({ 'eh-enabled': false });
-    await send({ type: 'EH_SET_ENABLED', enabled: false });
+    await chrome.storage.local.set({ 'eh-enabled': enabled });
+    const res = await send({ type: 'EH_SET_ENABLED', enabled });
+    // 켠 직후에는 콘텐츠 스크립트가 복원한 실제 상태를 다시 읽어
+    // 하위 스위치 표시를 맞춘다.
+    const live = await send({ type: 'EH_GET_STATE' });
+    if (live?.ok) { state.overlay = live.overlay; state.panel = live.panel; }
+    else if (!res) { state.overlay = false; state.panel = false; }
+    renderToggles();
   }
 
   function wire() {

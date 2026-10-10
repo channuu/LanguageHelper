@@ -2,6 +2,7 @@
   'use strict';
 
   let visible = true;
+  let suspended = false;
   let currentEnText = '';
   let currentMatches = [];
   let currentNativeText = '';
@@ -220,7 +221,7 @@
   function renderSubtitles(enText, nativeText, fullEnText, cueStart) {
     const enLine = document.getElementById('eh-en-line');
     const nativeLine = document.getElementById('eh-native-line');
-    if (!enLine || !visible) return;
+    if (!enLine || !visible || suspended) return;
 
     if (enText === currentEnText && nativeText === currentNativeText) return;
     currentEnText = enText;
@@ -325,8 +326,17 @@
     return visible;
   }
 
+  // 전체 기능 on/off. 사용자가 고른 visible(자막 오버레이 스위치)과는 별개로
+  // 겹쳐서 숨긴다 — 다시 켰을 때 이전 선택이 그대로 돌아와야 하기 때문이다.
+  function setSuspended(on) {
+    suspended = on;
+    const overlay = document.getElementById('eh-overlay');
+    if (overlay) overlay.classList.toggle('hidden', on || !visible);
+    if (!on) currentEnText = ''; // 다음 틱에서 강제 재렌더
+  }
+
   window.EH = window.EH || {};
-  window.EH.SubtitleEngine = { setup, applySettings, toggle };
+  window.EH.SubtitleEngine = { setup, applySettings, toggle, setSuspended };
   window.EH.showToast = function(msg) {
     const t = document.getElementById('eh-toast');
     if (!t) return;

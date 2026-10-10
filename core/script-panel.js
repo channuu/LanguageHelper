@@ -6,6 +6,7 @@
   let lastActiveIdx = -1;
   let lastActiveChunkText = '';
   let searchQuery = '';
+  let suspended = false;
   let autoScrollEnabled = true;
   // 사용자가 스크롤해서 다른 곳을 보고 있는 동안에는 자동 스크롤을 멈춘다.
   // 재생이 진행돼 현재 줄이 다시 화면에 들어오거나 "현재 위치로"를 누르면
@@ -267,6 +268,8 @@ ${rows}
   }
 
   function _setLayoutForPanel(visible) {
+    // 전체 기능이 꺼져 있으면 패널도 밀어내기도 없다.
+    if (suspended) visible = false;
     const panel = document.getElementById('eh-panel');
     if (!_isPanelFixed()) {
       // 임베드 모드: #secondary 안에서 이미 확보된 사이드바 공간을 쓰므로
@@ -900,7 +903,7 @@ ${rows}
   // 단위로 NOW 배지/스크롤 대상을 정확히 짚기 위해 별도로 받는다.
   // refTime: 실제 재생 중인 cue의 시작 시각 — 동일 텍스트 반복을 구분한다.
   function highlight(fullEnText, chunkText, refTime) {
-    if (!fullEnText) return;
+    if (suspended || !fullEnText) return;
     const idx = _findActiveIdx(fullEnText, refTime);
     if (idx === -1) return;
     const resolvedChunk = chunkText || fullEnText;
@@ -990,6 +993,25 @@ ${rows}
     if (btn) btn.classList.remove('active');
   }
 
+  // 전체 기능 on/off. 사용자가 고른 패널 표시 여부와는 별개로 겹쳐서 숨기고,
+  // 밀어내기 스타일까지 걷어 페이지 레이아웃을 원래대로 돌려놓는다.
+  function setSuspended(on) {
+    suspended = on;
+    const wrapper = document.getElementById('eh-panel-wrapper');
+    const panel = document.getElementById('eh-panel');
+    if (on) {
+      wrapper?.classList.add('hidden');
+      panel?.classList.add('hidden');
+      _setLayoutForPanel(false);
+      _setUserBrowsing(false);
+    } else {
+      wrapper?.classList.remove('hidden');
+      panel?.classList.remove('hidden');
+      _setLayoutForPanel(true);
+      renderList();
+    }
+  }
+
   function toggle(forceVisible) {
     const wrapper = document.getElementById('eh-panel-wrapper');
     const panel = document.getElementById('eh-panel');
@@ -1068,7 +1090,7 @@ ${rows}
 
   window.EH = window.EH || {};
   window.EH.ScriptPanel = {
-    setup, highlight, toggle, applySettings,
+    setup, highlight, toggle, applySettings, setSuspended,
     exportScriptHtml, exportScriptPdf
   };
 })();

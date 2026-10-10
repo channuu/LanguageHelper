@@ -45,14 +45,19 @@
   window.EH = window.EH || {};
   window.EH.enabled = true;
 
-  // 전체 기능을 끌 때: 우리가 만든 DOM과 레이아웃 보정 스타일을 남김없이
-  // 지우고 어댑터를 정지시킨다. 어댑터의 destroy()는 RAF 루프를 끄고 플랫폼
-  // 자막을 가리던 스타일도 없애므로, 끈 직후 페이지가 원래 상태로 돌아온다.
-  // id가 없는 요소는 만들지 않으므로 [id^="eh-"] 하나로 전부 걷힌다
-  // (오버레이·상단 바·패널·토스트·밀어내기 스타일 모두 해당).
-  function teardownUI() {
-    try { window.EH.adapter?.destroy?.(); } catch (e) {}
-    document.querySelectorAll('[id^="eh-"]').forEach(el => el.remove());
+  // 전체 기능 on/off. 파괴하지 않고 멈추고 숨기기만 한다 — 그래야 다시 켤 때
+  // 페이지 새로고침 없이 즉시 돌아온다. 예전에는 끌 때 DOM을 걷어내고
+  // 어댑터를 destroy()했는데, 모듈의 상태와 리스너가 남아 패널이 되살아나는
+  // 경로가 있었고(유튜브 applyMountStrategy의 재부착) 되살릴 방법이 없어
+  // 켤 때 새로고침이 필요했다.
+  function applyEnabled(enabled) {
+    window.EH.enabled = enabled;
+    // 플랫폼 자체 자막은 꺼져 있는 동안 다시 보여야 한다. 어댑터가 만든
+    // 숨김 스타일을 지우지 않고 비활성화만 해서, 켤 때 그대로 되살린다.
+    const nativeSubs = document.getElementById('eh-native-subs-style');
+    if (nativeSubs) nativeSubs.disabled = !enabled;
+    window.EH.SubtitleEngine?.setSuspended?.(!enabled);
+    window.EH.ScriptPanel?.setSuspended?.(!enabled);
   }
 
   function _overlayVisible() {
@@ -85,13 +90,6 @@
     window.EH.enabled = stored[ENABLED_KEY] !== false; // 저장된 적 없으면 켜짐
     const ui = { ...DEFAULT_UI, ...(stored[UI_KEY] || {}) };
 
-    if (!window.EH.enabled) {
-      // 어댑터는 생성자에서 이미 플랫폼 자막을 가리고 RAF 루프를 돌리고
-      // 있으므로, 모듈을 세우지 않는 것만으로는 부족하다. 바로 정지시킨다.
-      try { adapter.destroy?.(); } catch (e) {}
-      return;
-    }
-
     // 각 코어 모듈은 window.EH.* 에 등록 후 이 함수를 기다린다
     if (window.EH.SettingsPanel)  window.EH.SettingsPanel.setup(adapter);
     if (window.EH.LibraryPanel)   window.EH.LibraryPanel.setup(adapter);
@@ -104,6 +102,10 @@
     // 함께 걷히므로 setup 이후에 부른다.
     if (!ui.overlay) window.EH.SubtitleEngine?.toggle();
     if (!ui.panel)   window.EH.ScriptPanel?.toggle(false);
+
+    // 꺼진 상태로 들어왔다면 모듈을 세운 뒤 곧바로 멈춘다. 아예 만들지 않는
+    // 편이 가벼워 보이지만, 그러면 다시 켤 때 새로고침이 필요해진다.
+    if (!window.EH.enabled) applyEnabled(false);
   }
 
   function _saveUi(patch) {
@@ -145,11 +147,8 @@
 
     if (msg.type === 'EH_SET_ENABLED') {
       const enabled = !!msg.enabled;
-      window.EH.enabled = enabled;
       chrome.storage.local.set({ [ENABLED_KEY]: enabled });
-      // 끄기는 그 자리에서 반영한다. 켜기는 팝업이 탭을 새로고침해서
-      // 처리한다 — destroy()한 어댑터는 되살릴 수 없기 때문이다.
-      if (!enabled) teardownUI();
+      applyEnabled(enabled);
       sendResponse({ ok: true, enabled });
       return;
     }

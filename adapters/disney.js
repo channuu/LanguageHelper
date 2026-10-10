@@ -195,6 +195,9 @@
     _hideNativeSubtitles() {
       if (this._hiddenStyle) return;
       this._hiddenStyle = document.createElement('style');
+      // 전체 기능을 끄면 플랫폼 자체 자막이 다시 보여야 한다 —
+      // core/adapter-interface.js가 이 id로 찾아 비활성화한다.
+      this._hiddenStyle.id = 'eh-native-subs-style';
       // Disney+ 자막은 <timed-text-override-region>의 shadow DOM 안에서
       // 그려진다. 그림자 속 노드는 셀렉터로 잡을 수 없지만 호스트 엘리먼트는
       // 라이트 DOM에 있으므로, 호스트를 숨기면 안에 그려지는 자막까지 사라진다.
@@ -297,6 +300,9 @@
     _initVideoTracking() {
       // RAF 루프로 현재 자막 감지
       const tick = () => {
+        // 전체 기능이 꺼져 있는 동안에는 계산도 렌더도 하지 않는다.
+        // 루프 자체는 살려 둬서 다시 켤 때 즉시 이어진다.
+        if (window.EH.enabled === false) { this._rafId = requestAnimationFrame(tick); return; }
         const video = this._video();
         // 재생 중일 때만 계산하면, 정지 상태에서 스크립트 패널의 다른 시점을
         // 눌렀을 때 영상만 이동하고 자막은 이전 문장에 그대로 남는다.

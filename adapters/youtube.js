@@ -28,6 +28,9 @@
     _hideNativeCaptions() {
       if (this._hiddenCaptionStyle) return;
       this._hiddenCaptionStyle = document.createElement('style');
+      // 전체 기능을 끄면 플랫폼 자체 자막이 다시 보여야 한다 —
+      // core/adapter-interface.js가 이 id로 찾아 비활성화한다.
+      this._hiddenCaptionStyle.id = 'eh-native-subs-style';
       this._hiddenCaptionStyle.textContent = '.ytp-caption-window-container { display: none !important; }';
       document.head.appendChild(this._hiddenCaptionStyle);
     }
@@ -224,6 +227,9 @@
     _initVideoTracking() {
       // RAF 루프로 현재 자막 감지
       const tick = () => {
+        // 전체 기능이 꺼져 있는 동안에는 계산도 렌더도 하지 않는다.
+        // 루프 자체는 살려 둬서 다시 켤 때 즉시 이어진다.
+        if (window.EH.enabled === false) { this._rafId = requestAnimationFrame(tick); return; }
         const video = document.querySelector('video');
         // 재생 중일 때만 계산하면, 정지 상태에서 스크립트 패널의 다른 시점을
         // 눌렀을 때 영상만 이동하고 자막은 이전 문장에 그대로 남는다.

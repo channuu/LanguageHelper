@@ -127,6 +127,28 @@
   window.EH.applySettings = applySettings;
   window.EH.settings = { ...DEFAULT_SETTINGS };
 
+  // 전체 기능과 두 토글은 전역 설정인데, 메시지는 팝업이 연 탭에만 간다.
+  // 다른 탭이 새로고침될 때까지 어긋난 채로 남지 않도록 저장소 변경을 듣고
+  // 모든 탭이 따라가게 한다. 값이 이미 같으면 아무것도 하지 않으므로,
+  // 이 변경을 일으킨 바로 그 탭에서 두 번 적용되는 일은 없다.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+
+    if (changes[ENABLED_KEY]) {
+      const enabled = changes[ENABLED_KEY].newValue !== false;
+      if (enabled !== (window.EH.enabled !== false)) applyEnabled(enabled);
+    }
+
+    // 꺼져 있는 동안에는 오버레이·패널이 멈춰서 숨어 있다. 그 상태의
+    // 가시성으로 비교하면 엉뚱하게 토글되므로 건드리지 않는다 — 다시 켤 때
+    // applyEnabled()가 사용자가 고른 상태를 그대로 복원한다.
+    if (changes[UI_KEY] && window.EH.enabled !== false) {
+      const ui = { ...DEFAULT_UI, ...(changes[UI_KEY].newValue || {}) };
+      if (ui.overlay !== _overlayVisible()) window.EH.SubtitleEngine?.toggle();
+      if (ui.panel !== _panelVisible()) window.EH.ScriptPanel?.toggle(ui.panel);
+    }
+  });
+
   // 팝업 / service worker 메시지 수신
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // 팝업이 스위치 상태를 그릴 때 쓰는 현재 상태. 전체 기능이 꺼져 있어도
